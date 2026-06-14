@@ -1,8 +1,0 @@
-{
-  "MAE": 44.38,
-  "RMSE": 87.8,
-  "R2": 0.92,
-  "sMAPE": 16.79,
-  "validation": "holdout temporal días 25-31 oct 2023",
-  "model": "CatBoost por hora (baseline + log-ratio + shrink + embeddings)"
-}

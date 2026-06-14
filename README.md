@@ -1,57 +1,126 @@
+# UrbanFlow Valencia
+
+> Aplicación web de smart city para **predecir la presión de tráfico urbano en Valencia** y
+> **optimizar ubicaciones de movilidad sostenible**, con evaluación rigurosa del modelo,
+> monitorización de fiabilidad y despliegue profesional. Entrega de la asignatura
+> **EDM — Evaluación, Despliegue y Monitorización de Modelos**.
+
+Narrativa única:
+
+```
+CatBoost predice tráfico por zona/hora
+   → esa predicción se convierte en una señal de presión urbana
+      → la optimización (PuLP) selecciona ubicaciones/actuaciones prioritarias
+         → la app muestra predicción, evaluación, optimización, mapas y monitorización
+```
+
 ---
-title: UrbanFlow Valencia API
-emoji: 🚦
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 7860
-pinned: false
-license: mit
+
+## Demo
+
+- **Frontend (Vercel):** https://edm-project.vercel.app
+- **Backend (Hugging Face Spaces, Docker):** https://cofrian-edm-proyect.hf.space — health en `/health`, docs en `/docs`
+
 ---
 
-# UrbanFlow Valencia — Backend (FastAPI)
+## Arquitectura
 
-API de predicción de presión de tráfico urbano en Valencia (CatBoost) y optimización de
-movilidad sostenible (PuLP). Forma parte de la entrega EDM.
+```
+Usuario / profesor
+      ↓
+Frontend Next.js (Vercel)
+      ↓  HTTP/JSON
+Backend FastAPI (Hugging Face Spaces, Docker)
+      ↓
+Modelos CatBoost (.cbm) + datos procesados + optimización PuLP
+```
 
-## Endpoints principales
+Detalle en [`docs/arquitectura.md`](docs/arquitectura.md).
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/health` | Estado de la API |
-| GET | `/metadata` | Modelo activo, fecha de datos, validación |
-| GET | `/metrics/global` | MAE, RMSE, R², sMAPE (CatBoost) |
-| GET | `/metrics/by-hour` | Métricas por hora |
-| GET | `/metrics/errors-by-zone` | Zonas con más error |
-| POST | `/predict` | Intensidad y nivel de presión |
-| POST | `/optimize/valenbisi` | Selección de N ubicaciones (PuLP) |
-| POST | `/optimize/coverage` | Cobertura bajo presupuesto (PuLP) |
-| GET | `/map/traffic-segments` | GeoJSON ligero |
-| GET | `/candidates/valenbisi` | Candidatos disponibles |
-| GET | `/monitoring/alerts` | Alertas de fiabilidad |
+---
 
-Documentación interactiva en `/docs`.
+## Stack
 
-## Ejecución local
+| Capa | Tecnologías |
+|---|---|
+| Frontend | Next.js, React, TypeScript, TailwindCSS, shadcn/ui, Recharts, Leaflet |
+| Backend | FastAPI, Pydantic, CatBoost, Pandas, PuLP, PyArrow |
+| Modelado | CatBoost por hora (baseline + residuo log-ratio + shrink + embeddings) |
+| MLOps | GitHub Actions, Docker, Git LFS, validación de artefactos |
+
+---
+
+## Estructura del repositorio
+
+```
+.
+├── backend/        # API FastAPI + modelos + datos procesados + tests
+├── frontend/       # App Next.js (dashboard smart city)
+├── notebooks/      # 01..06: datos, CatBoost, evaluación, optimización (explicados)
+├── scripts/        # export_models, generate_metrics, generate_candidates, validate_artifacts
+├── docs/           # documentación EDM
+└── .github/        # CI/CD (workflows) + plantilla de PR
+```
+
+---
+
+## Cómo ejecutar
+
+### Backend
 
 ```bash
+cd backend
+python -m venv .venv && . .venv/Scripts/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
+# http://localhost:8000/health  y  http://localhost:8000/docs
 ```
 
-## Docker
+### Frontend
 
 ```bash
-docker build -t urbanflow-api .
-docker run -p 8000:8000 urbanflow-api
+cd frontend
+npm install
+cp .env.example .env.local   # ajusta NEXT_PUBLIC_API_URL
+npm run dev
+# http://localhost:3000
 ```
 
-## Variables de entorno
+### Con Docker (backend)
 
-- `ALLOW_ORIGINS`: orígenes CORS permitidos (incluir la URL de Vercel).
-- `DATA_DIR`, `MODEL_DIR`: rutas a datos procesados y modelos.
+```bash
+docker compose up --build
+```
 
-## Modelo
+### Tests
 
-CatBoost por hora (baseline + residuo log-ratio + shrink + embeddings). Los 24 modelos
-`.cbm` (~160 MB) se versionan con Git LFS. No se entrena en producción.
+```bash
+cd backend && pytest -q
+cd frontend && npm run lint && npm run typecheck && npm run build
+```
+
+---
+
+## Modelo y datos
+
+- Modelo definitivo: **CatBoost por hora**. Validación temporal (train 1–24 oct, holdout 25–31 oct).
+  Métricas reales: **MAE ≈ 44.4, RMSE ≈ 87.8, R² ≈ 0.92, sMAPE ≈ 16.8 %**.
+- Los datos crudos y secretos **no** se versionan; solo artefactos derivados en `backend/data/processed/`.
+- Detalle en [`docs/modelo_predictivo.md`](docs/modelo_predictivo.md) y el informe de inspección
+  [`docs/informe_inspeccion.md`](docs/informe_inspeccion.md).
+
+---
+
+## Metodología EDM
+
+Cobertura completa de CRISP-DM y del temario en [`docs/metodologia_edm.md`](docs/metodologia_edm.md).
+
+---
+
+## Autor
+
+Sergio Ortiz — `scofrian@gmail.com`
+
+## Licencia
+
+Ver [`LICENSE`](LICENSE).
