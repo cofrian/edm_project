@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
 html,
 body {
   padding: 0;
@@ -13,34 +9,82 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  @apply bg-slate-50 font-sans text-slate-800 antialiased;
+  background-image:
+    radial-gradient(60rem 60rem at 110% -10%, rgb(51 102 255 / 0.06), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 0%, rgb(15 169 156 / 0.05), transparent 55%);
+  background-attachment: fixed;
 }
 
-.card {
-  @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
-}
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6;
+  }
 
-.badge {
-  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
-}
+  .card-interactive {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-card-hover;
+  }
 
-.btn-primary {
-  @apply inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2
-    text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50;
-}
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
 
-.input {
-  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
-    focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
-}
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5
+      text-sm font-semibold text-white shadow-sm transition
+      hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
 
-.label {
-  @apply mb-1 block text-sm font-medium text-slate-600;
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300
+      bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition
+      hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm
+      font-semibold text-slate-600 transition hover:bg-slate-100;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800
+      shadow-sm transition placeholder:text-slate-400
+      focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-600;
+  }
+
+  .range {
+    @apply h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-600;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5
+      py-1 text-xs font-medium text-slate-600;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-brand-600;
+  }
 }
 
 /* Leaflet container necesita altura explícita */
 .leaflet-container {
   height: 100%;
   width: 100%;
-  border-radius: 0.75rem;
+  border-radius: 1rem;
+  font-family: inherit;
+  z-index: 0;
+}
+
+/* Scrollbar discreta para tablas y paneles */
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
 }

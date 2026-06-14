@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "UrbanFlow Valencia",
+  title: {
+    default: "UrbanFlow Valencia — Optimización de equipamientos urbanos",
+    template: "%s · UrbanFlow Valencia",
+  },
   description:
-    "Predicción de presión de tráfico urbano en Valencia y optimización de movilidad sostenible (EDM).",
+    "Plataforma de decisión para localizar equipamientos urbanos en Valencia: maximiza la cobertura de población bajo presupuesto con programación lineal entera (PuLP), usando demanda de tráfico predicha con CatBoost.",
 };
 
 export default function RootLayout({
@@ -16,10 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="es" className={inter.variable}>
       <body>
         <Navbar />
-        <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8">
+        <main className="mx-auto min-h-[calc(100vh-9rem)] max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
           {children}
         </main>
         <Footer />
