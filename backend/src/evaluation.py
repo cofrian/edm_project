@@ -1,0 +1,39 @@
+"""Análisis de errores a partir de las predicciones de validación."""
+
+from __future__ import annotations
+
+from .data_loader import load_validation_predictions
+
+
+def errors_by_zone(top: int = 15) -> list[dict]:
+    df = load_validation_predictions()
+    if df.empty or "Zona" not in df.columns:
+        return []
+    err_col = "abs_error" if "abs_error" in df.columns else None
+    if err_col is None and {"y_real", "y_pred"}.issubset(df.columns):
+        df = df.assign(abs_error=(df["y_real"] - df["y_pred"]).abs())
+        err_col = "abs_error"
+    if err_col is None:
+        return []
+    g = (
+        df.groupby("Zona")[err_col]
+        .mean()
+        .sort_values(ascending=False)
+        .head(top)
+        .reset_index()
+        .rename(columns={err_col: "mae"})
+    )
+    g["mae"] = g["mae"].round(2)
+    return g.to_dict(orient="records")
+
+
+def scatter_sample(n: int = 500) -> list[dict]:
+    """Muestra real vs predicho para el gráfico de dispersión."""
+    df = load_validation_predictions()
+    if df.empty or not {"y_real", "y_pred"}.issubset(df.columns):
+        return []
+    sample = df.sample(min(n, len(df)), random_state=42)
+    return [
+        {"y_real": round(float(r.y_real), 2), "y_pred": round(float(r.y_pred), 2)}
+        for r in sample.itertuples()
+    ]
