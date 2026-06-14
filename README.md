@@ -116,11 +116,6 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 Cobertura completa de CRISP-DM y del temario en [`docs/metodologia_edm.md`](docs/metodologia_edm.md).
 
 ---
-
-## Autor
-
-Sergio Ortiz — `scofrian@gmail.com`
-
 ## Licencia
 
 Ver [`LICENSE`](LICENSE).
