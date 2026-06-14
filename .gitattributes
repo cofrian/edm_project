@@ -1,0 +1,9 @@
+# Git LFS para modelos CatBoost y artefactos binarios pesados
+*.cbm filter=lfs diff=lfs merge=lfs -text
+*.parquet filter=lfs diff=lfs merge=lfs -text
+# Normalización de finales de línea
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
