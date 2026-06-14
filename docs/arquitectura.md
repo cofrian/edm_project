@@ -11,7 +11,8 @@ Backend FastAPI (Docker · Hugging Face Spaces)
       │
       ├── Modelos CatBoost (.cbm)  ──► /predict
       ├── Datos procesados (CSV/Parquet/GeoJSON) ──► /metrics, /map, /candidates
-      └── Optimización PuLP ──► /optimize/valenbisi, /optimize/coverage
+      ├── Optimización PuLP ──► /optimize/sports, /optimize/health, /optimize/multi
+      └── Despliegue HF ──► GitHub Actions `deploy-hf.yml` (push a `production`)
 ```
 
 ## Componentes

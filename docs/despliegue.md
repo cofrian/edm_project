@@ -26,7 +26,25 @@ docker compose up --build
 - `backend-ci.yml`: instala deps, `ruff`, `pytest`, importa la app.
 - `frontend-ci.yml`: `npm ci`, `lint`, `typecheck`, `build`.
 - `docker-build.yml`: construye la imagen del backend.
+- `deploy-hf.yml`: tras validar backend en `production`, sincroniza `backend/` al Space de Hugging Face.
 - `deploy-check.yml`: `curl /health` contra `API_URL` (secret) tras push a `production`.
+
+### Secret para despliegue automático a Hugging Face
+
+En **GitHub → Settings → Secrets and variables → Actions**:
+
+| Secret | Descripción |
+|---|---|
+| `HF_TOKEN` | Token de Hugging Face con permiso **write** ([crear aquí](https://huggingface.co/settings/tokens)) |
+| `API_URL` | (opcional) URL de la API para smoke test; por defecto `https://cofrian-edm-proyect.hf.space` |
+
+Flujo en `production`:
+```
+push production → backend-ci + deploy-hf (validate → sync HF → health check)
+                → deploy-check (curl /health)
+```
+
+Vercel sigue desplegando el frontend por su integración nativa con GitHub.
 
 ## Modelos pesados (Git LFS)
 Los `.cbm` (160 MB) se versionan con Git LFS (`.gitattributes`). Antes del primer push:
