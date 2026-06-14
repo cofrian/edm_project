@@ -13,7 +13,7 @@ Cobertura de CRISP-DM y del temario de Evaluación, Despliegue y Monitorización
 | Evaluation | MAE, RMSE, R², sMAPE en validación temporal; análisis de errores por hora/zona. |
 | Deployment | Vercel (frontend) + FastAPI Docker en Hugging Face Spaces (backend). |
 | Monitoring | Alertas de MAE por hora/zona, fecha de datos, modelo activo, drift. |
-| ModelOps | CI/CD (GitHub Actions), ramas `feature→develop→main→production`, Git LFS, validación de artefactos. |
+| ModelOps | CI/CD (GitHub Actions), ramas `feature→develop→main→production`, Git LFS, validación de artefactos → [`docs/metodologia-equipo.md`](metodologia-equipo.md). |
 | Aplicación | Dashboard web con predicción, mapas y optimización bajo demanda. |
 
 ## Temario
