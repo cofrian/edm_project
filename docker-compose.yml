@@ -3,7 +3,7 @@ services:
     build: ./backend
     container_name: urbanflow-api
     ports:
-      - "8000:8000"
+      - "8000:7860"
     environment:
       ENV: development
       DATA_DIR: ./data/processed
@@ -13,7 +13,7 @@ services:
       - ./backend/data:/app/data
       - ./backend/models:/app/models
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
