@@ -401,9 +401,11 @@ Guion paso a paso en [`docs/demo_profesores.md`](docs/demo_profesores.md).
 
 ---
 
-## Autor
+## Autores
 
-**Sergio Ortiz** — [scofrian@gmail.com](mailto:scofrian@gmail.com)
+- **Sergio Ortiz Montesinos** — [scofrian@gmail.com](mailto:scofrian@gmail.com)
+- **Luis Trigueros Espada**
+- **Fernando Martínez Gómez**
 
 ## Licencia
 

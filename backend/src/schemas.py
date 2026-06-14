@@ -47,6 +47,20 @@ class CoverageRequest(BaseModel):
     gamma_deficit: float = Field(1.0, ge=0)
 
 
+class FacilityRequest(BaseModel):
+    presupuesto: float = Field(100.0, gt=0, description="Presupuesto total disponible")
+    facility_type: Literal["sports", "health"] = Field(
+        "sports", description="sports=polideportivo, health=centro de salud"
+    )
+
+
+class MultiFacilityRequest(BaseModel):
+    presupuesto: float = Field(150.0, gt=0)
+    lambda_sports: float = Field(
+        0.5, ge=0, le=1, description="Peso polideportivo en objetivo multi (0-1)"
+    )
+
+
 class SelectedCandidate(BaseModel):
     candidate_id: int
     lat: float
@@ -54,6 +68,7 @@ class SelectedCandidate(BaseModel):
     zona: int | None = None
     score: float
     cost: float
+    facility_type: str | None = None
 
 
 class OptimizeResponse(BaseModel):
@@ -63,3 +78,4 @@ class OptimizeResponse(BaseModel):
     total_cost: float
     n_selected: int
     constraint: str
+    population_covered: float | None = None

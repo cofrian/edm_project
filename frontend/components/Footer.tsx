@@ -38,7 +38,7 @@ export function Footer() {
       <div className="border-t border-slate-100">
         <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>Entrega EDM — Evaluación, Despliegue y Monitorización de Modelos.</p>
-          <p>Sergio Ortiz · Valencia, 2025</p>
+          <p>Sergio Ortiz Montesinos · Luis Trigueros Espada · Fernando Martínez Gómez</p>
         </div>
       </div>
     </footer>

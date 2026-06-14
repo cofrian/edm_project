@@ -51,6 +51,7 @@ export interface SelectedCandidate {
   zona: number | null;
   score: number;
   cost: number;
+  facility_type?: string | null;
 }
 
 export interface OptimizeResponse {
@@ -60,6 +61,7 @@ export interface OptimizeResponse {
   total_cost: number;
   n_selected: number;
   constraint: string;
+  population_covered?: number | null;
 }
 
 export interface MonitoringAlert {

@@ -87,6 +87,33 @@ export const api = {
       n_selected: 0,
       constraint: "API no disponible",
     }),
+  optimizeSports: (req: { presupuesto: number }) =>
+    postJSON<OptimizeResponse>("/optimize/sports", { ...req, facility_type: "sports" }, {
+      mode: "polideportivo",
+      selected: [],
+      total_score: 0,
+      total_cost: 0,
+      n_selected: 0,
+      constraint: "API no disponible",
+    }),
+  optimizeHealth: (req: { presupuesto: number }) =>
+    postJSON<OptimizeResponse>("/optimize/health", { ...req, facility_type: "health" }, {
+      mode: "centro_salud",
+      selected: [],
+      total_score: 0,
+      total_cost: 0,
+      n_selected: 0,
+      constraint: "API no disponible",
+    }),
+  optimizeMulti: (req: { presupuesto: number; lambda_sports: number }) =>
+    postJSON<OptimizeResponse>("/optimize/multi", req, {
+      mode: "multi",
+      selected: [],
+      total_score: 0,
+      total_cost: 0,
+      n_selected: 0,
+      constraint: "API no disponible",
+    }),
   monitoring: () =>
     getJSON<Monitoring>("/monitoring/alerts", {
       model_active: "CatBoost por hora",

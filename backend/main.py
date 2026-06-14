@@ -13,14 +13,18 @@ from src import __version__
 from src.config import get_settings
 from src.data_loader import models_available
 from src.evaluation import errors_by_zone, scatter_sample
+from src.coverage_data import coverage_data_available, load_existing_health, load_existing_sports
 from src.maps import candidates_valenbisi, current_valenbisi, traffic_segments
 from src.metrics import global_metrics, metrics_by_hour
 from src.monitoring import alerts
 from src.optimize_coverage import optimize as optimize_coverage
+from src.optimize_facility import optimize_facility, optimize_multi
 from src.optimize_valenbisi import optimize as optimize_valenbisi
 from src.predict import predict as run_predict
 from src.schemas import (
     CoverageRequest,
+    FacilityRequest,
+    MultiFacilityRequest,
     OptimizeResponse,
     PredictRequest,
     PredictResponse,
@@ -57,8 +61,14 @@ def metadata() -> dict:
         "version": __version__,
         "model": settings.model_name,
         "model_loaded": models_available(),
+        "coverage_data": coverage_data_available(),
         "data_date": settings.data_date,
         "validation": settings.validation,
+        "authors": [
+            "Sergio Ortiz Montesinos",
+            "Luis Trigueros Espada",
+            "Fernando Martínez Gómez",
+        ],
     }
 
 
@@ -95,6 +105,31 @@ def opt_valenbisi(req: ValenbisiRequest) -> OptimizeResponse:
 @app.post("/optimize/coverage", response_model=OptimizeResponse)
 def opt_coverage(req: CoverageRequest) -> OptimizeResponse:
     return optimize_coverage(req)
+
+
+@app.post("/optimize/sports", response_model=OptimizeResponse)
+def opt_sports(req: FacilityRequest) -> OptimizeResponse:
+    return optimize_facility(req.model_copy(update={"facility_type": "sports"}))
+
+
+@app.post("/optimize/health", response_model=OptimizeResponse)
+def opt_health(req: FacilityRequest) -> OptimizeResponse:
+    return optimize_facility(req.model_copy(update={"facility_type": "health"}))
+
+
+@app.post("/optimize/multi", response_model=OptimizeResponse)
+def opt_multi(req: MultiFacilityRequest) -> OptimizeResponse:
+    return optimize_multi(req)
+
+
+@app.get("/map/existing-sports")
+def map_existing_sports() -> dict:
+    return load_existing_sports()
+
+
+@app.get("/map/existing-health")
+def map_existing_health() -> dict:
+    return load_existing_health()
 
 
 @app.get("/map/traffic-segments")
