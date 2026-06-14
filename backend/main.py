@@ -11,9 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src import __version__
 from src.config import get_settings
+from src.coverage_data import coverage_data_available, load_existing_health, load_existing_sports
 from src.data_loader import models_available
 from src.evaluation import errors_by_zone, scatter_sample
-from src.coverage_data import coverage_data_available, load_existing_health, load_existing_sports
 from src.maps import candidates_valenbisi, current_valenbisi, traffic_segments
 from src.metrics import global_metrics, metrics_by_hour
 from src.monitoring import alerts

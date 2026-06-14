@@ -17,10 +17,10 @@ from __future__ import annotations
 import pulp
 
 from .coverage_data import (
+    coverage_data_available,
     load_candidates_facilities,
     load_coverage_alpha,
     load_population_hexes,
-    coverage_data_available,
 )
 from .schemas import FacilityRequest, MultiFacilityRequest, OptimizeResponse, SelectedCandidate
 
@@ -115,7 +115,6 @@ def optimize_facility(req: FacilityRequest) -> OptimizeResponse:
     weights = dict(zip(pop["hex_id"], pop[weight_col]))
     active_hexes = [h for h in hex_ids if weights.get(h, 0) > 0]
 
-    n = len(cand)
     prob = pulp.LpProblem(f"coverage_{facility}", pulp.LpMaximize)
     X = {int(r["candidate_id"]): pulp.LpVariable(f"X_{r['candidate_id']}", cat="Binary")
          for _, r in cand.iterrows()}
