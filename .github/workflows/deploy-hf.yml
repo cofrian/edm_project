@@ -1,0 +1,111 @@
+name: Deploy Hugging Face
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [production]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-hf.yml"
+
+concurrency:
+  group: deploy-hf-production
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install CBC solver (PuLP)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends coinor-cbc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff httpx
+      - name: Lint
+        run: ruff check .
+      - name: Tests
+        run: pytest -q
+      - name: Import app
+        run: python -c "from main import app; print(app.title)"
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      HF_SPACE: cofrian/edm_proyect
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Require HF token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::Configura el secret HF_TOKEN en GitHub (Settings → Secrets → Actions)."
+            echo "Crea un token en https://huggingface.co/settings/tokens con permiso write."
+            exit 1
+          fi
+
+      - name: Sync backend to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          git lfs install
+
+          git clone "https://cofrian:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" hf-space
+          cd hf-space
+          git lfs install
+
+          rsync -av --delete \
+            --exclude '.git/' \
+            --exclude '__pycache__/' \
+            --exclude '.pytest_cache/' \
+            --exclude '.env' \
+            --exclude '*.pyc' \
+            "${GITHUB_WORKSPACE}/backend/" ./
+
+          git add -A
+          if git diff --staged --quiet; then
+            echo "Sin cambios respecto al Space; no se hace push."
+            exit 0
+          fi
+
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "deploy: sync backend from edm_project@${GITHUB_SHA::7}"
+
+          git push origin main
+          git lfs push origin main --all
+
+      - name: Wait for Space rebuild
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          URL="${API_URL:-https://cofrian-edm-proyect.hf.space}"
+          echo "Esperando despliegue en ${URL} ..."
+          for i in $(seq 1 24); do
+            if curl -fsS "${URL}/health" >/dev/null 2>&1; then
+              echo "API responde OK (intento ${i})"
+              curl -fsS "${URL}/metadata" | head -c 500 || true
+              exit 0
+            fi
+            echo "Intento ${i}/24 — aún no disponible, esperando 15s..."
+            sleep 15
+          done
+          echo "::warning::La API no respondió a tiempo; el Space puede seguir construyéndose."
+          exit 0

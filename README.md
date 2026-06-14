@@ -210,6 +210,7 @@ ALLOW_ORIGINS=http://localhost:3000,https://edm-project.vercel.app
 | Backend → Frontend | CORS | `ALLOW_ORIGINS` en Hugging Face |
 | GitHub → Vercel | Integración nativa | Auto-deploy en push a `main` |
 | GitHub → HF Space | Push manual al repo del Space | Repo `cofrian/edm_proyect` |
+| GitHub → Hugging Face | `deploy-hf.yml` | Secret `HF_TOKEN` (write) |
 | GitHub → API (smoke test) | `deploy-check.yml` | Secret `API_URL` en GitHub Actions |
 
 ---
@@ -227,9 +228,10 @@ feature/*  →  develop  →  main  →  production
 | `backend-ci.yml` | Push/PR en `backend/` | Ruff, pytest (9 tests), import FastAPI, CBC + Git LFS |
 | `frontend-ci.yml` | Push/PR en `frontend/` | ESLint, TypeScript, build Next.js |
 | `docker-build.yml` | Push/PR en `backend/` (rama `main`) | Construcción imagen Docker |
+| `deploy-hf.yml` | Push a `production` (`backend/`) | Valida backend y sincroniza al Space HF (`HF_TOKEN`) |
 | `deploy-check.yml` | Push a `production` | `curl $API_URL/health` (secret `API_URL`) |
 
-El **despliegue real** lo ejecutan Vercel y Hugging Face; GitHub Actions **valida calidad** y comprueba que la API responde tras promover a `production`.
+El **despliegue del frontend** lo ejecuta **Vercel** (integración GitHub). El **backend en Hugging Face** se despliega con `deploy-hf.yml` tras pasar tests en `production`. GitHub Actions también **valida calidad** y comprueba que la API responde.
 
 Detalle: [`docs/despliegue.md`](docs/despliegue.md)
 
