@@ -8,7 +8,7 @@
 ## Backend (Hugging Face Spaces · Docker)
 1. Crear un Space tipo **Docker**.
 2. Subir el contenido de `backend/` (incluidos `models/` con Git LFS y `data/processed/`).
-3. Variables: `ENV=production`, `ALLOW_ORIGINS=https://urbanflow-valencia.vercel.app`.
+3. Variables: `ENV=production`, `ALLOW_ORIGINS=https://edm-project.vercel.app`.
 4. El `Dockerfile` instala CBC (PuLP) y arranca `uvicorn` en `$PORT` (7860 en HF).
 
 ### Local con Docker
