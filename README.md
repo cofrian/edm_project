@@ -372,7 +372,8 @@ El proyecto cubre el ciclo CRISP-DM y el temario completo de EDM:
 | Monitorización | Alertas MAE, drift, metadata del modelo |
 | Aplicación | Dashboard con mapas, gráficos y optimización |
 
-Mapa completo: [`docs/metodologia_edm.md`](docs/metodologia_edm.md)
+Mapa completo: [`docs/metodologia_edm.md`](docs/metodologia_edm.md)  
+Guía de trabajo en equipo (GitFlow + despliegue): [`docs/metodologia-equipo.md`](docs/metodologia-equipo.md)
 
 ---
 
