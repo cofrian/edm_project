@@ -1,0 +1,20 @@
+name: Deploy Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [production]
+
+jobs:
+  deploy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API health
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "API_URL secret no configurado; se omite el chequeo."
+            exit 0
+          fi
+          curl -f "$API_URL/health"
