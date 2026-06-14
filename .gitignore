@@ -1,10 +1,50 @@
-__pycache__/
-*.pyc
+# === Carpetas fuente (solo contexto local, NO versionar) ===
+# Contienen credenciales (MongoDB) y datos/modelos pesados.
+samsung/
+CURSO SMARTCITIES/
+BRIEFING_CURSOR_EDM_URBANFLOW.md
+
+# === Secretos / entorno ===
 .env
-venv/
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
 .venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+catboost_info/
+
+# === Datos pesados (no subir crudos) ===
+*.gpkg
+backend/data/raw/
+*.parquet.bak
+
+# === Node / Next.js ===
 node_modules/
-.next/
-dist/
-build/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Sistema / editor ===
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.cursor/
+*.log
