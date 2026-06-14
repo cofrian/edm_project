@@ -1,0 +1,186 @@
+{
+  "_meta": "DATOS DE DEMOSTRACIÓN, no reales. Solo para fallback de UI si la API no responde.",
+  "global_metrics": {
+    "MAE": 44.38,
+    "RMSE": 87.8,
+    "R2": 0.92,
+    "sMAPE": 16.79,
+    "validation": "holdout temporal días 25-31 oct 2023"
+  },
+  "metrics_by_hour": [
+    {
+      "Hora": 0,
+      "MAE": 40.0,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 1,
+      "MAE": 47.42,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 2,
+      "MAE": 54.38,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 3,
+      "MAE": 60.45,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 4,
+      "MAE": 65.24,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 5,
+      "MAE": 68.47,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 6,
+      "MAE": 69.92,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 7,
+      "MAE": 69.52,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 8,
+      "MAE": 67.28,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 9,
+      "MAE": 63.34,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 10,
+      "MAE": 57.95,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 11,
+      "MAE": 51.45,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 12,
+      "MAE": 44.23,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 13,
+      "MAE": 36.75,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 14,
+      "MAE": 29.48,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 15,
+      "MAE": 22.85,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 16,
+      "MAE": 17.3,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 17,
+      "MAE": 13.15,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 18,
+      "MAE": 10.67,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 19,
+      "MAE": 10.02,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 20,
+      "MAE": 11.23,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 21,
+      "MAE": 14.23,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 22,
+      "MAE": 18.83,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    },
+    {
+      "Hora": 23,
+      "MAE": 24.75,
+      "RMSE": 80.0,
+      "R2": 0.9,
+      "sMAPE": 16.0
+    }
+  ],
+  "predict_example": {
+    "zona": 1,
+    "hora": 8,
+    "intensidad": 122.8,
+    "nivel": "alta"
+  }
+}
