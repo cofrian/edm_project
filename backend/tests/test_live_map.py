@@ -83,6 +83,31 @@ def test_weather_forecast(client):
 
 
 @patch("src.integrations.valencia_traffic._fetch_geojson")
+def test_traffic_live_lowercase_estado(mock_fetch, client):
+    mock_fetch.return_value = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-0.37, 39.47], [-0.36, 39.48]],
+            },
+            "properties": {"idtramo": 99, "denominacion": "TEST VIA", "estado": 2},
+        }],
+    }
+    from src.ttl_cache import clear_cache
+    clear_cache()
+    r = client.get("/traffic/live")
+    assert r.status_code == 200
+    body = r.json()
+    props = body["features"][0]["properties"]
+    assert props["estado"] == 2
+    assert props["estado_label"] == "congestionado"
+    assert props["color"] == "#ea580c"
+    assert body["stats"]["congestionado"] == 1
+
+
+@patch("src.integrations.valencia_traffic._fetch_geojson")
 def test_traffic_live_mock(mock_fetch, client):
     mock_fetch.return_value = {
         "type": "FeatureCollection",

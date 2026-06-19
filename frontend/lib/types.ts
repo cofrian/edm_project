@@ -179,4 +179,10 @@ export interface TrafficLiveResponse {
     properties: Record<string, unknown>;
   }>;
   source?: string;
+  source_label?: string;
+  source_url?: string;
+  fetched_at?: string;
+  updated_ttl_seconds?: number;
+  stats?: Record<string, number>;
+  n_tramos?: number;
 }

@@ -19,6 +19,21 @@ export const NIVEL_COLORS: Record<string, string> = {
   alta: "#dc2626",
 };
 
+/** Colores oficiales del servicio de tráfico del Ayuntamiento de Valencia */
+export const TRAFFIC_ESTADO_COLORS: Record<string, string> = {
+  fluido: "#16a34a",
+  denso: "#d97706",
+  congestionado: "#ea580c",
+  cortado: "#dc2626",
+};
+
+export const TRAFFIC_ESTADO_LABELS: Record<string, string> = {
+  fluido: "Fluido",
+  denso: "Denso",
+  congestionado: "Congestionado",
+  cortado: "Cortado",
+};
+
 export const NAV_LINKS = [
   { href: "/", label: "Inicio" },
   { href: "/optimizacion", label: "Optimización" },

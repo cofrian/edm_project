@@ -138,11 +138,7 @@ export const api = {
       precip_lm2: 0,
       source: "default",
     }),
-  trafficLive: () =>
-    getJSON<TrafficLiveResponse>("/traffic/live", {
-      type: "FeatureCollection",
-      features: [],
-    }),
+  trafficLive: () => tryGet<TrafficLiveResponse>("/traffic/live"),
   events: (from?: string, to?: string) => {
     const q = new URLSearchParams();
     if (from) q.set("from", from);

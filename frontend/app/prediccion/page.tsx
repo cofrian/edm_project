@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Gauge, Layers, MapPin, RefreshCw } from "lucide-react";
+import { CalendarDays, Gauge, Layers, RefreshCw, Radio } from "lucide-react";
 import Link from "next/link";
 import { DynamicMap } from "@/components/DynamicMap";
+import type { RoadColorMode } from "@/components/MapView";
 import { api } from "@/lib/api";
-import { DIAS_SEMANA, NIVEL_COLORS } from "@/lib/constants";
+import { DIAS_SEMANA, TRAFFIC_ESTADO_COLORS, TRAFFIC_ESTADO_LABELS } from "@/lib/constants";
 import { Card, Badge } from "@/components/Card";
 import { PageHeader, Callout } from "@/components/ui";
-import type { CityEvent, HeatmapResponse, WeatherCurrent } from "@/lib/types";
+import type { CityEvent, HeatmapResponse, TrafficLiveResponse, WeatherCurrent } from "@/lib/types";
+
+const TRAFFIC_REFRESH_MS = 180_000;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -42,9 +45,9 @@ function formatTime(iso: string): string {
 }
 
 function weatherSourceLabel(source?: string): string {
-  if (source === "aemet") return "AEMET (en vivo)";
-  if (source === "open-meteo") return "Open-Meteo (en vivo)";
-  return "Valores por defecto";
+  if (source === "aemet") return "AEMET España";
+  if (source === "open-meteo") return "Open-Meteo";
+  return "Por defecto";
 }
 
 export default function PrediccionPage() {
@@ -54,19 +57,37 @@ export default function PrediccionPage() {
     const d = new Date().getDay();
     return d === 0 ? 6 : d - 1;
   });
-  const [showTraffic, setShowTraffic] = useState(true);
-  const [showEvents, setShowEvents] = useState(true);
+  const [roadColorMode, setRoadColorMode] = useState<RoadColorMode>("live");
   const [applyEvents, setApplyEvents] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [weather, setWeather] = useState<WeatherCurrent | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapResponse | null>(null);
   const [events, setEvents] = useState<CityEvent[]>([]);
-  const [traffic, setTraffic] = useState<{ type: string; features: unknown[] } | null>(null);
+  const [traffic, setTraffic] = useState<TrafficLiveResponse | null>(null);
+  const [trafficError, setTrafficError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [trafficLoading, setTrafficLoading] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadTraffic = useCallback(async () => {
+    setTrafficLoading(true);
+    const res = await api.trafficLive();
+    if (res.ok) {
+      setTraffic(res.data);
+      setTrafficError(
+        res.data.source === "unavailable" || res.data.n_tramos === 0
+          ? "El Ayuntamiento no devolvió tramos"
+          : null,
+      );
+    } else {
+      setTraffic(null);
+      setTrafficError(res.error);
+    }
+    setTrafficLoading(false);
+  }, []);
+
+  const loadModelData = useCallback(async () => {
     setLoading(true);
-    const [w, hm, ev, tr] = await Promise.all([
+    const [w, hm, ev] = await Promise.all([
       api.weatherCurrent(),
       api.predictHeatmap({
         fecha,
@@ -76,18 +97,22 @@ export default function PrediccionPage() {
         apply_events: applyEvents,
       }),
       api.events(fecha, addDaysIso(fecha, 31)),
-      showTraffic ? api.trafficLive() : Promise.resolve(null),
     ]);
     setWeather(w);
     setHeatmap(hm);
     setEvents(ev.events);
-    if (tr) setTraffic(tr);
     setLoading(false);
-  }, [fecha, hora, diaSemana, applyEvents, showTraffic]);
+  }, [fecha, hora, diaSemana, applyEvents]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadModelData();
+  }, [loadModelData]);
+
+  useEffect(() => {
+    loadTraffic();
+    const id = setInterval(loadTraffic, TRAFFIC_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [loadTraffic]);
 
   useEffect(() => {
     const d = new Date(fecha + "T12:00:00");
@@ -96,33 +121,9 @@ export default function PrediccionPage() {
   }, [fecha]);
 
   const dayEvents = useMemo(() => eventsForDay(events, fecha), [events, fecha]);
-
   const activeEvents = useMemo(
     () => eventsForHour(events, fecha, hora),
     [events, fecha, hora],
-  );
-
-  const mapEvents = useMemo(
-    () => (showEvents ? activeEvents : []),
-    [activeEvents, showEvents],
-  );
-
-  const eventMarkers = useMemo(
-    () =>
-      mapEvents.map((ev) => ({
-        id: ev.id,
-        lat: ev.lat,
-        lon: ev.lon,
-        nombre: ev.nombre,
-        radio_metros: ev.radio_metros,
-        tipo: ev.tipo,
-        imagen: ev.imagen,
-        inicio: ev.inicio,
-        fin: ev.fin,
-        enlace: ev.enlace,
-        direccion: ev.direccion,
-      })),
-    [mapEvents],
   );
 
   const stats = useMemo(() => {
@@ -133,15 +134,19 @@ export default function PrediccionPage() {
     return { avg: avg.toFixed(1), alta, total: pts.length };
   }, [heatmap]);
 
+  const trafficStats = traffic?.stats ?? {};
+
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Mapa en vivo · CatBoost"
-        title="Presión de tráfico espacial por hora"
-        description="Vías coloreadas por predicción, tráfico real del Ayuntamiento, meteo en vivo y eventos urbanos con impacto en la intensidad."
+        eyebrow="Datos abiertos · Valencia"
+        title="Tráfico en vivo y predicción horaria"
+        description="Vías del Ayuntamiento de Valencia en tiempo real (geoportal.valencia.es). La predicción CatBoost se muestra en el panel; en el mapa, colores oficiales del estado del tráfico."
       >
-        <Badge color="green">Vías + heatmap</Badge>
-        {heatmap?.model_loaded && <Badge color="blue">Modelo cargado</Badge>}
+        <Badge color="green">Tráfico Ayto. en vivo</Badge>
+        {traffic?.n_tramos ? (
+          <Badge color="blue">{traffic.n_tramos} tramos</Badge>
+        ) : null}
       </PageHeader>
 
       <div className="grid gap-4 lg:grid-cols-4">
@@ -171,25 +176,23 @@ export default function PrediccionPage() {
                 onChange={(e) => setHora(+e.target.value)}
                 className="w-full accent-brand-600"
               />
-              <div className="mt-1 flex justify-between text-[10px] text-slate-400">
-                <span>0h</span>
-                <span>12h</span>
-                <span>23h</span>
-              </div>
             </div>
             <button
               type="button"
               className="btn-primary w-full"
-              onClick={() => loadData()}
-              disabled={loading}
+              onClick={() => {
+                loadModelData();
+                loadTraffic();
+              }}
+              disabled={loading || trafficLoading}
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              {loading ? "Actualizando…" : "Actualizar mapa"}
+              <RefreshCw className={`h-4 w-4 ${loading || trafficLoading ? "animate-spin" : ""}`} />
+              Actualizar
             </button>
           </div>
         </Card>
 
-        <Card title="Meteo" className="lg:col-span-1">
+        <Card title="Meteo España" className="lg:col-span-1">
           {weather ? (
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -204,188 +207,213 @@ export default function PrediccionPage() {
                 <dt className="text-slate-500">Viento</dt>
                 <dd className="font-medium">{weather.vel_viento_ms} m/s</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Precipitación</dt>
-                <dd className="font-medium">{weather.precip_lm2} l/m²</dd>
-              </div>
-              <p className="pt-1 text-xs text-slate-400">
-                Fuente: {weatherSourceLabel(weather.source)}
-                {weather.note && ` — ${weather.note}`}
-              </p>
+              <p className="pt-1 text-xs text-slate-400">Fuente: {weatherSourceLabel(weather.source)}</p>
             </dl>
           ) : (
-            <p className="text-sm text-slate-400">Cargando meteo…</p>
+            <p className="text-sm text-slate-400">Cargando…</p>
           )}
         </Card>
 
-        <Card title="Capas" className="lg:col-span-1">
+        <Card title="Mapa — capa de vías" className="lg:col-span-1">
           <div className="space-y-3 text-sm">
-            <label className="flex items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/80 p-2">
               <input
-                type="checkbox"
-                checked={showTraffic}
-                onChange={(e) => setShowTraffic(e.target.checked)}
+                type="radio"
+                name="roadMode"
+                checked={roadColorMode === "live"}
+                onChange={() => setRoadColorMode("live")}
+              />
+              <Radio className="h-4 w-4 text-emerald-600" />
+              <span>
+                <strong>Tráfico Ayto.</strong> (tiempo real)
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2">
+              <input
+                type="radio"
+                name="roadMode"
+                checked={roadColorMode === "prediction"}
+                onChange={() => setRoadColorMode("prediction")}
               />
               <Layers className="h-4 w-4 text-slate-400" />
-              Vías coloreadas (predicción)
+              <span>Predicción CatBoost (futuro)</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={showEvents}
-                onChange={(e) => setShowEvents(e.target.checked)}
-              />
-              <MapPin className="h-4 w-4 text-slate-400" />
-              Eventos con foto
-            </label>
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2 pt-1">
               <input
                 type="checkbox"
                 checked={applyEvents}
                 onChange={(e) => setApplyEvents(e.target.checked)}
               />
               <Gauge className="h-4 w-4 text-slate-400" />
-              Aplicar impacto en predicción
+              Impacto eventos en modelo
             </label>
-            <p className="text-xs text-slate-400">
-              {activeEvents.length} activos a las {hora}:00 · {dayEvents.length} en el día
-            </p>
           </div>
         </Card>
 
-        <Card title="Resumen hora" className="lg:col-span-1">
-          {stats ? (
+        <Card title="Tráfico Ayuntamiento" className="lg:col-span-1">
+          {trafficError ? (
+            <p className="text-sm text-red-600">{trafficError}</p>
+          ) : traffic ? (
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Zonas</dt>
-                <dd className="font-medium">{stats.total}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Media intensidad</dt>
-                <dd className="font-medium">{stats.avg} veh/h</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Zonas presión alta</dt>
-                <dd className="font-medium text-red-600">{stats.alta}</dd>
-              </div>
+              {Object.entries(TRAFFIC_ESTADO_LABELS).map(([key, label]) => (
+                <div key={key} className="flex justify-between">
+                  <dt className="inline-flex items-center gap-2 text-slate-600">
+                    <span
+                      className="h-2.5 w-6 rounded-full"
+                      style={{ backgroundColor: TRAFFIC_ESTADO_COLORS[key] }}
+                    />
+                    {label}
+                  </dt>
+                  <dd className="font-medium">{trafficStats[key] ?? 0}</dd>
+                </div>
+              ))}
+              <p className="pt-2 text-[11px] text-slate-400">
+                {traffic.source_label ?? "geoportal.valencia.es"}
+                {traffic.fetched_at &&
+                  ` · ${new Date(traffic.fetched_at).toLocaleTimeString("es-ES")}`}
+              </p>
+              <p className="text-[11px] text-slate-400">Auto-actualización cada 3 min</p>
             </dl>
           ) : (
-            <p className="text-sm text-slate-400">Sin datos de heatmap.</p>
+            <p className="text-sm text-slate-400">Cargando tráfico del Ayuntamiento…</p>
           )}
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            {(["baja", "media", "alta"] as const).map((n) => (
-              <span key={n} className="inline-flex items-center gap-1">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: NIVEL_COLORS[n] }}
-                />
-                {n}
-              </span>
-            ))}
-          </div>
         </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <Card title="Mapa de predicción — vías coloreadas">
+        <Card title="Mapa de vías — sin puntos superpuestos">
+          {roadColorMode === "live" && (
+            <div className="mb-3 flex flex-wrap gap-3 text-xs">
+              {Object.entries(TRAFFIC_ESTADO_LABELS).map(([key, label]) => (
+                <span key={key} className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-1.5 w-8 rounded-full"
+                    style={{ backgroundColor: TRAFFIC_ESTADO_COLORS[key] }}
+                  />
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
           <DynamicMap
             height={560}
-            heatmapPoints={heatmap?.points ?? []}
-            trafficGeoJson={showTraffic ? traffic : null}
-            eventCircles={eventMarkers}
-            showTraffic={showTraffic}
-            showEvents={showEvents}
-            showHeatmapPoints={false}
-            colorRoadsByPrediction
+            heatmapPoints={roadColorMode === "prediction" ? (heatmap?.points ?? []) : []}
+            trafficGeoJson={traffic}
+            showTraffic
+            roadColorMode={roadColorMode}
           />
+          {traffic?.n_tramos === 0 && (
+            <p className="mt-2 text-sm text-amber-700">
+              No hay geometrías de vía. Comprueba la conexión con geoportal.valencia.es.
+            </p>
+          )}
         </Card>
 
-        <Card title="Eventos del día" className="xl:sticky xl:top-4 xl:self-start">
-          <p className="mb-1 inline-flex items-center gap-2 text-xs font-medium text-brand-700">
-            <CalendarDays className="h-3.5 w-3.5" />
-            Agenda urbana
-          </p>
-          <p className="mb-3 text-xs text-slate-500">
-            {new Date(`${fecha}T12:00:00`).toLocaleDateString("es-ES", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}
-            {" · "}
-            {dayEvents.length} eventos
-          </p>
-          <ul className="scroll-thin max-h-[500px] space-y-2 overflow-y-auto pr-1">
-            {dayEvents.length === 0 && (
-              <li className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
-                No hay eventos catalogados para esta fecha.
-              </li>
+        <div className="space-y-4">
+          <Card title="Predicción (panel)">
+            {stats ? (
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Zonas modelo</dt>
+                  <dd className="font-medium">{stats.total}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Media veh/h</dt>
+                  <dd className="font-medium">{stats.avg}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Presión alta</dt>
+                  <dd className="font-medium text-red-600">{stats.alta}</dd>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {activeEvents.length} eventos activos a las {hora}:00
+                </p>
+              </dl>
+            ) : (
+              <p className="text-sm text-slate-400">Sin predicción cargada.</p>
             )}
-            {dayEvents.map((ev) => {
-              const isActive = activeEvents.some((a) => a.id === ev.id);
-              const isSelected = selectedEventId === ev.id;
-              return (
-                <li key={ev.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
-                    className={`flex w-full gap-3 rounded-xl border p-2.5 text-left transition ${
-                      isSelected
-                        ? "border-violet-400 bg-violet-50 ring-2 ring-violet-200"
-                        : isActive
-                          ? "border-violet-200 bg-violet-50/60"
-                          : "border-slate-100 bg-white hover:border-slate-200"
-                    }`}
-                  >
-                    {ev.imagen && (
-                      <img
-                        src={ev.imagen}
-                        alt=""
-                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-800">{ev.nombre}</p>
-                      <p className="text-xs capitalize text-violet-600">{ev.tipo}</p>
-                      <p className="text-xs text-slate-500">
-                        {formatTime(ev.inicio)} – {formatTime(ev.fin)}
-                      </p>
-                      {ev.direccion && (
-                        <p className="truncate text-[11px] text-slate-400">{ev.direccion}</p>
-                      )}
-                      {isActive && (
-                        <span className="mt-1 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                          Activo ahora
-                        </span>
-                      )}
-                    </div>
-                  </button>
+          </Card>
+
+          <Card title="Eventos del día" className="xl:sticky xl:top-4">
+            <p className="mb-1 inline-flex items-center gap-2 text-xs font-medium text-brand-700">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Solo en lista (no en mapa)
+            </p>
+            <p className="mb-3 text-xs text-slate-500">
+              {dayEvents.length} eventos · {activeEvents.length} activos ahora
+            </p>
+            <ul className="scroll-thin max-h-[380px] space-y-2 overflow-y-auto pr-1">
+              {dayEvents.length === 0 && (
+                <li className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
+                  Sin eventos este día.
                 </li>
-              );
-            })}
-          </ul>
-        </Card>
+              )}
+              {dayEvents.map((ev) => {
+                const isActive = activeEvents.some((a) => a.id === ev.id);
+                const isSelected = selectedEventId === ev.id;
+                return (
+                  <li key={ev.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
+                      className={`flex w-full gap-3 rounded-xl border p-2.5 text-left transition ${
+                        isSelected
+                          ? "border-violet-400 bg-violet-50 ring-2 ring-violet-200"
+                          : isActive
+                            ? "border-violet-200 bg-violet-50/60"
+                            : "border-slate-100 bg-white hover:border-slate-200"
+                      }`}
+                    >
+                      {ev.imagen && (
+                        <img
+                          src={ev.imagen}
+                          alt=""
+                          className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">{ev.nombre}</p>
+                        <p className="text-xs capitalize text-violet-600">{ev.tipo}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatTime(ev.inicio)} – {formatTime(ev.fin)}
+                        </p>
+                        {isActive && (
+                          <span className="mt-1 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                            Activo ahora
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </div>
       </div>
 
-      <Callout tone="brand" title="Capas del mapa">
+      <Callout tone="brand" title="Fuentes de datos oficiales">
         <ul className="list-inside list-disc space-y-1 text-sm">
           <li>
-            <strong>Líneas de vía:</strong> color según predicción CatBoost de la zona más cercana
-            (verde / ámbar / rojo).
+            <strong>Tráfico:</strong> ArcGIS Open Data del Ayuntamiento de Valencia
+            (geoportal.valencia.es) — colores fluido / denso / congestionado / cortado.
           </li>
           <li>
-            <strong>Marcadores con foto:</strong> eventos activos en la hora seleccionada, con radio
-            de impacto violeta.
+            <strong>Meteo:</strong> AEMET (España) u Open-Meteo como respaldo.
           </li>
           <li>
-            <strong>Panel derecho:</strong> todos los eventos del día; los activos a la hora actual
-            aparecen resaltados.
+            <strong>Predicción:</strong> modelo CatBoost en panel; capa de mapa &quot;Predicción&quot;
+            para colorear vías (cuando haya zonas enlazadas).
+          </li>
+          <li>
+            <strong>Eventos:</strong> catálogo manual en panel lateral, sin marcadores en el mapa.
           </li>
         </ul>
         <Link
           href="/optimizacion"
           className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700"
         >
-          Ir al optimizador con esta señal de demanda →
+          Ir al optimizador →
         </Link>
       </Callout>
     </div>
