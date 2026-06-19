@@ -5,7 +5,6 @@ import {
   Target,
   Coins,
   Users,
-  Database,
   Activity,
   GitBranch,
   Building2,
@@ -32,24 +31,22 @@ export default async function Home() {
         <div className="absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-teal-400/20 blur-3xl" />
         <div className="relative max-w-3xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-            <Building2 className="h-3.5 w-3.5" /> Apoyo a la decisión municipal
+            <Building2 className="h-3.5 w-3.5" /> Consola municipal · Valencia
           </p>
           <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-5xl">
-            ¿Dónde instalar los próximos equipamientos urbanos de Valencia?
+            Planifica la ciudad con mapas, datos y optimización
           </h1>
           <p className="mt-4 max-w-2xl text-base text-brand-50 sm:text-lg">
-            UrbanFlow resuelve la <strong>localización óptima de equipamientos</strong>{" "}
-            (estaciones, instalaciones y servicios) para{" "}
-            <strong>maximizar la cobertura de población</strong> bajo un
-            presupuesto, combinando isócronas, demanda y la presión de tráfico
-            predicha por aprendizaje automático.
+            UrbanFlow integra la red urbana real — Valenbisi, polideportivos,
+            centros de salud y tráfico — con modelos de cobertura para proponer
+            dónde invertir el próximo euro municipal con máximo impacto.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/optimizacion" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50">
-              Abrir el optimizador <ArrowRight className="h-4 w-4" />
+            <Link href="/mapa" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50">
+              Explorar mapa urbano <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/metodologia" className="inline-flex items-center gap-2 rounded-xl border border-white/40 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-              Cómo funciona
+            <Link href="/optimizacion" className="inline-flex items-center gap-2 rounded-xl border border-white/40 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+              Abrir optimizador <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-brand-50">
@@ -90,10 +87,10 @@ export default async function Home() {
         </div>
         <Steps
           steps={[
-            { title: "Datos urbanos", description: "Tráfico, meteorología, isócronas, equipamientos existentes y costes de Valencia.", icon: <Database className="h-5 w-5" /> },
-            { title: "Señal de demanda", description: "CatBoost predice la presión de tráfico por zona y hora como indicador de actividad.", icon: <Activity className="h-5 w-5" /> },
-            { title: "Optimización", description: "PuLP resuelve qué ubicaciones maximizan cobertura bajo la restricción elegida.", icon: <Target className="h-5 w-5" /> },
-            { title: "Decisión", description: "El técnico obtiene un ranking de ubicaciones, mapa y métricas de impacto.", icon: <GitBranch className="h-5 w-5" /> },
+            { title: "Explorar", description: "Mapa con capas de Valenbisi, equipamientos, salud y red viaria de Valencia.", icon: <MapPinned className="h-5 w-5" /> },
+            { title: "Simular", description: "Define presupuesto o número de plazas y genera una propuesta optimizada.", icon: <Target className="h-5 w-5" /> },
+            { title: "Validar demanda", description: "CatBoost estima presión de tráfico como señal complementaria de actividad.", icon: <Activity className="h-5 w-5" /> },
+            { title: "Decidir", description: "Ranking, métricas de cobertura y mapa listos para revisión del técnico municipal.", icon: <GitBranch className="h-5 w-5" /> },
           ]}
         />
       </section>

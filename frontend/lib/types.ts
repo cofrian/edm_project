@@ -90,3 +90,33 @@ export interface Metadata {
   data_date: string;
   validation: string;
 }
+
+export type LayerKey =
+  | "valenbisi"
+  | "sports"
+  | "health"
+  | "traffic"
+  | "proposed";
+
+export interface GeoFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoFeature[];
+}
+
+export interface GeoFeature {
+  type: "Feature";
+  geometry: {
+    type: string;
+    coordinates: unknown;
+  };
+  properties?: Record<string, unknown>;
+}
+
+export interface MapMarker {
+  lat: number;
+  lon: number;
+  label?: string;
+  color?: string;
+  radius?: number;
+  id?: string | number;
+}
