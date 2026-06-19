@@ -110,15 +110,28 @@ body {
   animation: event-pulse 2s ease-out infinite;
 }
 
-.event-marker-pulse img {
+.event-marker-icon {
   position: relative;
   z-index: 1;
-  width: 48px;
-  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 6px auto 0;
   border-radius: 9999px;
-  object-fit: cover;
+  color: #fff;
+  background: linear-gradient(145deg, #8b5cf6, #6d28d9);
   border: 3px solid #fff;
   box-shadow: 0 4px 14px rgb(124 58 237 / 0.45);
+}
+
+.event-marker-icon-selected {
+  width: 42px;
+  height: 42px;
+  margin-top: 3px;
+  background: linear-gradient(145deg, #7c3aed, #5b21b6);
+  box-shadow: 0 6px 18px rgb(91 33 182 / 0.55);
 }
 
 .event-marker-label {

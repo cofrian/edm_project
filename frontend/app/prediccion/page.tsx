@@ -7,6 +7,7 @@ import { DynamicMap } from "@/components/DynamicMap";
 import type { RoadColorMode } from "@/components/MapView";
 import { api } from "@/lib/api";
 import { computeAffectedTramoIds } from "@/lib/eventTramos";
+import { buildEventImpactZones } from "@/lib/eventImpactZone";
 import { DIAS_SEMANA, NIVEL_COLORS, TRAFFIC_ESTADO_COLORS, TRAFFIC_ESTADO_LABELS } from "@/lib/constants";
 import { Card, Badge } from "@/components/Card";
 import { PageHeader, Callout } from "@/components/ui";
@@ -16,6 +17,14 @@ const TRAFFIC_REFRESH_MS = 180_000;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function currentHour(): number {
+  return new Date().getHours();
+}
+
+function isViewingNow(fecha: string, hora: number): boolean {
+  return fecha === todayIso() && hora === currentHour();
 }
 
 function addDaysIso(iso: string, days: number): string {
@@ -53,7 +62,7 @@ function weatherSourceLabel(source?: string): string {
 
 export default function PrediccionPage() {
   const [fecha, setFecha] = useState(todayIso);
-  const [hora, setHora] = useState(new Date().getHours());
+  const [hora, setHora] = useState(currentHour);
   const [diaSemana, setDiaSemana] = useState(() => {
     const d = new Date().getDay();
     return d === 0 ? 6 : d - 1;
@@ -86,19 +95,25 @@ export default function PrediccionPage() {
     setTrafficLoading(false);
   }, []);
 
+  const viewingNow = useMemo(() => isViewingNow(fecha, hora), [fecha, hora]);
+
   const loadModelData = useCallback(async () => {
     setLoading(true);
-    const [w, hm, ev] = await Promise.all([
+    const now = isViewingNow(fecha, hora);
+    const [w, ev] = await Promise.all([
       api.weatherCurrent(),
-      api.predictHeatmap({
+      api.events(fecha, addDaysIso(fecha, 31)),
+    ]);
+    let hm: HeatmapResponse | null = null;
+    if (!now) {
+      hm = await api.predictHeatmap({
         fecha,
         hora,
         dia_semana: diaSemana,
         use_live_weather: true,
         apply_events: applyEvents,
-      }),
-      api.events(fecha, addDaysIso(fecha, 31)),
-    ]);
+      });
+    }
     setWeather(w);
     setHeatmap(hm);
     setEvents(ev.events);
@@ -121,6 +136,10 @@ export default function PrediccionPage() {
     setDiaSemana(wd === 0 ? 6 : wd - 1);
   }, [fecha]);
 
+  useEffect(() => {
+    if (viewingNow) setRoadColorMode("live");
+  }, [viewingNow]);
+
   const dayEvents = useMemo(() => eventsForDay(events, fecha), [events, fecha]);
   const activeEvents = useMemo(
     () => eventsForHour(events, fecha, hora),
@@ -137,17 +156,34 @@ export default function PrediccionPage() {
 
   const trafficStats = traffic?.stats ?? {};
 
+  const mapEvents = useMemo(() => {
+    if (selectedEventId) {
+      const sel = dayEvents.find((e) => e.id === selectedEventId);
+      if (sel) return [sel];
+    }
+    return activeEvents;
+  }, [selectedEventId, dayEvents, activeEvents]);
+
+  const eventImpactZones = useMemo(
+    () =>
+      buildEventImpactZones(
+        traffic?.features as Parameters<typeof buildEventImpactZones>[0],
+        mapEvents,
+      ),
+    [traffic?.features, mapEvents],
+  );
+
   const affectedTramoIds = useMemo(() => {
-    if (roadColorMode !== "prediction" || !traffic?.features?.length || !activeEvents.length) {
+    if (!traffic?.features?.length || !mapEvents.length) {
       return [] as string[];
     }
     return Array.from(
       computeAffectedTramoIds(
         traffic.features as Parameters<typeof computeAffectedTramoIds>[0],
-        activeEvents,
+        mapEvents,
       ),
     );
-  }, [roadColorMode, traffic?.features, activeEvents]);
+  }, [traffic?.features, mapEvents]);
 
   return (
     <div className="space-y-6">
@@ -157,6 +193,7 @@ export default function PrediccionPage() {
         description="Vías del Ayuntamiento de Valencia en tiempo real (geoportal.valencia.es). La predicción CatBoost se muestra en el panel; en el mapa, colores oficiales del estado del tráfico."
       >
         <Badge color="green">Tráfico Ayto. en vivo</Badge>
+        {viewingNow ? <Badge color="green">Ahora — datos reales</Badge> : null}
         {traffic?.n_tramos ? (
           <Badge color="blue">{traffic.n_tramos} tramos</Badge>
         ) : null}
@@ -175,11 +212,25 @@ export default function PrediccionPage() {
               />
             </div>
             <div>
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <label className="label mb-0">Hora: {hora}:00</label>
-                <span className="text-xs text-slate-400">
-                  {DIAS_SEMANA.find((d) => d.value === diaSemana)?.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  {!viewingNow && (
+                    <button
+                      type="button"
+                      className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-200"
+                      onClick={() => {
+                        setFecha(todayIso());
+                        setHora(currentHour());
+                      }}
+                    >
+                      Ahora
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-400">
+                    {DIAS_SEMANA.find((d) => d.value === diaSemana)?.label}
+                  </span>
+                </div>
               </div>
               <input
                 type="range"
@@ -189,6 +240,11 @@ export default function PrediccionPage() {
                 onChange={(e) => setHora(+e.target.value)}
                 className="w-full accent-brand-600"
               />
+              {viewingNow && (
+                <p className="mt-1 text-xs text-emerald-700">
+                  Momento actual: mapa y panel muestran tráfico real del Ayuntamiento.
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -241,25 +297,37 @@ export default function PrediccionPage() {
                 <strong>Tráfico Ayto.</strong> (tiempo real)
               </span>
             </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2">
+            <label
+              className={`flex items-center gap-2 rounded-lg border p-2 ${
+                viewingNow
+                  ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                  : "cursor-pointer border-slate-200"
+              }`}
+            >
               <input
                 type="radio"
                 name="roadMode"
                 checked={roadColorMode === "prediction"}
+                disabled={viewingNow}
                 onChange={() => setRoadColorMode("prediction")}
               />
               <Layers className="h-4 w-4 text-slate-400" />
-              <span>Predicción CatBoost (futuro)</span>
+              <span>
+                Predicción CatBoost
+                {viewingNow ? " (solo futuro/pasado)" : " (futuro/pasado)"}
+              </span>
             </label>
-            <label className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                checked={applyEvents}
-                onChange={(e) => setApplyEvents(e.target.checked)}
-              />
-              <Gauge className="h-4 w-4 text-slate-400" />
-              Impacto eventos en modelo
-            </label>
+            {!viewingNow && (
+              <label className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  checked={applyEvents}
+                  onChange={(e) => setApplyEvents(e.target.checked)}
+                />
+                <Gauge className="h-4 w-4 text-slate-400" />
+                Impacto eventos en modelo
+              </label>
+            )}
           </div>
         </Card>
 
@@ -306,6 +374,13 @@ export default function PrediccionPage() {
                   {label}
                 </span>
               ))}
+              {mapEvents.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-violet-700">
+                  <span className="h-2 w-5 rounded-sm bg-violet-400/70 ring-1 ring-violet-600" />
+                  Corredor vial evento
+                  {affectedTramoIds.length > 0 ? ` · ${affectedTramoIds.length} tramos` : ""}
+                </span>
+              )}
               <span className="text-slate-400">· Pasa el ratón para veh/h</span>
             </div>
           )}
@@ -320,10 +395,10 @@ export default function PrediccionPage() {
                   {n}
                 </span>
               ))}
-              {affectedTramoIds.length > 0 && (
+              {mapEvents.length > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-violet-700">
-                  <span className="h-1.5 w-8 rounded-full bg-violet-600" />
-                  Evento activo ({affectedTramoIds.length} tramos)
+                  <span className="h-2 w-5 rounded-sm bg-violet-400/70 ring-1 ring-violet-600" />
+                  Corredor vial · {affectedTramoIds.length} tramos
                 </span>
               )}
             </div>
@@ -335,6 +410,9 @@ export default function PrediccionPage() {
             showTraffic
             roadColorMode={roadColorMode}
             affectedTramoIds={affectedTramoIds}
+            eventMarkers={mapEvents}
+            eventImpactZones={eventImpactZones}
+            selectedEventId={selectedEventId}
           />
           {traffic?.n_tramos === 0 && (
             <p className="mt-2 text-sm text-amber-700">
@@ -344,8 +422,40 @@ export default function PrediccionPage() {
         </Card>
 
         <div className="space-y-4">
-          <Card title="Predicción (panel)">
-            {stats ? (
+          <Card title={viewingNow ? "Tráfico en vivo (panel)" : "Predicción (panel)"}>
+            {viewingNow ? (
+              traffic && !trafficError ? (
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-slate-500">Tramos monitorizados</dt>
+                    <dd className="font-medium">{traffic.n_tramos ?? 0}</dd>
+                  </div>
+                  {traffic.n_with_intensidad_vh != null && (
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Con lectura veh/h</dt>
+                      <dd className="font-medium">{traffic.n_with_intensidad_vh}</dd>
+                    </div>
+                  )}
+                  {Object.entries(TRAFFIC_ESTADO_LABELS).map(([key, label]) => (
+                    <div key={key} className="flex justify-between">
+                      <dt className="inline-flex items-center gap-2 text-slate-500">
+                        <span
+                          className="h-2 w-4 rounded-full"
+                          style={{ backgroundColor: TRAFFIC_ESTADO_COLORS[key] }}
+                        />
+                        {label}
+                      </dt>
+                      <dd className="font-medium">{trafficStats[key] ?? 0}</dd>
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-400">
+                    Datos oficiales Ayuntamiento · mueve fecha/hora para ver predicción
+                  </p>
+                </dl>
+              ) : (
+                <p className="text-sm text-slate-400">Cargando tráfico en vivo…</p>
+              )
+            ) : stats ? (
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-slate-500">Zonas modelo</dt>
@@ -364,15 +474,17 @@ export default function PrediccionPage() {
                 </p>
               </dl>
             ) : (
-              <p className="text-sm text-slate-400">Sin predicción cargada.</p>
+              <p className="text-sm text-slate-400">
+                {loading ? "Calculando predicción…" : "Sin predicción cargada."}
+              </p>
             )}
           </Card>
 
           <Card title="Eventos del día" className="xl:sticky xl:top-4">
             <p className="mb-3 text-xs text-slate-500">
               {dayEvents.length} eventos · {activeEvents.length} activos a las {hora}:00
-              {roadColorMode === "prediction" && affectedTramoIds.length > 0
-                ? ` · ${affectedTramoIds.length} tramos resaltados`
+              {mapEvents.length > 0 && affectedTramoIds.length > 0
+                ? ` · ${affectedTramoIds.length} tramos en zona`
                 : ""}
             </p>
             <ul className="scroll-thin max-h-[380px] space-y-2 overflow-y-auto pr-1">
@@ -428,8 +540,12 @@ export default function PrediccionPage() {
             (capa 188 opendata).
           </li>
           <li>
-            <strong>Predicción:</strong> color CatBoost por zona en cada vía; eventos activos
-            resaltan tramos afectados (sin puntos).
+            <strong>Eventos:</strong> icono en el lugar y corredor violeta siguiendo las vías reales
+            afectadas (geometría Ayuntamiento), no un círculo artificial.
+          </li>
+          <li>
+            <strong>Predicción:</strong> color CatBoost por zona en cada vía cuando cambias
+            fecha/hora.
           </li>
         </ul>
         <Link
