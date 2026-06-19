@@ -1,15 +1,26 @@
-"""Spatial join tramo tráfico → zona más cercana."""
+"""Spatial join tramo Ayuntamiento (capa 192) → zona más cercana."""
 
 from __future__ import annotations
 
 import json
 import os
 import sys
+import urllib.request
 
 import numpy as np
 import pandas as pd
 
 from common import OUT_DATA, ZONAS_COORD, ensure_dirs
+
+ARCGIS_ESTADO_URL = (
+    "https://geoportal.valencia.es/server/rest/services/OPENDATA/Trafico/MapServer/192/query"
+    "?where=1%3D1&outFields=Idtramo,Denominacion,Estado&returnGeometry=true&outSR=4326&f=geojson"
+)
+
+
+def _fetch_estado_geojson() -> dict:
+    with urllib.request.urlopen(ARCGIS_ESTADO_URL, timeout=60) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 def _zonas() -> pd.DataFrame:
@@ -23,28 +34,23 @@ def _zonas() -> pd.DataFrame:
     }).dropna()
 
 
-def _tramo_centroids(geojson_path: str) -> pd.DataFrame:
-    if not os.path.exists(geojson_path):
-        return pd.DataFrame()
-    with open(geojson_path, encoding="utf-8") as f:
-        gj = json.load(f)
+def _tramo_centroids_from_geojson(gj: dict) -> pd.DataFrame:
     rows = []
-    for feat in gj.get("features", []):
-        geom = feat.get("geometry", {})
-        props = feat.get("properties", {})
-        coords = geom.get("coordinates")
-        if not coords:
+    for feat in gj.get("features") or []:
+        if not feat:
             continue
-        # LineString: promedio de puntos; Point: directo
-        if geom.get("type") == "LineString":
-            pts = np.array(coords)
-            lon, lat = float(pts[:, 0].mean()), float(pts[:, 1].mean())
-        elif geom.get("type") == "Point":
-            lon, lat = float(coords[0]), float(coords[1])
-        else:
+        geom = feat.get("geometry") or {}
+        props = feat.get("properties") or {}
+        coords = geom.get("coordinates")
+        if geom.get("type") != "LineString" or not coords:
+            continue
+        pts = np.array(coords)
+        lon, lat = float(pts[:, 0].mean()), float(pts[:, 1].mean())
+        idtramo = props.get("Idtramo", props.get("idtramo", ""))
+        if idtramo is None or idtramo == "":
             continue
         rows.append({
-            "Idtramo": str(props.get("Idtramo", props.get("OBJECTID", ""))),
+            "Idtramo": str(int(idtramo) if isinstance(idtramo, (int, float)) else idtramo),
             "lat": lat,
             "lon": lon,
         })
@@ -59,9 +65,18 @@ def _nearest_zone(lat: float, lon: float, zonas: pd.DataFrame) -> int:
 def main() -> int:
     ensure_dirs()
     zonas = _zonas()
-    # Usar muestra local si no hay fetch en vivo
-    sample = os.path.join(OUT_DATA, "traffic_segments_sample.geojson")
-    tramos = _tramo_centroids(sample)
+
+    try:
+        gj = _fetch_estado_geojson()
+        tramos = _tramo_centroids_from_geojson(gj)
+        print(f"[INFO] Tramos capa 192 Ayuntamiento: {len(tramos)}")
+    except Exception as exc:
+        print(f"[WARN] No se pudo fetch capa 192: {exc}")
+        sample = os.path.join(OUT_DATA, "traffic_segments_sample.geojson")
+        tramos = _tramo_centroids_from_geojson(
+            json.load(open(sample, encoding="utf-8")) if os.path.exists(sample) else {"features": []},
+        )
+
     if tramos.empty:
         print("[WARN] Sin tramos; lookup vacío")
         pd.DataFrame(columns=["Idtramo", "Zona", "lat", "lon"]).to_csv(

@@ -42,7 +42,6 @@ def test_events_list(client):
     body = r.json()
     assert body["count"] > 0
     assert len(body["events"]) == body["count"]
-    assert body["events"][0].get("imagen")
 
 
 @patch("src.integrations.aemet._open_meteo_current")
@@ -82,9 +81,46 @@ def test_weather_forecast(client):
     assert len(body["hours"]) == 24
 
 
-@patch("src.integrations.valencia_traffic._fetch_geojson")
-def test_traffic_live_lowercase_estado(mock_fetch, client):
-    mock_fetch.return_value = {
+@patch("src.integrations.valencia_traffic._fetch_intensity_geojson")
+@patch("src.integrations.valencia_traffic._fetch_estado_geojson")
+def test_traffic_live_intensidad_vh(mock_estado, mock_intensity, client):
+    mock_estado.return_value = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-0.37, 39.47], [-0.36, 39.48]],
+            },
+            "properties": {"idtramo": 1, "denominacion": "TEST VIA", "estado": 0},
+        }],
+    }
+    mock_intensity.return_value = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-0.3701, 39.4701], [-0.3599, 39.4799]],
+            },
+            "properties": {"idtramo": "A1", "lectura": 210, "des_tramo": "TEST"},
+        }],
+    }
+    from src.ttl_cache import clear_cache
+    clear_cache()
+    r = client.get("/traffic/live")
+    assert r.status_code == 200
+    body = r.json()
+    props = body["features"][0]["properties"]
+    assert props["intensidad_vh"] == 210
+    assert props["lectura_source"] == "ayuntamiento_capa_188"
+    assert body["n_with_intensidad_vh"] == 1
+
+
+@patch("src.integrations.valencia_traffic._fetch_intensity_geojson")
+@patch("src.integrations.valencia_traffic._fetch_estado_geojson")
+def test_traffic_live_lowercase_estado(mock_estado, mock_intensity, client):
+    mock_estado.return_value = {
         "type": "FeatureCollection",
         "features": [{
             "type": "Feature",
@@ -95,6 +131,7 @@ def test_traffic_live_lowercase_estado(mock_fetch, client):
             "properties": {"idtramo": 99, "denominacion": "TEST VIA", "estado": 2},
         }],
     }
+    mock_intensity.return_value = {"type": "FeatureCollection", "features": []}
     from src.ttl_cache import clear_cache
     clear_cache()
     r = client.get("/traffic/live")
@@ -107,9 +144,10 @@ def test_traffic_live_lowercase_estado(mock_fetch, client):
     assert body["stats"]["congestionado"] == 1
 
 
-@patch("src.integrations.valencia_traffic._fetch_geojson")
-def test_traffic_live_mock(mock_fetch, client):
-    mock_fetch.return_value = {
+@patch("src.integrations.valencia_traffic._fetch_intensity_geojson")
+@patch("src.integrations.valencia_traffic._fetch_estado_geojson")
+def test_traffic_live_mock(mock_estado, mock_intensity, client):
+    mock_estado.return_value = {
         "type": "FeatureCollection",
         "features": [{
             "type": "Feature",
@@ -120,6 +158,7 @@ def test_traffic_live_mock(mock_fetch, client):
             "properties": {"Idtramo": "T1", "Denominacion": "Test", "Estado": 1},
         }],
     }
+    mock_intensity.return_value = {"type": "FeatureCollection", "features": []}
     from src.ttl_cache import clear_cache
     clear_cache()
     r = client.get("/traffic/live")
@@ -172,3 +211,18 @@ def test_event_impact_multiplier():
     at = datetime(2026, 7, 11, 22, 0, tzinfo=TZ)
     boosted = apply_events_to_intensity(100.0, 39.4945, -0.3638, at, [ev])
     assert boosted > 100.0
+
+
+def test_event_tramos_affected():
+    from src.event_tramos import tramos_affected_by_event
+
+    features = [{
+        "type": "Feature",
+        "geometry": {
+            "type": "LineString",
+            "coordinates": [[-0.3638, 39.4945], [-0.3630, 39.4950]],
+        },
+        "properties": {"idtramo": "42"},
+    }]
+    ids = tramos_affected_by_event(features, 39.4945, -0.3638, 500)
+    assert "42" in ids

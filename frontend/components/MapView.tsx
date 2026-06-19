@@ -41,6 +41,15 @@ function intensidadColor(intensidad: number, max: number): string {
   return NIVEL_COLORS.alta;
 }
 
+function formatVhTooltip(props: Record<string, unknown>, nombre: string, estado: string): string {
+  const vh = props.intensidad_vh;
+  const vhLine =
+    vh != null && vh !== ""
+      ? `<strong>${vh} veh/h</strong> (Ayto. capa 188)`
+      : "<span>Sin lectura en vivo</span>";
+  return `<div class="text-sm"><strong>${nombre}</strong><br/>Estado: ${estado}<br/>${vhLine}</div>`;
+}
+
 export default function MapView({
   markers = [],
   polygons = [],
@@ -48,6 +57,7 @@ export default function MapView({
   trafficGeoJson = null,
   showTraffic = true,
   roadColorMode = "live",
+  affectedTramoIds = [],
   center = VALENCIA_CENTER,
   zoom = 12,
   height = 460,
@@ -58,10 +68,13 @@ export default function MapView({
   trafficGeoJson?: { type: string; features: unknown[] } | null;
   showTraffic?: boolean;
   roadColorMode?: RoadColorMode;
+  affectedTramoIds?: string[];
   center?: [number, number];
   zoom?: number;
   height?: number;
 }) {
+  const affectedSet = useMemo(() => new Set(affectedTramoIds), [affectedTramoIds]);
+
   const maxIntensity = useMemo(
     () => Math.max(...heatmapPoints.map((p) => p.intensidad), 1),
     [heatmapPoints],
@@ -83,6 +96,8 @@ export default function MapView({
     properties?: Record<string, unknown>;
   }): PathOptions => {
     const props = feature?.properties ?? {};
+    const idtramo = String(props.idtramo ?? "");
+    const isAffected = affectedSet.has(idtramo);
     const estadoLabel = String(props.estado_label ?? "");
     const liveColor =
       (props.color as string | undefined) ??
@@ -92,15 +107,14 @@ export default function MapView({
     if (roadColorMode === "prediction") {
       const zona = props.zona_nearest != null ? Number(props.zona_nearest) : null;
       const pred = zona != null ? zonaStyle.get(zona) : undefined;
-      if (pred) {
-        return {
-          color: pred.color,
-          weight: 5,
-          opacity: 0.92,
-          lineCap: "round",
-          lineJoin: "round",
-        };
-      }
+      const baseColor = pred?.color ?? "#94a3b8";
+      return {
+        color: isAffected ? "#7c3aed" : baseColor,
+        weight: isAffected ? 7 : 5,
+        opacity: 0.92,
+        lineCap: "round",
+        lineJoin: "round",
+      };
     }
 
     return {
@@ -118,24 +132,39 @@ export default function MapView({
     layer: Layer,
   ) => {
     const props = feature.properties ?? {};
-    const nombre = props.denominacion ?? "Tramo";
-    const estado = props.estado_label ?? "—";
+    const nombre = String(props.denominacion ?? "Tramo");
+    const estado = String(props.estado_label ?? "—");
     const zona = props.zona_nearest != null ? Number(props.zona_nearest) : null;
     const pred = zona != null ? zonaStyle.get(zona) : undefined;
+    const vh = props.intensidad_vh;
 
     if (roadColorMode === "live") {
+      const tooltip = formatVhTooltip(props, nombre, estado);
+      layer.bindTooltip(tooltip, { sticky: true, opacity: 0.95 });
+      const vhText =
+        vh != null && vh !== ""
+          ? `<p class="text-xs"><b>${vh} veh/h</b> (Ayuntamiento)</p>`
+          : `<p class="text-xs text-slate-500">Sin lectura veh/h en vivo</p>`;
       layer.bindPopup(`
         <strong>${nombre}</strong>
-        <p class="text-xs">Estado Ayto.: <b>${estado}</b></p>
-        <p class="text-xs text-slate-500">Fuente: geoportal.valencia.es</p>
+        <p class="text-xs">Estado: <b>${estado}</b></p>
+        ${vhText}
+        <p class="text-xs text-slate-400">geoportal.valencia.es</p>
       `);
       return;
     }
 
+    const predLine = pred
+      ? `<p class="text-xs">Predicción zona ${zona}: ${pred.intensidad} veh/h (${pred.nivel})</p>`
+      : `<p class="text-xs">Sin zona asignada</p>`;
+    layer.bindTooltip(
+      `<strong>${nombre}</strong><br/>${pred ? `${pred.intensidad} veh/h · ${pred.nivel}` : "Sin predicción"}`,
+      { sticky: true },
+    );
     layer.bindPopup(`
       <strong>${nombre}</strong>
-      <p class="text-xs">Tráfico Ayto.: ${estado}</p>
-      ${pred ? `<p class="text-xs">Predicción zona ${zona}: ${pred.intensidad} veh/h (${pred.nivel})</p>` : "<p class=\"text-xs\">Sin zona asignada</p>"}
+      ${predLine}
+      <p class="text-xs text-slate-500">Modo predicción CatBoost</p>
     `);
   };
 
@@ -148,7 +177,7 @@ export default function MapView({
         />
         {showTraffic && trafficGeoJson && trafficGeoJson.features.length > 0 && (
           <GeoJSON
-            key={`traffic-${roadColorMode}-${trafficGeoJson.features.length}`}
+            key={`traffic-${roadColorMode}-${trafficGeoJson.features.length}-${affectedTramoIds.length}`}
             data={trafficGeoJson as never}
             style={trafficStyle as never}
             onEachFeature={onEachTrafficFeature as never}

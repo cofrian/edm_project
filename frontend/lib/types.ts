@@ -185,4 +185,17 @@ export interface TrafficLiveResponse {
   updated_ttl_seconds?: number;
   stats?: Record<string, number>;
   n_tramos?: number;
+  n_with_intensidad_vh?: number;
+}
+
+export interface TrafficTramoProperties {
+  idtramo: string;
+  denominacion: string;
+  estado: number;
+  estado_label: string;
+  color: string;
+  zona_nearest?: number | null;
+  intensidad_vh?: number | null;
+  lectura_source?: string | null;
+  idtramo_188?: string | null;
 }

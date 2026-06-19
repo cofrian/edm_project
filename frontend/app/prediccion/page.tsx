@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Gauge, Layers, RefreshCw, Radio } from "lucide-react";
+import { Gauge, Layers, RefreshCw, Radio } from "lucide-react";
 import Link from "next/link";
 import { DynamicMap } from "@/components/DynamicMap";
 import type { RoadColorMode } from "@/components/MapView";
 import { api } from "@/lib/api";
-import { DIAS_SEMANA, TRAFFIC_ESTADO_COLORS, TRAFFIC_ESTADO_LABELS } from "@/lib/constants";
+import { computeAffectedTramoIds } from "@/lib/eventTramos";
+import { DIAS_SEMANA, NIVEL_COLORS, TRAFFIC_ESTADO_COLORS, TRAFFIC_ESTADO_LABELS } from "@/lib/constants";
 import { Card, Badge } from "@/components/Card";
 import { PageHeader, Callout } from "@/components/ui";
 import type { CityEvent, HeatmapResponse, TrafficLiveResponse, WeatherCurrent } from "@/lib/types";
@@ -135,6 +136,18 @@ export default function PrediccionPage() {
   }, [heatmap]);
 
   const trafficStats = traffic?.stats ?? {};
+
+  const affectedTramoIds = useMemo(() => {
+    if (roadColorMode !== "prediction" || !traffic?.features?.length || !activeEvents.length) {
+      return [] as string[];
+    }
+    return Array.from(
+      computeAffectedTramoIds(
+        traffic.features as Parameters<typeof computeAffectedTramoIds>[0],
+        activeEvents,
+      ),
+    );
+  }, [roadColorMode, traffic?.features, activeEvents]);
 
   return (
     <div className="space-y-6">
@@ -281,7 +294,7 @@ export default function PrediccionPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <Card title="Mapa de vías — sin puntos superpuestos">
+        <Card title="Mapa de vías">
           {roadColorMode === "live" && (
             <div className="mb-3 flex flex-wrap gap-3 text-xs">
               {Object.entries(TRAFFIC_ESTADO_LABELS).map(([key, label]) => (
@@ -293,6 +306,26 @@ export default function PrediccionPage() {
                   {label}
                 </span>
               ))}
+              <span className="text-slate-400">· Pasa el ratón para veh/h</span>
+            </div>
+          )}
+          {roadColorMode === "prediction" && (
+            <div className="mb-3 flex flex-wrap gap-3 text-xs">
+              {(["baja", "media", "alta"] as const).map((n) => (
+                <span key={n} className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-1.5 w-8 rounded-full"
+                    style={{ backgroundColor: NIVEL_COLORS[n] }}
+                  />
+                  {n}
+                </span>
+              ))}
+              {affectedTramoIds.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-violet-700">
+                  <span className="h-1.5 w-8 rounded-full bg-violet-600" />
+                  Evento activo ({affectedTramoIds.length} tramos)
+                </span>
+              )}
             </div>
           )}
           <DynamicMap
@@ -301,6 +334,7 @@ export default function PrediccionPage() {
             trafficGeoJson={traffic}
             showTraffic
             roadColorMode={roadColorMode}
+            affectedTramoIds={affectedTramoIds}
           />
           {traffic?.n_tramos === 0 && (
             <p className="mt-2 text-sm text-amber-700">
@@ -335,12 +369,11 @@ export default function PrediccionPage() {
           </Card>
 
           <Card title="Eventos del día" className="xl:sticky xl:top-4">
-            <p className="mb-1 inline-flex items-center gap-2 text-xs font-medium text-brand-700">
-              <CalendarDays className="h-3.5 w-3.5" />
-              Solo en lista (no en mapa)
-            </p>
             <p className="mb-3 text-xs text-slate-500">
-              {dayEvents.length} eventos · {activeEvents.length} activos ahora
+              {dayEvents.length} eventos · {activeEvents.length} activos a las {hora}:00
+              {roadColorMode === "prediction" && affectedTramoIds.length > 0
+                ? ` · ${affectedTramoIds.length} tramos resaltados`
+                : ""}
             </p>
             <ul className="scroll-thin max-h-[380px] space-y-2 overflow-y-auto pr-1">
               {dayEvents.length === 0 && (
@@ -356,7 +389,7 @@ export default function PrediccionPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
-                      className={`flex w-full gap-3 rounded-xl border p-2.5 text-left transition ${
+                      className={`flex w-full rounded-xl border p-2.5 text-left transition ${
                         isSelected
                           ? "border-violet-400 bg-violet-50 ring-2 ring-violet-200"
                           : isActive
@@ -364,19 +397,15 @@ export default function PrediccionPage() {
                             : "border-slate-100 bg-white hover:border-slate-200"
                       }`}
                     >
-                      {ev.imagen && (
-                        <img
-                          src={ev.imagen}
-                          alt=""
-                          className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                        />
-                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-800">{ev.nombre}</p>
                         <p className="text-xs capitalize text-violet-600">{ev.tipo}</p>
                         <p className="text-xs text-slate-500">
                           {formatTime(ev.inicio)} – {formatTime(ev.fin)}
                         </p>
+                        {ev.direccion && (
+                          <p className="truncate text-[11px] text-slate-400">{ev.direccion}</p>
+                        )}
                         {isActive && (
                           <span className="mt-1 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
                             Activo ahora
@@ -395,18 +424,12 @@ export default function PrediccionPage() {
       <Callout tone="brand" title="Fuentes de datos oficiales">
         <ul className="list-inside list-disc space-y-1 text-sm">
           <li>
-            <strong>Tráfico:</strong> ArcGIS Open Data del Ayuntamiento de Valencia
-            (geoportal.valencia.es) — colores fluido / denso / congestionado / cortado.
+            <strong>En vivo:</strong> colores oficiales del Ayuntamiento; al pasar el ratón, veh/h
+            (capa 188 opendata).
           </li>
           <li>
-            <strong>Meteo:</strong> AEMET (España) u Open-Meteo como respaldo.
-          </li>
-          <li>
-            <strong>Predicción:</strong> modelo CatBoost en panel; capa de mapa &quot;Predicción&quot;
-            para colorear vías (cuando haya zonas enlazadas).
-          </li>
-          <li>
-            <strong>Eventos:</strong> catálogo manual en panel lateral, sin marcadores en el mapa.
+            <strong>Predicción:</strong> color CatBoost por zona en cada vía; eventos activos
+            resaltan tramos afectados (sin puntos).
           </li>
         </ul>
         <Link

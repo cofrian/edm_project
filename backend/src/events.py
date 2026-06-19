@@ -11,26 +11,9 @@ from .data_loader import load_city_events_raw
 
 TZ = ZoneInfo("Europe/Madrid")
 
-EVENT_IMAGES: dict[str, str] = {
-    "deporte": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=300&fit=crop",
-    "espectaculo": "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&h=300&fit=crop",
-    "concierto": "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=300&fit=crop",
-    "mercadillo": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=400&h=300&fit=crop",
-    "fiesta": "https://images.unsplash.com/photo-1533174072545-7a4b6d7a03ca?w=400&h=300&fit=crop",
-    "cultura": "https://images.unsplash.com/photo-1503099826907-0e4bd4a8d238?w=400&h=300&fit=crop",
-    "ocio": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=300&fit=crop",
-}
-DEFAULT_EVENT_IMAGE = (
-    "https://images.unsplash.com/photo-1511578314322-379afb476865?w=400&h=300&fit=crop"
-)
-
 
 def _enrich_event(ev: dict[str, Any]) -> dict[str, Any]:
-    out = dict(ev)
-    if not out.get("imagen"):
-        tipo = str(out.get("tipo", "")).lower()
-        out["imagen"] = EVENT_IMAGES.get(tipo, DEFAULT_EVENT_IMAGE)
-    return out
+    return dict(ev)
 
 
 @lru_cache

@@ -136,6 +136,15 @@ body {
   white-space: nowrap;
 }
 
+.leaflet-tooltip {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.12);
+  font-size: 12px;
+}
+
 @keyframes event-pulse {
   0% {
     transform: scale(0.95);
