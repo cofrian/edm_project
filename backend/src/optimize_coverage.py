@@ -16,6 +16,7 @@ import pulp
 from .data_loader import load_coverage_candidates
 from .schemas import CoverageRequest, OptimizeResponse, SelectedCandidate
 from .scoring import minmax
+from .solver import cbc_solver
 
 
 def optimize(req: CoverageRequest) -> OptimizeResponse:
@@ -40,7 +41,7 @@ def optimize(req: CoverageRequest) -> OptimizeResponse:
     x = {i: pulp.LpVariable(f"x_{i}", cat="Binary") for i in df.index}
     prob += pulp.lpSum(df.loc[i, "score"] * x[i] for i in df.index)
     prob += pulp.lpSum(float(df.loc[i, "cost"]) * x[i] for i in df.index) <= req.presupuesto
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(cbc_solver(msg=False))
 
     selected: list[SelectedCandidate] = []
     total_score = total_cost = 0.0

@@ -21,8 +21,9 @@ npm run dev
 
 ## Páginas
 
-`/` landing · `/datos` · `/prediccion` · `/evaluacion` · `/optimizacion` (Modo A/B) ·
-`/monitorizacion` · `/metodologia`.
+`/` landing · `/datos` · `/prediccion` · `/evaluacion` · `/optimizacion`
+(polideportivo, salud, multiobjetivo y Valenbisi) · `/monitorizacion` ·
+`/metodologia`.
 
 ## API
 

@@ -1,52 +1,93 @@
 # Optimización urbana — UrbanFlow Valencia
 
-Una sola sección con **dos modos** de programación lineal entera binaria (PuLP, solver CBC).
-La presión de tráfico de cada candidato proviene de la predicción CatBoost agregada por zona.
+La sección de optimización convierte los notebooks de `CURSO SMARTCITIES` en un
+servicio desplegable con API FastAPI y solver **PuLP/CBC**. El objetivo no es
+mostrar un experimento aislado, sino ofrecer una herramienta clara para decidir
+dónde instalar equipamientos urbanos con recursos limitados.
 
-## Modo A — Movilidad sostenible / Valenbisi
+## Qué resuelve la app
 
-Pregunta: ¿dónde ubicar nuevas estaciones Valenbisi o puntos de movilidad sostenible?
+| Modo | Pregunta | Restricción | Endpoint |
+|---|---|---|---|
+| Polideportivo | ¿Dónde abrir nuevas instalaciones deportivas? | `Σ costeᵢ Xᵢ ≤ presupuesto` | `/optimize/sports` |
+| Centro de salud | ¿Dónde reforzar cobertura sanitaria? | `Σ costeᵢ Xᵢ ≤ presupuesto` | `/optimize/health` |
+| Multiobjetivo | ¿Cómo repartir presupuesto entre deporte y salud? | Presupuesto + `Xᵢ + X'ᵢ ≤ 1` | `/optimize/multi` |
+| Valenbisi | ¿Qué puntos tienen más potencial de movilidad? | `Σ xᵢ = N` o presupuesto | `/optimize/valenbisi`, `/optimize/coverage` |
 
-- Variable: `x_i ∈ {0,1}` (selecciono el candidato i o no).
-- Score: `score_i = α·tráfico_i + β·población_i + γ·déficit_i` (cada término normalizado 0–1).
-- Objetivo: `max Σ score_i · x_i`.
-- Restricción: `Σ x_i = N`.
+## Modelos activos
 
-Salidas: ranking, score total, tabla de candidatos y mapa de seleccionados.
+### Cobertura poblacional
 
-## Modo B — Cobertura urbana general
+Modelo usado para polideportivo y centro de salud:
 
-Pregunta: ¿qué actuaciones priorizar bajo presupuesto limitado?
+```text
+Xᵢ ∈ {0,1}   candidato i seleccionado
+Yⱼ ∈ {0,1}   hexágono j cubierto
 
-- Variable: `x_i ∈ {0,1}`.
-- Score: `score_i = α·población_cubierta_i + β·presión_tráfico_i + γ·déficit_cobertura_i`.
-- Objetivo: `max Σ score_i · x_i`.
-- Restricción: `Σ coste_i · x_i ≤ presupuesto`.
-
-Salidas: actuaciones seleccionadas, coste total, mapa, score total.
-
-## Origen de los datos (trazabilidad)
-
-| Señal | Origen | Tipo |
-|---|---|---|
-| `traffic_score` / `traffic_pressure` | Baseline CatBoost agregado por zona | REAL |
-| `coverage_deficit` / `valenbisi_deficit_score` | Geometría: candidato NO cubierto por isócronas de instalaciones existentes (`centros-deportivo-valencia.csv`) | REAL (geométrico) |
-| `population_score` / `population_covered` | Área alcanzable de la isócrona del candidato | **PROXY documentado** (no censo) |
-| `cost` | `cost1` de `localizaciones2.csv` | REAL |
-
-> El proxy de población se usa para ponderar; el notebook `04_prepare_optimization_data.ipynb`
-> documenta la versión con la capa de población descargada de las fuentes citadas en los
-> notebooks originales (gitlab/Drive). No se inventan cifras de censo.
-
-## Conexión con CatBoost (narrativa única)
-
+max  Σⱼ pⱼ Yⱼ
+s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0
+     Σᵢ costeᵢ Xᵢ ≤ presupuesto
 ```
+
+`αᵢⱼ = 1` cuando el centroide del hexágono de población `j` cae dentro de la
+isócrona del candidato `i`. Los pesos `pⱼ` proceden de la capa de población
+filtrada a Valencia y se ajustan según cobertura existente.
+
+### Multiobjetivo
+
+```text
+max  λ·cobertura_deporte + (1−λ)·cobertura_salud
+s.a. Σ coste ≤ presupuesto
+     Xᵢ + X'ᵢ ≤ 1
+```
+
+El parámetro `λ` permite explicar escenarios: `λ=1` prioriza deporte, `λ=0`
+prioriza salud y `λ=0.5` reparte peso de forma equilibrada.
+
+### Valenbisi / movilidad
+
+```text
+scoreᵢ = α·tráficoᵢ + β·poblaciónᵢ + γ·déficitᵢ
+max  Σ scoreᵢ · xᵢ
+```
+
+Este modo conserva el planteamiento del taller SMARTCITIES: combina presión de
+tráfico, población alcanzable y déficit de cobertura de estaciones existentes.
+
+## Trazabilidad con los notebooks
+
+| Notebook / bloque | Contenido original | Estado en UrbanFlow |
+|---|---|---|
+| `optimizacion (1).ipynb` | OR-Tools, ciudad de 15 minutos, restricciones de cobertura, suma ponderada multiobjetivo. | Reimplementado en PuLP/CBC para backend reproducible. |
+| `OptimizaciónValenbisi_CátedraENIA2025.ipynb` | PuLP, candidatos Valenbisi, score compuesto, visualización y comparación. | Activo en la API como modo Valenbisi. |
+| Weighted sum / `α`-lexicographic | Dos estrategias para combinar objetivos. | Suma ponderada activa con `λ`; lexicográfico documentado como variante futura. |
+| Tweets y capas externas | Señales sociales/geográficas descargadas desde Drive. | No se despliegan si no están curadas; la demanda operativa se cubre con CatBoost y población. |
+| Algoritmo genético (DEAP) | Heurística para comparar soluciones. | Documentado como análisis secundario; no se ejecuta en producción. |
+| Voronoi dinámico | Áreas de influencia no lineales con solapes. | Documentado como mejora exploratoria futura. |
+| Preparación de datos | Candidatos, población, isócronas, costes y equipamientos existentes. | Curado en `backend/data/processed/`. |
+
+## Artefactos usados
+
+| Archivo | Papel |
+|---|---|
+| `candidates_facilities.csv` | Candidatos, coordenadas, zona, costes y presión de tráfico. |
+| `population_hexes.csv` | Hexágonos de población, necesidad deportiva/sanitaria y pesos. |
+| `coverage_alpha.json` | Matriz dispersa candidato → hexágonos cubiertos. |
+| `existing_sports.geojson` / `existing_health.geojson` | Cobertura existente para calcular déficit. |
+| `candidate_points_valenbisi.csv` | Candidatos para el modo Valenbisi con score compuesto. |
+
+## Conexión con CatBoost
+
+```text
 CatBoost predice tráfico por zona/hora
    → se agrega a cada candidato como presión de tráfico
-      → el score urbano usa esa presión
-         → PuLP selecciona los mejores puntos
+      → el optimizador usa esa señal junto a población/cobertura
+         → PuLP selecciona la combinación óptima
 ```
 
-## Solver
-PuLP con CBC (`PULP_CBC_CMD`). Estable y rápido. El algoritmo genético / Voronoi de los
-notebooks originales queda como análisis secundario, no como motor principal.
+## Criterio de despliegue
+
+El servicio desplegado usa PuLP/CBC porque produce soluciones deterministas,
+testeables y rápidas en Hugging Face Spaces. Los bloques de algoritmo genético y
+Voronoi quedan explicados como parte del aprendizaje del notebook, pero no son el
+motor de decisión público.

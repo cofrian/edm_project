@@ -101,7 +101,7 @@ export default async function MonitorizacionPage() {
           <li className="rounded-lg bg-slate-50 p-3">Datos de octubre 2023; un cambio estacional o de sensores puede degradar el modelo (drift).</li>
           <li className="rounded-lg bg-slate-50 p-3">Horas valle y zonas periféricas tienen mayor sMAPE: interpretar con cautela.</li>
           <li className="rounded-lg bg-slate-50 p-3">En producción se reentrenaría periódicamente comparando el error vivo contra este baseline.</li>
-          <li className="rounded-lg bg-slate-50 p-3">La cobertura de población usa un proxy geométrico documentado en la optimización.</li>
+          <li className="rounded-lg bg-slate-50 p-3">La cobertura se calcula con población hexagonal e isócronas; debe validarse con criterio urbanístico antes de una decisión real.</li>
         </ul>
         <div className="mt-3"><Badge color="blue">EDM: Monitoring / ModelOps</Badge></div>
       </Card>

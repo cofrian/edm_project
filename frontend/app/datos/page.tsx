@@ -7,7 +7,7 @@ export const metadata = { title: "Datos" };
 const OPT_DATA = [
   ["localizaciones2.csv", "128 ubicaciones candidatas con isócrona (área alcanzable a pie) y dos costes de implantación."],
   ["centros-deportivo-valencia.csv", "Equipamientos existentes con su isócrona: definen la cobertura actual y el déficit."],
-  ["population_spain.gpkg", "Capa de población (cuadrícula) para estimar la demanda alcanzable por cada candidato."],
+  ["population_spain.gpkg", "Capa de población en cuadrícula/hexágonos para medir habitantes cubiertos por cada isócrona."],
 ];
 
 const TRAFFIC_VARS = [
@@ -68,9 +68,9 @@ export default function DatosPage() {
             existentes se detecta el <strong>déficit de cobertura</strong>.
           </p>
           <Callout tone="teal" title="Transparencia metodológica">
-            La población alcanzable se aproxima mediante el área de la isócrona
-            cuando no se cruza con el censo; está documentado como proxy y no se
-            presenta como dato censal exacto.
+            La cobertura se calcula cruzando los centroides de la cuadrícula de
+            población con las isócronas de candidatos y equipamientos existentes.
+            Así se distingue entre habitantes ya cubiertos y nueva cobertura.
           </Callout>
         </Card>
 

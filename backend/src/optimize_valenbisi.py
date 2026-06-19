@@ -16,6 +16,7 @@ import pulp
 from .data_loader import load_candidates_valenbisi
 from .schemas import OptimizeResponse, SelectedCandidate, ValenbisiRequest
 from .scoring import minmax
+from .solver import cbc_solver
 
 
 def optimize(req: ValenbisiRequest) -> OptimizeResponse:
@@ -40,7 +41,7 @@ def optimize(req: ValenbisiRequest) -> OptimizeResponse:
     x = {i: pulp.LpVariable(f"x_{i}", cat="Binary") for i in df.index}
     prob += pulp.lpSum(df.loc[i, "score"] * x[i] for i in df.index)
     prob += pulp.lpSum(x[i] for i in df.index) == n
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(cbc_solver(msg=False))
 
     selected: list[SelectedCandidate] = []
     total_score = total_cost = 0.0

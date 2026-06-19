@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
   Target,
   Coins,
   Play,
@@ -14,6 +15,9 @@ import {
   HeartPulse,
   Blend,
   Bike,
+  BookOpen,
+  CheckCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, Badge } from "@/components/Card";
@@ -28,8 +32,93 @@ const FACILITY_LABELS: Record<FacilityMode, string> = {
   sports: "Polideportivo",
   health: "Centro de salud",
   multi: "Multi (deporte + salud)",
-  valenbisi: "Valenbisi (legacy)",
+  valenbisi: "Valenbisi (curso SMARTCITIES)",
 };
+
+const FACILITY_HELP: Record<
+  FacilityMode,
+  { question: string; objective: string; output: string; notebook: string }
+> = {
+  sports: {
+    question: "¿Dónde abrir nuevas instalaciones deportivas?",
+    objective:
+      "Maximiza habitantes que pasan a estar cubiertos por polideportivos, evitando duplicar cobertura existente.",
+    output: "Ranking de ubicaciones candidatas, coste usado y población cubierta.",
+    notebook: "Modelo 2 de cobertura urbana del notebook de optimización.",
+  },
+  health: {
+    question: "¿Dónde reforzar la red sanitaria?",
+    objective:
+      "Maximiza habitantes que pasan a estar cubiertos por centros de salud u hospitales.",
+    output: "Ubicaciones sanitarias priorizadas bajo el presupuesto disponible.",
+    notebook: "Modelo 2 adaptado a cobertura sanitaria.",
+  },
+  multi: {
+    question: "¿Cómo repartir presupuesto entre deporte y salud?",
+    objective:
+      "Combina dos objetivos con λ: 1 prioriza deporte, 0 prioriza salud, 0.5 equilibra ambos.",
+    output: "Mezcla óptima de equipamientos sin instalar dos servicios en el mismo punto.",
+    notebook: "Modelo 3 multiobjetivo del notebook de optimización.",
+  },
+  valenbisi: {
+    question: "¿Qué puntos de movilidad tienen mayor potencial?",
+    objective:
+      "Combina tráfico, población alcanzable y déficit de Valenbisi en un score ponderado.",
+    output: "Selección por número fijo o presupuesto usando el score del taller.",
+    notebook: "Optimización Valenbisi con PuLP del notebook Cátedra ENIA.",
+  },
+};
+
+const NOTEBOOK_TRACE = [
+  {
+    source: "optimizacion (1).ipynb",
+    notebook: "Ciudad de 15 minutos, variables binarias, OR-Tools, restricciones de cobertura y suma ponderada multiobjetivo.",
+    app: "Reimplementado en PuLP/CBC como polideportivo, centro de salud y multiobjetivo, con población hexagonal e isócronas.",
+    status: "Activo en API",
+  },
+  {
+    source: "OptimizaciónValenbisi_CátedraENIA2025.ipynb",
+    notebook: "Carga de población, tráfico, Valenbisi actual, candidatos y optimización exacta con PuLP.",
+    app: "Modo Valenbisi con pesos editables y selección de N puntos o presupuesto sobre candidatos curados.",
+    status: "Activo en API",
+  },
+  {
+    source: "Weighted sum / α-lexicographic",
+    notebook: "Comparación de formas de combinar objetivos cuando hay varias métricas urbanas.",
+    app: "La suma ponderada está activa con λ y pesos editables; el lexicográfico queda como variante documentada.",
+    status: "Parcial",
+  },
+  {
+    source: "Tweets y capas externas",
+    notebook: "Exploración de señales sociales/geográficas descargadas desde Drive para enriquecer demanda.",
+    app: "No se despliegan datos no curados; la demanda operativa se cubre con CatBoost de tráfico y población.",
+    status: "Sustituido",
+  },
+  {
+    source: "Bloques genético + Voronoi",
+    notebook: "Exploración de DEAP y áreas de influencia dinámicas para comparar soluciones no lineales.",
+    app: "Documentado como análisis exploratorio: no se ejecuta en producción para mantener resultados deterministas y despliegue ligero.",
+    status: "Documentado",
+  },
+  {
+    source: "04_prepare_optimization_data.ipynb",
+    notebook: "Conversión de datos crudos a candidatos, población, isócronas, costes y cobertura existente.",
+    app: "Artefactos servidos desde backend/data/processed: candidates_facilities, population_hexes y coverage_alpha.",
+    status: "Curado",
+  },
+];
+
+const BUDGET_PRESETS = [
+  { label: "Piloto", value: 60 },
+  { label: "Equilibrado", value: 120 },
+  { label: "Ambicioso", value: 250 },
+];
+
+const COUNT_PRESETS = [
+  { label: "5 puntos", value: 5 },
+  { label: "10 puntos", value: 10 },
+  { label: "20 puntos", value: 20 },
+];
 
 const FACILITY_COLORS: Record<string, string> = {
   polideportivo: "#1d4ed8",
@@ -52,46 +141,76 @@ export default function OptimizacionPage() {
   const [wPob, setWPob] = useState(1);
   const [wDef, setWDef] = useState(1);
 
+  function resetResult() {
+    setResult(null);
+    setRan(false);
+  }
+
+  function selectFacility(next: FacilityMode) {
+    setFacility(next);
+    resetResult();
+  }
+
+  function selectConstraint(next: ConstraintMode) {
+    setConstraint(next);
+    resetResult();
+  }
+
   async function run() {
     setLoading(true);
     setRan(true);
-    let res: OptimizeResponse;
+    try {
+      let res: OptimizeResponse;
 
-    if (facility === "valenbisi") {
-      res =
-        constraint === "count"
-          ? await api.optimizeValenbisi({
-              n,
-              alpha_trafico: wTraf,
-              beta_poblacion: wPob,
-              gamma_deficit: wDef,
-            })
-          : await api.optimizeCoverage({
-              presupuesto: budget,
-              alpha_poblacion: wPob,
-              beta_trafico: wTraf,
-              gamma_deficit: wDef,
-            });
-    } else if (facility === "multi") {
-      res = await api.optimizeMulti({
-        presupuesto: budget,
-        lambda_sports: lambdaSports,
-      });
-    } else if (facility === "sports") {
-      res = await api.optimizeSports({ presupuesto: budget });
-    } else {
-      res = await api.optimizeHealth({ presupuesto: budget });
+      if (facility === "valenbisi") {
+        res =
+          constraint === "count"
+            ? await api.optimizeValenbisi({
+                n,
+                alpha_trafico: wTraf,
+                beta_poblacion: wPob,
+                gamma_deficit: wDef,
+              })
+            : await api.optimizeCoverage({
+                presupuesto: budget,
+                alpha_poblacion: wPob,
+                beta_trafico: wTraf,
+                gamma_deficit: wDef,
+              });
+      } else if (facility === "multi") {
+        res = await api.optimizeMulti({
+          presupuesto: budget,
+          lambda_sports: lambdaSports,
+        });
+      } else if (facility === "sports") {
+        res = await api.optimizeSports({ presupuesto: budget });
+      } else {
+        res = await api.optimizeHealth({ presupuesto: budget });
+      }
+
+      setResult(res);
+    } finally {
+      setLoading(false);
     }
-
-    setResult(res);
-    setLoading(false);
   }
+
+  const usesRealPopulation = facility !== "valenbisi";
+  const helper = FACILITY_HELP[facility];
+  const budgetBased = facility !== "valenbisi" || constraint === "budget";
+  const budgetUsage =
+    result && budgetBased ? Math.round((result.total_cost / budget) * 100) : null;
+  const topCandidate = result?.selected[0];
+  const apiUnavailable = result?.constraint === "API no disponible";
 
   const markers =
     result?.selected.map((s) => ({
       lat: s.lat,
       lon: s.lon,
-      label: `${s.facility_type ?? FACILITY_LABELS[facility]} #${s.candidate_id} · ${s.score} hab.`,
+      label: `${formatFacilityType(s.facility_type, facility)} #${s.candidate_id} · ${
+        usesRealPopulation
+          ? `${s.score.toLocaleString("es-ES")} hab.`
+          : `score ${s.score.toLocaleString("es-ES")}`
+      }`,
       color:
         FACILITY_COLORS[s.facility_type ?? ""] ??
         FACILITY_COLORS.default,
@@ -101,8 +220,6 @@ export default function OptimizacionPage() {
     result && result.n_selected > 0
       ? (result.total_cost / result.n_selected).toFixed(1)
       : "—";
-
-  const usesRealPopulation = facility !== "valenbisi";
 
   return (
     <div className="space-y-8">
@@ -115,35 +232,77 @@ export default function OptimizacionPage() {
         <Badge color="green">Población censal real</Badge>
       </PageHeader>
 
+      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card>
+          <div className="flex items-start gap-3">
+            <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+            <div>
+              <p className="eyebrow">Guía rápida</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">
+                De pregunta municipal a escenario optimizable
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Elige el objetivo urbano, ajusta la restricción y ejecuta el
+                solver. La tabla y el mapa muestran exactamente qué candidatos
+                cumplen mejor el criterio sin superar el presupuesto o el número
+                de ubicaciones fijado.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <GuideStep n="1" title="Objetivo" text="Selecciona deporte, salud, multiobjetivo o Valenbisi." />
+                <GuideStep n="2" title="Restricción" text="Define presupuesto, N puntos y pesos si aplica." />
+                <GuideStep n="3" title="Decisión" text="Interpreta población cubierta, coste y ranking." />
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-start gap-3">
+            <SlidersHorizontal className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
+            <div>
+              <p className="eyebrow">Escenario actual</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">
+                {helper.question}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">{helper.objective}</p>
+              <dl className="mt-4 space-y-2 text-sm">
+                <SummaryRow k="Salida" v={helper.output} />
+                <SummaryRow k="Origen" v={helper.notebook} />
+              </dl>
+            </div>
+          </div>
+        </Card>
+      </section>
+
       {/* Tipo de equipamiento */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FacilityButton
           active={facility === "sports"}
-          onClick={() => setFacility("sports")}
+          onClick={() => selectFacility("sports")}
           icon={<Dumbbell className="h-5 w-5" />}
           title="Polideportivo"
-          subtitle="Modelo 2 · cost1 · isócronas deportivas existentes"
+          subtitle="Cobertura deportiva real · Modelo 2"
         />
         <FacilityButton
           active={facility === "health"}
-          onClick={() => setFacility("health")}
+          onClick={() => selectFacility("health")}
           icon={<HeartPulse className="h-5 w-5" />}
           title="Centro de salud"
-          subtitle="Modelo 2 · cost2 · hospitales existentes"
+          subtitle="Cobertura sanitaria real · Modelo 2"
         />
         <FacilityButton
           active={facility === "multi"}
-          onClick={() => setFacility("multi")}
+          onClick={() => selectFacility("multi")}
           icon={<Blend className="h-5 w-5" />}
           title="Multi-objetivo"
           subtitle="Modelo 3 · λ deporte + (1−λ) salud"
         />
         <FacilityButton
           active={facility === "valenbisi"}
-          onClick={() => setFacility("valenbisi")}
+          onClick={() => selectFacility("valenbisi")}
           icon={<Bike className="h-5 w-5" />}
           title="Valenbisi"
-          subtitle="Modo legacy (score compuesto)"
+          subtitle="Score de movilidad del taller"
         />
       </div>
 
@@ -151,14 +310,14 @@ export default function OptimizacionPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <ModeButton
             active={constraint === "count"}
-            onClick={() => setConstraint("count")}
+            onClick={() => selectConstraint("count")}
             icon={<Target className="h-5 w-5" />}
             title="Nº fijo de ubicaciones"
             subtitle="Σ xᵢ = N"
           />
           <ModeButton
             active={constraint === "budget"}
-            onClick={() => setConstraint("budget")}
+            onClick={() => selectConstraint("budget")}
             icon={<Coins className="h-5 w-5" />}
             title="Presupuesto máximo"
             subtitle="Σ costeᵢ·xᵢ ≤ presupuesto"
@@ -179,27 +338,58 @@ export default function OptimizacionPage() {
           <div className="mt-5 space-y-5">
             {facility === "valenbisi" && constraint === "count" ? (
               <Field label="Número de equipamientos" value={n}>
-                <input
-                  type="range"
-                  min={1}
-                  max={30}
-                  value={n}
-                  onChange={(e) => setN(+e.target.value)}
-                  className="range"
+                <PresetButtons
+                  items={COUNT_PRESETS}
+                  active={n}
+                  onSelect={setN}
                 />
+                <div className="mt-3 grid grid-cols-[1fr_5rem] gap-3">
+                  <input
+                    type="range"
+                    min={1}
+                    max={30}
+                    value={n}
+                    onChange={(e) => setN(+e.target.value)}
+                    className="range"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={n}
+                    onChange={(e) => setN(clamp(+e.target.value, 1, 30))}
+                    className="input py-1.5 text-center"
+                  />
+                </div>
                 <Scale left="1" right="30" />
               </Field>
             ) : (
               <Field label="Presupuesto disponible" value={`${budget} u.`}>
-                <input
-                  type="range"
-                  min={10}
-                  max={500}
-                  step={10}
-                  value={budget}
-                  onChange={(e) => setBudget(+e.target.value)}
-                  className="range"
+                <PresetButtons
+                  items={BUDGET_PRESETS}
+                  active={budget}
+                  onSelect={setBudget}
                 />
+                <div className="mt-3 grid grid-cols-[1fr_5.5rem] gap-3">
+                  <input
+                    type="range"
+                    min={10}
+                    max={500}
+                    step={10}
+                    value={budget}
+                    onChange={(e) => setBudget(+e.target.value)}
+                    className="range"
+                  />
+                  <input
+                    type="number"
+                    min={10}
+                    max={500}
+                    step={10}
+                    value={budget}
+                    onChange={(e) => setBudget(clamp(+e.target.value, 10, 500))}
+                    className="input py-1.5 text-center"
+                  />
+                </div>
                 <Scale left="10" right="500" />
               </Field>
             )}
@@ -264,6 +454,31 @@ export default function OptimizacionPage() {
         </Card>
 
         <div className="space-y-4 lg:col-span-2">
+          {ran && (
+            <Callout
+              tone={apiUnavailable ? "amber" : result ? "teal" : "brand"}
+              title={
+                apiUnavailable
+                  ? "API no disponible"
+                  : result
+                    ? "Lectura del resultado"
+                    : "Calculando escenario"
+              }
+            >
+              {apiUnavailable
+                ? "La interfaz está funcionando, pero no ha podido obtener una solución del backend. Revisa NEXT_PUBLIC_API_URL o el estado del Space."
+                : result
+                  ? result.n_selected > 0
+                    ? `El solver selecciona ${result.n_selected} ubicaciones${
+                        budgetUsage != null
+                          ? ` usando aproximadamente el ${budgetUsage}% del presupuesto`
+                          : ""
+                      }. La primera recomendación es el candidato #${topCandidate?.candidate_id}.`
+                    : "El solver no ha seleccionado ubicaciones con esta restricción. Sube el presupuesto o reduce las exigencias del escenario."
+                  : "Ejecutando PuLP/CBC sobre los artefactos curados del proyecto."}
+            </Callout>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Ubicaciones elegidas"
@@ -292,7 +507,11 @@ export default function OptimizacionPage() {
             <Stat
               label="Coste total"
               value={result ? result.total_cost.toFixed(1) : "—"}
-              hint={`Coste medio: ${avgCost}`}
+              hint={
+                budgetUsage != null
+                  ? `Uso presupuesto: ${budgetUsage}% · coste medio: ${avgCost}`
+                  : `Coste medio: ${avgCost}`
+              }
             />
             <Stat
               label="Modo"
@@ -357,7 +576,7 @@ export default function OptimizacionPage() {
                       #{s.candidate_id}
                     </td>
                     <td className="py-2.5 pr-3 text-slate-600">
-                      {s.facility_type ?? FACILITY_LABELS[facility]}
+                      {formatFacilityType(s.facility_type, facility)}
                     </td>
                     <td className="py-2.5 pr-3 text-slate-600">
                       {s.zona ?? "—"}
@@ -427,8 +646,9 @@ export default function OptimizacionPage() {
                   max Σ scoreᵢ·xᵢ
                 </div>
                 <p className="mt-3 text-sm text-slate-600">
-                  Modo legacy con score compuesto (compatible con la API
-                  anterior).
+                  Modo Valenbisi del curso: mantiene el score compuesto del
+                  taller para comparar presión de tráfico, población alcanzable
+                  y déficit de cobertura de estaciones existentes.
                 </p>
               </>
             )}
@@ -436,6 +656,65 @@ export default function OptimizacionPage() {
               Autores: Sergio Ortiz Montesinos, Luis Trigueros Espada, Fernando
               Martínez Gómez
             </p>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-slate-900">
+              Comprobación de contenido respecto a los notebooks
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              La app conserva el contenido operativo del curso, pero separa lo
+              que se despliega como cálculo determinista de lo que queda como
+              análisis exploratorio.
+            </p>
+            <div className="mt-4 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[780px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-3">Fuente</th>
+                    <th className="py-2 pr-3">Contenido del notebook</th>
+                    <th className="py-2 pr-3">Implementación en la app</th>
+                    <th className="py-2">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {NOTEBOOK_TRACE.map((row) => (
+                    <tr key={row.source} className="border-b border-slate-100 last:border-0">
+                      <td className="py-3 pr-3 align-top font-medium text-slate-800">
+                        {row.source}
+                      </td>
+                      <td className="py-3 pr-3 align-top text-slate-600">
+                        {row.notebook}
+                      </td>
+                      <td className="py-3 pr-3 align-top text-slate-600">
+                        {row.app}
+                      </td>
+                      <td className="py-3 align-top">
+                        <Badge color={traceStatusColor(row.status)}>
+                          {row.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Callout tone="amber" title="Criterio de despliegue">
+              <span className="inline-flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  El algoritmo genético y el Voronoi dinámico siguen explicados
+                  como parte del aprendizaje del notebook, pero el servicio
+                  público usa PuLP/CBC porque es reproducible, testeable y más
+                  estable en Hugging Face.
+                </span>
+              </span>
+            </Callout>
           </div>
         </div>
       </Card>
@@ -589,4 +868,81 @@ function Weight({
       />
     </div>
   );
+}
+
+function GuideStep({
+  n,
+  title,
+  text,
+}: {
+  n: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">
+        {n}
+      </span>
+      <p className="mt-2 font-semibold text-slate-900">{title}</p>
+      <p className="mt-1 text-xs text-slate-600">{text}</p>
+    </div>
+  );
+}
+
+function SummaryRow({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {k}
+      </dt>
+      <dd className="mt-0.5 text-slate-600">{v}</dd>
+    </div>
+  );
+}
+
+function PresetButtons({
+  items,
+  active,
+  onSelect,
+}: {
+  items: { label: string; value: number }[];
+  active: number;
+  onSelect: (value: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {items.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          onClick={() => onSelect(item.value)}
+          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+            active === item.value
+              ? "border-brand-300 bg-brand-50 text-brand-700"
+              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function formatFacilityType(type: string | null | undefined, fallback: FacilityMode) {
+  if (type === "polideportivo") return "Polideportivo";
+  if (type === "centro_salud") return "Centro de salud";
+  return FACILITY_LABELS[fallback];
+}
+
+function traceStatusColor(status: string): "green" | "amber" | "blue" {
+  if (status === "Activo en API") return "green";
+  if (status === "Parcial" || status === "Sustituido") return "amber";
+  return "blue";
+}
+
+function clamp(value: number, min: number, max: number) {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
 }

@@ -9,6 +9,7 @@ import {
   Activity,
   ShieldCheck,
   Boxes,
+  BookOpen,
 } from "lucide-react";
 
 export const metadata = { title: "Documentación" };
@@ -19,6 +20,7 @@ const TOC = [
   ["arquitectura", "Arquitectura de la solución"],
   ["despliegue", "Arquitectura de despliegue"],
   ["optimizacion", "Motor de optimización"],
+  ["notebooks", "Trazabilidad SMARTCITIES"],
   ["modelo", "Modelo de demanda"],
   ["monitor", "Evaluación y monitorización"],
   ["stack", "Stack y reproducibilidad"],
@@ -145,7 +147,7 @@ Backend FastAPI  ───────────  Hugging Face Spaces (Docker)
             <h4 className="mt-5 font-semibold text-slate-900">1 · Frontend en Vercel</h4>
             <p className="mt-1">
               Conectado al repositorio con <em>root directory</em> <code>frontend/</code>.
-              En cada push a <code>main</code>, Vercel construye y publica
+              En cada push a <code>production</code>, Vercel construye y publica
               automáticamente. La URL de la API se inyecta como variable de entorno:
             </p>
             <Diagram>{`NEXT_PUBLIC_API_URL = https://cofrian-edm-proyect.hf.space`}</Diagram>
@@ -186,6 +188,7 @@ CMD uvicorn main:app --host 0.0.0.0 --port 7860`}
                     ["backend-ci", "push/PR en backend/", "Ruff, pytest (9 tests), import de la app, CBC + Git LFS"],
                     ["frontend-ci", "push/PR en frontend/", "ESLint, TypeScript, build de Next.js"],
                     ["docker-build", "push en main", "Construcción de la imagen Docker"],
+                    ["deploy-hf", "push a production con backend/", "Sincronización del backend al Space de Hugging Face"],
                     ["deploy-check", "push a production", "curl al /health de la API desplegada"],
                   ].map(([w, t, q]) => (
                     <tr key={w} className="border-b border-slate-100 last:border-0">
@@ -209,26 +212,68 @@ CMD uvicorn main:app --host 0.0.0.0 --port 7860`}
             <p>
               Es el corazón del proyecto. Se modela como un problema de{" "}
               <strong>programación lineal entera binaria</strong> resuelto con el solver
-              CBC a través de PuLP. Cada ubicación candidata tiene una variable{" "}
-              <code>xᵢ ∈ &#123;0,1&#125;</code> y un score que combina tres criterios
-              normalizados.
+              CBC a través de PuLP. Cada ubicación candidata tiene una variable
+              binaria y la solución respeta la restricción de presupuesto o de
+              número de ubicaciones elegida por el usuario.
             </p>
             <Diagram>
-{`scoreᵢ = w_tráfico·tráficoᵢ + w_población·poblaciónᵢ + w_déficitᵢ·déficitᵢ
-max  Σ scoreᵢ · xᵢ
+{`Modelo cobertura:
+max  Σⱼ pⱼ Yⱼ
+s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0
+     Σᵢ costeᵢ Xᵢ ≤ presupuesto
 
-Modo A (nº fijo):     s.a.  Σ xᵢ = N
-Modo B (presupuesto): s.a.  Σ costeᵢ · xᵢ ≤ presupuesto`}
+Modelo multiobjetivo:
+max  λ·cobertura_deporte + (1−λ)·cobertura_salud
+s.a. Xᵢ + X'ᵢ ≤ 1
+
+Modo Valenbisi:
+max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
             </Diagram>
             <ul className="mt-3 list-inside list-disc space-y-1 text-slate-600">
               <li><strong>Tráfico:</strong> presión predicha por CatBoost, agregada por zona.</li>
-              <li><strong>Población alcanzable:</strong> a partir del área de la isócrona del candidato.</li>
-              <li><strong>Déficit:</strong> penaliza solaparse con equipamientos existentes.</li>
+              <li><strong>Población cubierta:</strong> cruce de hexágonos de población con isócronas de candidatos.</li>
+              <li><strong>Déficit:</strong> prioriza zonas no cubiertas por equipamientos existentes.</li>
             </ul>
             <p className="mt-3">
               El resultado es el <strong>óptimo global</strong> para los pesos y la
               restricción elegidos, no una aproximación heurística.
             </p>
+          </Section>
+
+          <Section id="notebooks" icon={<BookOpen className="h-5 w-5" />} title="Trazabilidad SMARTCITIES">
+            <p>
+              Los notebooks originales se han convertido en una versión
+              desplegable, más estable y explicable para el usuario final. La
+              lógica que requiere respuesta determinista está en la API; los
+              bloques exploratorios quedan documentados como análisis.
+            </p>
+            <div className="mt-4 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-4">Notebook</th>
+                    <th className="py-2 pr-4">Qué aporta</th>
+                    <th className="py-2">Dónde queda</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["optimizacion (1).ipynb", "OR-Tools, cobertura, restricciones y multiobjetivo.", "PuLP/CBC en /optimize/sports, /health y /multi."],
+                    ["OptimizaciónValenbisi_CátedraENIA2025.ipynb", "PuLP, score tráfico+población+déficit y comparación de soluciones.", "Modo Valenbisi en /optimize/valenbisi y /optimize/coverage."],
+                    ["Weighted sum / α-lexicographic", "Comparación de estrategias multiobjetivo.", "Suma ponderada activa con λ; lexicográfico documentado como variante."],
+                    ["Tweets y capas externas", "Señales auxiliares descargadas desde Drive.", "No se despliegan si no están curadas; CatBoost cubre demanda operativa."],
+                    ["Algoritmo genético y Voronoi", "Exploración no lineal con áreas dinámicas de influencia.", "Documentado, no ejecutado en producción por reproducibilidad y coste."],
+                    ["Preparación de datos", "Candidatos, población, isócronas, costes y cobertura existente.", "Artefactos curados en backend/data/processed."],
+                  ].map(([n, a, d]) => (
+                    <tr key={n} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-brand-700">{n}</td>
+                      <td className="py-2.5 pr-4 align-top text-slate-600">{a}</td>
+                      <td className="py-2.5 align-top text-slate-600">{d}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Section>
 
           {/* MODELO */}
@@ -251,7 +296,9 @@ Modo B (presupuesto): s.a.  Σ costeᵢ · xᵢ ≤ presupuesto`}
             </div>
             <Callout tone="amber" title="Honestidad metodológica">
               Las métricas de LightGBM (peores) no se mezclan con las de CatBoost.
-              La población alcanzable usa un proxy geométrico documentado.
+              La cobertura usa población hexagonal filtrada a Valencia y se
+              interpreta como apoyo a la decisión, no como sustituto de una
+              evaluación urbanística completa.
             </Callout>
           </Section>
 

@@ -136,8 +136,8 @@ API REST que **carga artefactos precomputados** (no entrena en producción). Sir
 | `POST` | `/optimize/sports` | Polideportivo bajo presupuesto (ILP, población real) |
 | `POST` | `/optimize/health` | Centro de salud bajo presupuesto (ILP) |
 | `POST` | `/optimize/multi` | Multi-objetivo deporte + salud con λ |
-| `POST` | `/optimize/valenbisi` | Selección de N ubicaciones (legacy) |
-| `POST` | `/optimize/coverage` | Cobertura bajo presupuesto (legacy) |
+| `POST` | `/optimize/valenbisi` | Selección de N ubicaciones para Valenbisi / movilidad |
+| `POST` | `/optimize/coverage` | Cobertura bajo presupuesto con score compuesto |
 | `GET` | `/map/traffic-segments` | GeoJSON de segmentos de tráfico |
 | `GET` | `/map/current-valenbisi` | Estaciones Valenbisi actuales |
 | `GET` | `/candidates/valenbisi` | Puntos candidatos |
@@ -167,7 +167,7 @@ Modelos del notebook SMARTCITIES portados a PuLP/CBC con población censal real 
 | **Polideportivo** | Σ coste ≤ presupuesto | max Σ pⱼ Yⱼ (habitantes sin cobertura deportiva) |
 | **Centro de salud** | Σ coste ≤ presupuesto | max Σ pⱼ Yⱼ (habitantes sin cobertura sanitaria) |
 | **Multi** | Σ coste ≤ presupuesto, Xᵢ+X'ᵢ≤1 | max λ·deporte + (1−λ)·salud |
-| **Valenbisi (legacy)** | Σ xᵢ = N o presupuesto | Score compuesto tráfico + población + déficit |
+| **Valenbisi / movilidad** | Σ xᵢ = N o presupuesto | Score compuesto tráfico + población + déficit |
 
 El solver **CBC** (`coinor-cbc`) se instala en el contenedor Docker y en CI.
 
