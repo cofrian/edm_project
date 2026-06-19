@@ -88,3 +88,65 @@ body {
 .scroll-thin::-webkit-scrollbar-thumb {
   @apply rounded-full bg-slate-300;
 }
+
+/* Marcadores de eventos en mapa Leaflet */
+.event-marker-leaflet {
+  background: transparent !important;
+  border: none !important;
+}
+
+.event-marker-pulse {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+}
+
+.event-marker-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 3px solid #7c3aed;
+  animation: event-pulse 2s ease-out infinite;
+}
+
+.event-marker-pulse img {
+  position: relative;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 14px rgb(124 58 237 / 0.45);
+}
+
+.event-marker-label {
+  display: block;
+  margin-top: 2px;
+  max-width: 72px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #5b21b6;
+  text-shadow: 0 1px 2px #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes event-pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}

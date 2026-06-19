@@ -61,6 +61,7 @@ class CityEvent(BaseModel):
     factor_max: float = 1.3
     fuente: str = "manual"
     enlace: str | None = None
+    imagen: str | None = None
 
 
 class EventsListResponse(BaseModel):

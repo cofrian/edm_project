@@ -14,6 +14,14 @@ TZ = ZoneInfo("Europe/Madrid")
 # Estación Valencia-Universitat (observación horaria)
 STATION_ID = os.getenv("AEMET_STATION_ID", "8416X")
 AEMET_BASE = "https://opendata.aemet.es/opendata/api"
+# Fallback gratuito (Valencia centro) cuando no hay AEMET_API_KEY
+OPEN_METEO_URL = (
+    "https://api.open-meteo.com/v1/forecast"
+    "?latitude=39.4699&longitude=-0.3763"
+    "&current=temperature_2m,relative_humidity_2m,precipitation,"
+    "wind_speed_10m,wind_direction_10m,surface_pressure"
+    "&timezone=Europe%2FMadrid"
+)
 
 # Valores por defecto razonables para verano en Valencia
 DEFAULT_WEATHER = {
@@ -51,6 +59,32 @@ def _aemet_datos(endpoint: str) -> Any:
         payload = get_json(datos_url)
         set_cached(cache_key, payload, ttl_seconds=600)
         return payload
+    except Exception:
+        return None
+
+
+def _open_meteo_current() -> dict[str, float] | None:
+    try:
+        payload = get_json(OPEN_METEO_URL, timeout=20)
+        current = payload.get("current") or {}
+        if not current:
+            return None
+        return {
+            "temp_c": _f(current.get("temperature_2m"), default=DEFAULT_WEATHER["temp_c"]),
+            "hum_rel": _f(current.get("relative_humidity_2m"), default=DEFAULT_WEATHER["hum_rel"]),
+            "pres_mb": _f(current.get("surface_pressure"), default=DEFAULT_WEATHER["pres_mb"]),
+            "vel_viento_ms": _f(current.get("wind_speed_10m"), default=DEFAULT_WEATHER["vel_viento_ms"]),
+            "vel_viento_max_ms": _f(
+                current.get("wind_speed_10m"),
+                default=DEFAULT_WEATHER["vel_viento_max_ms"],
+            ),
+            "dir_viento_grados": _f(
+                current.get("wind_direction_10m"),
+                default=DEFAULT_WEATHER["dir_viento_grados"],
+            ),
+            "precip_lm2": _f(current.get("precipitation"), default=0.0),
+            "source": "open-meteo",
+        }
     except Exception:
         return None
 
@@ -112,17 +146,25 @@ def current_weather() -> dict:
     if cached is not None:
         return cached
 
-    payload = _aemet_datos(f"observacion/convencional/ultimaestacion/{STATION_ID}")
-    if payload is None:
-        # Intento alternativo: todas las estaciones de Valencia
-        payload = _aemet_datos("observacion/convencional/todas")
-    weather = _parse_observation(payload if isinstance(payload, list) else None)
+    weather: dict[str, float | str]
+    if _api_key():
+        payload = _aemet_datos(f"observacion/convencional/ultimaestacion/{STATION_ID}")
+        if payload is None:
+            payload = _aemet_datos("observacion/convencional/todas")
+        weather = _parse_observation(payload if isinstance(payload, list) else None)
+        if weather.get("source") != "aemet":
+            fallback = _open_meteo_current()
+            if fallback:
+                weather = fallback
+    else:
+        fallback = _open_meteo_current()
+        weather = fallback if fallback else dict(DEFAULT_WEATHER)
+        if weather.get("source") != "open-meteo":
+            weather["note"] = "Sin conexión a servicios meteorológicos"
+
     now = datetime.now(TZ)
     weather["timestamp"] = now.isoformat()
     weather["station_id"] = STATION_ID
-    if not _api_key():
-        weather["source"] = "default"
-        weather["note"] = "Configure AEMET_API_KEY para datos en vivo"
     set_cached(cache_key, weather, ttl_seconds=600)
     return weather
 

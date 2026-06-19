@@ -42,6 +42,29 @@ def test_events_list(client):
     body = r.json()
     assert body["count"] > 0
     assert len(body["events"]) == body["count"]
+    assert body["events"][0].get("imagen")
+
+
+@patch("src.integrations.aemet._open_meteo_current")
+def test_weather_open_meteo_fallback(mock_meteo, client):
+    mock_meteo.return_value = {
+        "temp_c": 22.0,
+        "hum_rel": 48.0,
+        "pres_mb": 1018.0,
+        "vel_viento_ms": 4.0,
+        "vel_viento_max_ms": 8.0,
+        "dir_viento_grados": 180.0,
+        "precip_lm2": 0.0,
+        "source": "open-meteo",
+    }
+    from src.ttl_cache import clear_cache
+    clear_cache()
+    with patch.dict("os.environ", {}, clear=True):
+        from src.integrations import aemet
+        clear_cache()
+        w = aemet.current_weather()
+    assert w["source"] == "open-meteo"
+    assert w["temp_c"] == 22.0
 
 
 def test_weather_current(client):

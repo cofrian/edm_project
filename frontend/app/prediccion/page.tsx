@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Gauge, Layers, MapPin, RefreshCw } from "lucide-react";
+import { CalendarDays, Gauge, Layers, MapPin, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { DynamicMap } from "@/components/DynamicMap";
 import { api } from "@/lib/api";
@@ -12,6 +12,12 @@ import type { CityEvent, HeatmapResponse, WeatherCurrent } from "@/lib/types";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
 function eventsForHour(events: CityEvent[], fecha: string, hora: number): CityEvent[] {
@@ -25,6 +31,22 @@ function eventsForHour(events: CityEvent[], fecha: string, hora: number): CityEv
   });
 }
 
+function eventsForDay(events: CityEvent[], fecha: string): CityEvent[] {
+  return events
+    .filter((ev) => ev.inicio.slice(0, 10) === fecha)
+    .sort((a, b) => a.inicio.localeCompare(b.inicio));
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+}
+
+function weatherSourceLabel(source?: string): string {
+  if (source === "aemet") return "AEMET (en vivo)";
+  if (source === "open-meteo") return "Open-Meteo (en vivo)";
+  return "Valores por defecto";
+}
+
 export default function PrediccionPage() {
   const [fecha, setFecha] = useState(todayIso);
   const [hora, setHora] = useState(new Date().getHours());
@@ -35,6 +57,7 @@ export default function PrediccionPage() {
   const [showTraffic, setShowTraffic] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
   const [applyEvents, setApplyEvents] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [weather, setWeather] = useState<WeatherCurrent | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapResponse | null>(null);
   const [events, setEvents] = useState<CityEvent[]>([]);
@@ -52,7 +75,7 @@ export default function PrediccionPage() {
         use_live_weather: true,
         apply_events: applyEvents,
       }),
-      api.events("2026-06-14", "2026-07-15"),
+      api.events(fecha, addDaysIso(fecha, 31)),
       showTraffic ? api.trafficLive() : Promise.resolve(null),
     ]);
     setWeather(w);
@@ -72,21 +95,34 @@ export default function PrediccionPage() {
     setDiaSemana(wd === 0 ? 6 : wd - 1);
   }, [fecha]);
 
+  const dayEvents = useMemo(() => eventsForDay(events, fecha), [events, fecha]);
+
   const activeEvents = useMemo(
     () => eventsForHour(events, fecha, hora),
     [events, fecha, hora],
   );
 
-  const eventCircles = useMemo(
+  const mapEvents = useMemo(
+    () => (showEvents ? activeEvents : []),
+    [activeEvents, showEvents],
+  );
+
+  const eventMarkers = useMemo(
     () =>
-      activeEvents.map((ev) => ({
+      mapEvents.map((ev) => ({
+        id: ev.id,
         lat: ev.lat,
         lon: ev.lon,
         nombre: ev.nombre,
         radio_metros: ev.radio_metros,
         tipo: ev.tipo,
+        imagen: ev.imagen,
+        inicio: ev.inicio,
+        fin: ev.fin,
+        enlace: ev.enlace,
+        direccion: ev.direccion,
       })),
-    [activeEvents],
+    [mapEvents],
   );
 
   const stats = useMemo(() => {
@@ -102,9 +138,9 @@ export default function PrediccionPage() {
       <PageHeader
         eyebrow="Mapa en vivo · CatBoost"
         title="Presión de tráfico espacial por hora"
-        description="Mapa de ~1.158 zonas con predicción horaria, meteo AEMET, tráfico real del Ayuntamiento y eventos urbanos que ajustan la intensidad."
+        description="Vías coloreadas por predicción, tráfico real del Ayuntamiento, meteo en vivo y eventos urbanos con impacto en la intensidad."
       >
-        <Badge color="green">Heatmap batch</Badge>
+        <Badge color="green">Vías + heatmap</Badge>
         {heatmap?.model_loaded && <Badge color="blue">Modelo cargado</Badge>}
       </PageHeader>
 
@@ -153,7 +189,7 @@ export default function PrediccionPage() {
           </div>
         </Card>
 
-        <Card title="Meteo (AEMET)" className="lg:col-span-1">
+        <Card title="Meteo" className="lg:col-span-1">
           {weather ? (
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -173,7 +209,7 @@ export default function PrediccionPage() {
                 <dd className="font-medium">{weather.precip_lm2} l/m²</dd>
               </div>
               <p className="pt-1 text-xs text-slate-400">
-                Fuente: {weather.source ?? "default"}
+                Fuente: {weatherSourceLabel(weather.source)}
                 {weather.note && ` — ${weather.note}`}
               </p>
             </dl>
@@ -182,7 +218,7 @@ export default function PrediccionPage() {
           )}
         </Card>
 
-        <Card title="Capas y eventos" className="lg:col-span-1">
+        <Card title="Capas" className="lg:col-span-1">
           <div className="space-y-3 text-sm">
             <label className="flex items-center gap-2">
               <input
@@ -191,7 +227,7 @@ export default function PrediccionPage() {
                 onChange={(e) => setShowTraffic(e.target.checked)}
               />
               <Layers className="h-4 w-4 text-slate-400" />
-              Tráfico vivo (Ayto.)
+              Vías coloreadas (predicción)
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -200,7 +236,7 @@ export default function PrediccionPage() {
                 onChange={(e) => setShowEvents(e.target.checked)}
               />
               <MapPin className="h-4 w-4 text-slate-400" />
-              Radios de eventos
+              Eventos con foto
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -212,7 +248,7 @@ export default function PrediccionPage() {
               Aplicar impacto en predicción
             </label>
             <p className="text-xs text-slate-400">
-              {activeEvents.length} eventos activos · {heatmap?.events_active ?? 0} en modelo
+              {activeEvents.length} activos a las {hora}:00 · {dayEvents.length} en el día
             </p>
           </div>
         </Card>
@@ -250,54 +286,99 @@ export default function PrediccionPage() {
         </Card>
       </div>
 
-      <Card title="Mapa de predicción">
-        <DynamicMap
-          height={520}
-          heatmapPoints={heatmap?.points ?? []}
-          trafficGeoJson={showTraffic ? traffic : null}
-          eventCircles={showEvents ? eventCircles : []}
-          showTraffic={showTraffic}
-          showEvents={showEvents}
-        />
-      </Card>
+      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+        <Card title="Mapa de predicción — vías coloreadas">
+          <DynamicMap
+            height={560}
+            heatmapPoints={heatmap?.points ?? []}
+            trafficGeoJson={showTraffic ? traffic : null}
+            eventCircles={eventMarkers}
+            showTraffic={showTraffic}
+            showEvents={showEvents}
+            showHeatmapPoints={false}
+            colorRoadsByPrediction
+          />
+        </Card>
 
-      {activeEvents.length > 0 && (
-        <Card title={`Eventos activos (${hora}:00)`}>
-          <ul className="divide-y divide-slate-100 text-sm">
-            {activeEvents.slice(0, 12).map((ev) => (
-              <li key={ev.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <div>
-                  <p className="font-medium text-slate-800">{ev.nombre}</p>
-                  <p className="text-xs text-slate-500">
-                    {ev.tipo} · {ev.direccion ?? `${ev.lat.toFixed(4)}, ${ev.lon.toFixed(4)}`}
-                  </p>
-                </div>
-                {ev.enlace && (
-                  <a
-                    href={ev.enlace}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-semibold text-brand-700"
-                  >
-                    Más info
-                  </a>
-                )}
+        <Card title="Eventos del día" className="xl:sticky xl:top-4 xl:self-start">
+          <p className="mb-1 inline-flex items-center gap-2 text-xs font-medium text-brand-700">
+            <CalendarDays className="h-3.5 w-3.5" />
+            Agenda urbana
+          </p>
+          <p className="mb-3 text-xs text-slate-500">
+            {new Date(`${fecha}T12:00:00`).toLocaleDateString("es-ES", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+            {" · "}
+            {dayEvents.length} eventos
+          </p>
+          <ul className="scroll-thin max-h-[500px] space-y-2 overflow-y-auto pr-1">
+            {dayEvents.length === 0 && (
+              <li className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
+                No hay eventos catalogados para esta fecha.
               </li>
-            ))}
+            )}
+            {dayEvents.map((ev) => {
+              const isActive = activeEvents.some((a) => a.id === ev.id);
+              const isSelected = selectedEventId === ev.id;
+              return (
+                <li key={ev.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
+                    className={`flex w-full gap-3 rounded-xl border p-2.5 text-left transition ${
+                      isSelected
+                        ? "border-violet-400 bg-violet-50 ring-2 ring-violet-200"
+                        : isActive
+                          ? "border-violet-200 bg-violet-50/60"
+                          : "border-slate-100 bg-white hover:border-slate-200"
+                    }`}
+                  >
+                    {ev.imagen && (
+                      <img
+                        src={ev.imagen}
+                        alt=""
+                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-800">{ev.nombre}</p>
+                      <p className="text-xs capitalize text-violet-600">{ev.tipo}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatTime(ev.inicio)} – {formatTime(ev.fin)}
+                      </p>
+                      {ev.direccion && (
+                        <p className="truncate text-[11px] text-slate-400">{ev.direccion}</p>
+                      )}
+                      {isActive && (
+                        <span className="mt-1 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          Activo ahora
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </Card>
-      )}
+      </div>
 
       <Callout tone="brand" title="Capas del mapa">
         <ul className="list-inside list-disc space-y-1 text-sm">
           <li>
-            <strong>Puntos coloreados:</strong> intensidad CatBoost por zona (verde / ámbar / rojo).
+            <strong>Líneas de vía:</strong> color según predicción CatBoost de la zona más cercana
+            (verde / ámbar / rojo).
           </li>
           <li>
-            <strong>Líneas:</strong> estado de tráfico real por tramo (fluido → cortado).
+            <strong>Marcadores con foto:</strong> eventos activos en la hora seleccionada, con radio
+            de impacto violeta.
           </li>
           <li>
-            <strong>Círculos violetas:</strong> eventos con radio de impacto (conciertos, deporte, ocio).
+            <strong>Panel derecho:</strong> todos los eventos del día; los activos a la hora actual
+            aparecen resaltados.
           </li>
         </ul>
         <Link

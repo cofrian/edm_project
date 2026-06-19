@@ -148,6 +148,7 @@ export interface CityEvent {
   factor_max: number;
   fuente?: string;
   enlace?: string;
+  imagen?: string;
 }
 
 export interface HeatmapPoint {
