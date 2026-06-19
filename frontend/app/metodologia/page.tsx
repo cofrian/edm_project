@@ -40,9 +40,9 @@ export default function DocumentacionPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Memoria técnica"
+        eyebrow="Documentación técnica"
         title="Documentación del proyecto"
-        description="Todo lo construido en UrbanFlow Valencia: metodología CRISP-DM, arquitectura de la solución, despliegue en profundidad, el motor de optimización, el modelo de demanda y la monitorización."
+        description="Guía completa de UrbanFlow Valencia: metodología CRISP-DM, arquitectura, despliegue, motor de optimización, modelo de demanda y monitorización."
       />
 
       <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
@@ -52,7 +52,7 @@ export default function DocumentacionPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Contenido</p>
             <nav className="mt-3 space-y-1">
               {TOC.map(([id, label]) => (
-                <a key={id} href={`#${id}`} className="block rounded-lg px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-brand-700">
+                <a key={id} href={`#${id}`} className="block rounded-md px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
                   {label}
                 </a>
               ))}
@@ -86,8 +86,9 @@ export default function DocumentacionPage() {
           {/* CRISP */}
           <Section id="crisp" icon={<Boxes className="h-5 w-5" />} title="Metodología CRISP-DM">
             <p>
-              El proyecto sigue las fases de CRISP-DM, integrando además los bloques
-              específicos de la asignatura (Evaluación, Despliegue y Monitorización).
+              El proyecto sigue las fases de CRISP-DM e integra evaluación,
+              despliegue y monitorización para que la solución sea reproducible
+              y operable.
             </p>
             <div className="mt-4 overflow-x-auto scroll-thin">
               <table className="w-full min-w-[520px] text-sm">
@@ -192,7 +193,7 @@ CMD uvicorn main:app --host 0.0.0.0 --port 7860`}
                     ["deploy-check", "push a production", "curl al /health de la API desplegada"],
                   ].map(([w, t, q]) => (
                     <tr key={w} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-brand-700">{w}</td>
+                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-slate-700">{w}</td>
                       <td className="py-2.5 pr-4 align-top text-slate-500">{t}</td>
                       <td className="py-2.5 text-slate-600">{q}</td>
                     </tr>
@@ -267,7 +268,7 @@ max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
                     ["Preparación de artefactos", "Conversión de datos crudos a candidatos y matrices de cobertura.", "Pipeline reproducible con scripts de validación."],
                   ].map(([n, a, d]) => (
                     <tr key={n} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-brand-700">{n}</td>
+                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-slate-700">{n}</td>
                       <td className="py-2.5 pr-4 align-top text-slate-600">{a}</td>
                       <td className="py-2.5 align-top text-slate-600">{d}</td>
                     </tr>
@@ -352,7 +353,7 @@ function Section({
   return (
     <section id={id} className="scroll-mt-20">
       <div className="mb-3 flex items-center gap-2.5">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-700">{icon}</span>
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-700">{icon}</span>
         <h2 className="text-xl font-bold text-slate-900">{title}</h2>
       </div>
       <div className="text-sm leading-relaxed text-slate-600 sm:text-base">{children}</div>
@@ -362,7 +363,7 @@ function Section({
 
 function Diagram({ children }: { children: React.ReactNode }) {
   return (
-    <pre className="mt-3 overflow-x-auto scroll-thin rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
+    <pre className="mt-3 overflow-x-auto scroll-thin rounded-lg bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
       {children}
     </pre>
   );
@@ -370,8 +371,8 @@ function Diagram({ children }: { children: React.ReactNode }) {
 
 function MiniCard({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-4">
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600">{icon}</span>
+    <div className="rounded-lg border border-slate-200 p-4">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-600">{icon}</span>
       <p className="mt-2 font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-sm text-slate-600">{text}</p>
     </div>
@@ -380,7 +381,7 @@ function MiniCard({ icon, title, text }: { icon: React.ReactNode; title: string;
 
 function Metric({ k, v }: { k: string; v: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-center">
       <p className="text-xs text-slate-500">{k}</p>
       <p className="mt-1 text-lg font-bold text-slate-900">{v}</p>
     </div>

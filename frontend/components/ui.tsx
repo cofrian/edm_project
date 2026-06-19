@@ -80,7 +80,7 @@ export function Steps({
       {steps.map((s, i) => (
         <li key={i} className="card relative">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-bold text-brand-700">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-sm font-bold text-slate-700">
               {s.icon ?? i + 1}
             </span>
             <p className="font-semibold text-slate-900">{s.title}</p>
@@ -107,7 +107,7 @@ export function Callout({
     teal: "border-teal-200 bg-teal-50 text-teal-900",
   };
   return (
-    <div className={`rounded-2xl border p-4 text-sm ${map[tone]}`}>
+    <div className={`rounded-lg border p-4 text-sm ${map[tone]}`}>
       {title && <p className="mb-1 font-semibold">{title}</p>}
       <div className="text-slate-700">{children}</div>
     </div>

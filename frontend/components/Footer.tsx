@@ -20,7 +20,7 @@ export function Footer() {
             <li><Link href="/optimizacion" className="hover:text-brand-700">Optimización</Link></li>
             <li><Link href="/datos" className="hover:text-brand-700">Datos</Link></li>
             <li><Link href="/evaluacion" className="hover:text-brand-700">Evaluación del modelo</Link></li>
-            <li><Link href="/metodologia" className="hover:text-brand-700">Documentación</Link></li>
+            <li><Link href="/documentacion" className="hover:text-brand-700">Documentación</Link></li>
           </ul>
         </div>
         <div>
@@ -37,7 +37,7 @@ export function Footer() {
       </div>
       <div className="border-t border-slate-100">
         <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>Entrega EDM — Evaluación, Despliegue y Monitorización de Modelos.</p>
+          <p>UrbanFlow Valencia · Plataforma de decisión urbana.</p>
           <p>Sergio Ortiz Montesinos · Luis Trigueros Espada · Fernando Martínez Gómez</p>
         </div>
       </div>

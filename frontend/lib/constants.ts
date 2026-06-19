@@ -26,5 +26,5 @@ export const NAV_LINKS = [
   { href: "/prediccion", label: "Demanda" },
   { href: "/evaluacion", label: "Evaluación" },
   { href: "/monitorizacion", label: "Monitorización" },
-  { href: "/metodologia", label: "Documentación" },
+  { href: "/documentacion", label: "Documentación" },
 ];

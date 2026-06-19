@@ -90,3 +90,17 @@ export interface Metadata {
   data_date: string;
   validation: string;
 }
+
+export interface GeoJSONFeature {
+  type?: "Feature";
+  geometry?: {
+    type: "Point" | "LineString" | "Polygon" | "MultiPolygon" | string;
+    coordinates: unknown;
+  } | null;
+  properties?: Record<string, unknown> | null;
+}
+
+export interface GeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
+}

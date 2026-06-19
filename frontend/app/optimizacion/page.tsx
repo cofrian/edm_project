@@ -1,32 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  Target,
-  Coins,
-  Play,
-  MapPin,
-  Layers,
   Activity,
-  Users,
-  Info,
+  AlertTriangle,
+  Bike,
+  Blend,
+  CheckCircle2,
+  Coins,
   Dumbbell,
   HeartPulse,
-  Blend,
-  Bike,
-  BookOpen,
-  CheckCircle2,
+  Info,
+  Layers,
+  ListChecks,
+  Map as MapIcon,
+  MapPin,
+  Play,
+  Route,
   SlidersHorizontal,
+  Target,
+  Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Card, Badge } from "@/components/Card";
-import { Stat, PageHeader, Callout } from "@/components/ui";
+import { Badge, Card } from "@/components/Card";
+import { Callout, PageHeader, Stat } from "@/components/ui";
 import { DynamicMap } from "@/components/DynamicMap";
-import type { OptimizeResponse } from "@/lib/types";
+import type { GeoJSONFeature, GeoJSONFeatureCollection, OptimizeResponse } from "@/lib/types";
+import type { MapLine, MapMarker, MapPolygon } from "@/components/MapView";
 
 type FacilityMode = "sports" | "health" | "multi" | "valenbisi";
 type ConstraintMode = "budget" | "count";
+type ActiveTab = "tool" | "info";
+
+type GisLayers = {
+  sports: GeoJSONFeatureCollection;
+  health: GeoJSONFeatureCollection;
+  traffic: GeoJSONFeatureCollection;
+  valenbisi: GeoJSONFeatureCollection;
+};
+
+const emptyCollection: GeoJSONFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 const FACILITY_LABELS: Record<FacilityMode, string> = {
   sports: "Polideportivo",
@@ -42,30 +58,30 @@ const FACILITY_HELP: Record<
   sports: {
     question: "¿Dónde abrir nuevas instalaciones deportivas?",
     objective:
-      "Maximiza habitantes que pasan a estar cubiertos por polideportivos, evitando duplicar cobertura existente.",
-    output: "Ranking de ubicaciones candidatas, coste usado y población cubierta.",
-    basis: "Modelo de cobertura urbana de UrbanFlow.",
+      "Prioriza candidatos que cubren población sin acceso actual a polideportivos.",
+    output: "Ranking de ubicaciones, coste usado y nueva población cubierta.",
+    basis: "Cobertura con isócronas, población hexagonal y restricción de presupuesto.",
   },
   health: {
     question: "¿Dónde reforzar la red sanitaria?",
     objective:
-      "Maximiza habitantes que pasan a estar cubiertos por centros de salud u hospitales.",
+      "Busca centros de salud que añaden cobertura real sin duplicar la red existente.",
     output: "Ubicaciones sanitarias priorizadas bajo el presupuesto disponible.",
-    basis: "Modelo de cobertura sanitaria de UrbanFlow.",
+    basis: "Cobertura sanitaria con población real y equipamientos existentes.",
   },
   multi: {
     question: "¿Cómo repartir presupuesto entre deporte y salud?",
     objective:
       "Combina dos objetivos con λ: 1 prioriza deporte, 0 prioriza salud, 0.5 equilibra ambos.",
     output: "Mezcla óptima de equipamientos sin instalar dos servicios en el mismo punto.",
-    basis: "Modelo multiobjetivo de UrbanFlow.",
+    basis: "Modelo multiobjetivo con restricción de no duplicidad por candidato.",
   },
   valenbisi: {
     question: "¿Qué puntos de movilidad tienen mayor potencial?",
     objective:
-      "Combina tráfico, población alcanzable y déficit de Valenbisi en un score ponderado.",
+      "Combina tráfico, población alcanzable y déficit de estaciones en un score ponderado.",
     output: "Selección por número fijo o presupuesto usando el score de movilidad.",
-    basis: "Modelo de movilidad sostenible de UrbanFlow.",
+    basis: "Optimización exacta sobre candidatos curados de movilidad sostenible.",
   },
 };
 
@@ -73,7 +89,7 @@ const FUNCTIONAL_TRACE = [
   {
     source: "Cobertura urbana",
     block: "Variables binarias, restricciones de cobertura y presupuesto.",
-    app: "Implementado en PuLP/CBC como polideportivo y centro de salud, con población hexagonal e isócronas.",
+    app: "Implementado en PuLP/CBC para deporte y salud, con población hexagonal e isócronas.",
     status: "Activo en API",
   },
   {
@@ -89,22 +105,22 @@ const FUNCTIONAL_TRACE = [
     status: "Activo en API",
   },
   {
-    source: "Señales auxiliares",
-    block: "Capas externas de contexto urbano para enriquecer la demanda.",
-    app: "La versión pública usa solo datos curados: CatBoost de tráfico, población, costes e isócronas.",
-    status: "Sustituido",
-  },
-  {
-    source: "Análisis avanzado",
-    block: "Heurísticas y áreas dinámicas de influencia para comparar alternativas.",
-    app: "Documentado como análisis exploratorio: no se ejecuta en producción para mantener resultados deterministas y despliegue ligero.",
-    status: "Documentado",
+    source: "Capas GIS",
+    block: "Contexto espacial para entender la decisión sobre el territorio.",
+    app: "Mapa con tráfico, cobertura existente, estaciones actuales y candidatos recomendados.",
+    status: "Activo en app",
   },
   {
     source: "Preparación de datos",
     block: "Conversión de datos crudos a candidatos, población, isócronas, costes y cobertura existente.",
-    app: "Artefactos servidos desde backend/data/processed: candidates_facilities, population_hexes y coverage_alpha.",
+    app: "Artefactos servidos desde backend/data/processed: candidatos, población, cobertura y capas GeoJSON.",
     status: "Curado",
+  },
+  {
+    source: "Análisis avanzado",
+    block: "Heurísticas y áreas dinámicas de influencia para comparar alternativas.",
+    app: "Documentado como análisis interno; el servicio público usa PuLP/CBC por reproducibilidad y estabilidad.",
+    status: "Documentado",
   },
 ];
 
@@ -121,17 +137,29 @@ const COUNT_PRESETS = [
 ];
 
 const FACILITY_COLORS: Record<string, string> = {
-  polideportivo: "#1d4ed8",
+  polideportivo: "#2563eb",
   centro_salud: "#059669",
   default: "#7c3aed",
 };
 
 export default function OptimizacionPage() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>("tool");
   const [facility, setFacility] = useState<FacilityMode>("sports");
   const [constraint, setConstraint] = useState<ConstraintMode>("budget");
   const [result, setResult] = useState<OptimizeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [ran, setRan] = useState(false);
+  const [layersLoading, setLayersLoading] = useState(true);
+  const [layers, setLayers] = useState<GisLayers>({
+    sports: emptyCollection,
+    health: emptyCollection,
+    traffic: emptyCollection,
+    valenbisi: emptyCollection,
+  });
+
+  const [showTraffic, setShowTraffic] = useState(true);
+  const [showCoverage, setShowCoverage] = useState(true);
+  const [showValenbisi, setShowValenbisi] = useState(false);
 
   const [budget, setBudget] = useState(100);
   const [n, setN] = useState(10);
@@ -140,6 +168,35 @@ export default function OptimizacionPage() {
   const [wTraf, setWTraf] = useState(1);
   const [wPob, setWPob] = useState(1);
   const [wDef, setWDef] = useState(1);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadLayers() {
+      setLayersLoading(true);
+      const [sports, health, traffic, valenbisi] = await Promise.all([
+        api.existingSports(),
+        api.existingHealth(),
+        api.trafficSegments(),
+        api.currentValenbisi(),
+      ]);
+
+      if (active) {
+        setLayers({ sports, health, traffic, valenbisi });
+        setLayersLoading(false);
+      }
+    }
+
+    loadLayers();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (facility === "valenbisi") setShowValenbisi(true);
+  }, [facility]);
 
   function resetResult() {
     setResult(null);
@@ -201,11 +258,16 @@ export default function OptimizacionPage() {
     result && budgetBased ? Math.round((result.total_cost / budget) * 100) : null;
   const topCandidate = result?.selected[0];
   const apiUnavailable = result?.constraint === "API no disponible";
+  const avgCost =
+    result && result.n_selected > 0
+      ? (result.total_cost / result.n_selected).toFixed(1)
+      : "—";
 
-  const markers =
+  const selectedMarkers: MapMarker[] =
     result?.selected.map((s) => ({
       lat: s.lat,
       lon: s.lon,
+      radius: 9,
       label: `${formatFacilityType(s.facility_type, facility)} #${s.candidate_id} · ${
         usesRealPopulation
           ? `${s.score.toLocaleString("es-ES")} hab.`
@@ -216,509 +278,627 @@ export default function OptimizacionPage() {
         FACILITY_COLORS.default,
     })) ?? [];
 
-  const avgCost =
-    result && result.n_selected > 0
-      ? (result.total_cost / result.n_selected).toFixed(1)
-      : "—";
+  const coveragePolygons = useMemo(() => {
+    if (!showCoverage) return [];
+
+    const polygons: MapPolygon[] = [];
+    if (facility === "sports" || facility === "multi") {
+      polygons.push(
+        ...polygonFeaturesToPolygons(layers.sports, {
+          color: "#2563eb",
+          label: "Cobertura deportiva existente",
+        }),
+      );
+    }
+    if (facility === "health" || facility === "multi") {
+      polygons.push(
+        ...polygonFeaturesToPolygons(layers.health, {
+          color: "#059669",
+          label: "Cobertura sanitaria existente",
+        }),
+      );
+    }
+
+    return polygons;
+  }, [facility, layers.health, layers.sports, showCoverage]);
+
+  const trafficLines = useMemo(
+    () =>
+      showTraffic
+        ? lineFeaturesToLines(layers.traffic, {
+            color: "#f97316",
+            label: "Segmento de tráfico",
+            limit: 320,
+          })
+        : [],
+    [layers.traffic, showTraffic],
+  );
+
+  const valenbisiMarkers = useMemo(
+    () =>
+      showValenbisi
+        ? pointFeaturesToMarkers(layers.valenbisi, {
+            color: "#64748b",
+            label: "Estación Valenbisi actual",
+            limit: 300,
+            radius: 3,
+          })
+        : [],
+    [layers.valenbisi, showValenbisi],
+  );
+
+  const mapMarkers = [...valenbisiMarkers, ...selectedMarkers];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
-        eyebrow="Herramienta de decisión · UrbanFlow Valencia"
-        title="Optimización de equipamientos urbanos"
-        description="Modelo de cobertura poblacional con población real, isócronas y costes de implantación. Maximiza habitantes cubiertos bajo presupuesto con PuLP · CBC."
+        eyebrow="UrbanFlow Valencia"
+        title="Optimizador urbano"
+        description="Herramienta para comparar escenarios de equipamientos sobre Valencia con capas GIS, solver PuLP/CBC y resultados interpretables."
       >
-        <Badge color="blue">PuLP · CBC</Badge>
-        <Badge color="green">Población censal real</Badge>
+        <Badge color="blue">Mapa GIS</Badge>
+        <Badge color="green">Solver exacto</Badge>
       </PageHeader>
 
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <div className="flex items-start gap-3">
-            <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
-            <div>
-              <p className="eyebrow">Guía rápida</p>
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                De pregunta municipal a escenario optimizable
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Elige el objetivo urbano, ajusta la restricción y ejecuta el
-                solver. La tabla y el mapa muestran exactamente qué candidatos
-                cumplen mejor el criterio sin superar el presupuesto o el número
-                de ubicaciones fijado.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <GuideStep n="1" title="Objetivo" text="Selecciona deporte, salud, multiobjetivo o Valenbisi." />
-                <GuideStep n="2" title="Restricción" text="Define presupuesto, N puntos y pesos si aplica." />
-                <GuideStep n="3" title="Decisión" text="Interpreta población cubierta, coste y ranking." />
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-start gap-3">
-            <SlidersHorizontal className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
-            <div>
-              <p className="eyebrow">Escenario actual</p>
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                {helper.question}
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">{helper.objective}</p>
-              <dl className="mt-4 space-y-2 text-sm">
-                <SummaryRow k="Salida" v={helper.output} />
-                <SummaryRow k="Base técnica" v={helper.basis} />
-              </dl>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* Tipo de equipamiento */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FacilityButton
-          active={facility === "sports"}
-          onClick={() => selectFacility("sports")}
-          icon={<Dumbbell className="h-5 w-5" />}
-          title="Polideportivo"
-          subtitle="Cobertura deportiva real · Modelo 2"
+      <div className="flex w-full flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+        <TabButton
+          active={activeTab === "tool"}
+          onClick={() => setActiveTab("tool")}
+          icon={<SlidersHorizontal className="h-4 w-4" />}
+          label="Herramienta"
         />
-        <FacilityButton
-          active={facility === "health"}
-          onClick={() => selectFacility("health")}
-          icon={<HeartPulse className="h-5 w-5" />}
-          title="Centro de salud"
-          subtitle="Cobertura sanitaria real · Modelo 2"
-        />
-        <FacilityButton
-          active={facility === "multi"}
-          onClick={() => selectFacility("multi")}
-          icon={<Blend className="h-5 w-5" />}
-          title="Multi-objetivo"
-          subtitle="Modelo 3 · λ deporte + (1−λ) salud"
-        />
-        <FacilityButton
-          active={facility === "valenbisi"}
-          onClick={() => selectFacility("valenbisi")}
-          icon={<Bike className="h-5 w-5" />}
-          title="Valenbisi"
-          subtitle="Score de movilidad urbana"
+        <TabButton
+          active={activeTab === "info"}
+          onClick={() => setActiveTab("info")}
+          icon={<Info className="h-4 w-4" />}
+          label="Información"
         />
       </div>
 
-      {facility === "valenbisi" && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ModeButton
-            active={constraint === "count"}
-            onClick={() => selectConstraint("count")}
-            icon={<Target className="h-5 w-5" />}
-            title="Nº fijo de ubicaciones"
-            subtitle="Σ xᵢ = N"
-          />
-          <ModeButton
-            active={constraint === "budget"}
-            onClick={() => selectConstraint("budget")}
-            icon={<Coins className="h-5 w-5" />}
-            title="Presupuesto máximo"
-            subtitle="Σ costeᵢ·xᵢ ≤ presupuesto"
-          />
-        </div>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <h3 className="text-base font-bold text-slate-900">Escenario</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            {FACILITY_LABELS[facility]} —{" "}
-            {usesRealPopulation
-              ? "max Σ pⱼ Yⱼ (población sin cobertura previa)"
-              : "max Σ scoreᵢ·xᵢ (ponderado)"}
-          </p>
-
-          <div className="mt-5 space-y-5">
-            {facility === "valenbisi" && constraint === "count" ? (
-              <Field label="Número de equipamientos" value={n}>
-                <PresetButtons
-                  items={COUNT_PRESETS}
-                  active={n}
-                  onSelect={setN}
-                />
-                <div className="mt-3 grid grid-cols-[1fr_5rem] gap-3">
-                  <input
-                    type="range"
-                    min={1}
-                    max={30}
-                    value={n}
-                    onChange={(e) => setN(+e.target.value)}
-                    className="range"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={n}
-                    onChange={(e) => setN(clamp(+e.target.value, 1, 30))}
-                    className="input py-1.5 text-center"
-                  />
+      {activeTab === "tool" ? (
+        <>
+          <section className="grid gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
+            <Card className="xl:self-start">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-700">
+                  <Target className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="eyebrow">Escenario activo</p>
+                  <h2 className="mt-1 text-lg font-bold text-slate-900">
+                    {helper.question}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {helper.objective}
+                  </p>
                 </div>
-                <Scale left="1" right="30" />
-              </Field>
-            ) : (
-              <Field label="Presupuesto disponible" value={`${budget} u.`}>
-                <PresetButtons
-                  items={BUDGET_PRESETS}
-                  active={budget}
-                  onSelect={setBudget}
-                />
-                <div className="mt-3 grid grid-cols-[1fr_5.5rem] gap-3">
-                  <input
-                    type="range"
-                    min={10}
-                    max={500}
-                    step={10}
-                    value={budget}
-                    onChange={(e) => setBudget(+e.target.value)}
-                    className="range"
-                  />
-                  <input
-                    type="number"
-                    min={10}
-                    max={500}
-                    step={10}
-                    value={budget}
-                    onChange={(e) => setBudget(clamp(+e.target.value, 10, 500))}
-                    className="input py-1.5 text-center"
-                  />
-                </div>
-                <Scale left="10" right="500" />
-              </Field>
-            )}
+              </div>
 
-            {facility === "multi" && (
-              <Field label="λ deporte (peso)" value={lambdaSports.toFixed(2)}>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={lambdaSports}
-                  onChange={(e) => setLambdaSports(+e.target.value)}
-                  className="range"
+              <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                <FacilityButton
+                  active={facility === "sports"}
+                  onClick={() => selectFacility("sports")}
+                  icon={<Dumbbell className="h-5 w-5" />}
+                  title="Polideportivo"
+                  subtitle="Cobertura deportiva"
                 />
-                <Scale left="0 (solo salud)" right="1 (solo deporte)" />
-              </Field>
-            )}
-
-            {facility === "valenbisi" && (
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Pesos del score compuesto
-                </p>
-                <Weight
-                  icon={<Activity className="h-4 w-4 text-brand-600" />}
-                  label="Presión de tráfico"
-                  v={wTraf}
-                  set={setWTraf}
+                <FacilityButton
+                  active={facility === "health"}
+                  onClick={() => selectFacility("health")}
+                  icon={<HeartPulse className="h-5 w-5" />}
+                  title="Centro de salud"
+                  subtitle="Cobertura sanitaria"
                 />
-                <Weight
-                  icon={<Users className="h-4 w-4 text-teal-600" />}
-                  label="Población alcanzable"
-                  v={wPob}
-                  set={setWPob}
+                <FacilityButton
+                  active={facility === "multi"}
+                  onClick={() => selectFacility("multi")}
+                  icon={<Blend className="h-5 w-5" />}
+                  title="Multiobjetivo"
+                  subtitle="Deporte + salud"
                 />
-                <Weight
-                  icon={<Layers className="h-4 w-4 text-amber-600" />}
-                  label="Déficit de cobertura"
-                  v={wDef}
-                  set={setWDef}
+                <FacilityButton
+                  active={facility === "valenbisi"}
+                  onClick={() => selectFacility("valenbisi")}
+                  icon={<Bike className="h-5 w-5" />}
+                  title="Valenbisi"
+                  subtitle="Movilidad urbana"
                 />
               </div>
-            )}
 
-            <button
-              className="btn-primary w-full"
-              onClick={run}
-              disabled={loading}
-            >
-              <Play className="h-4 w-4" />
-              {loading ? "Optimizando…" : "Ejecutar optimización"}
-            </button>
-            <p className="text-center text-xs text-slate-400">
-              {usesRealPopulation
-                ? "Restricción: Σ coste ≤ presupuesto; Yⱼ cubierto si hex en isócrona"
-                : constraint === "count"
-                  ? "Restricción: Σ xᵢ = N"
-                  : "Restricción: Σ costeᵢ·xᵢ ≤ presupuesto"}
-            </p>
-          </div>
-        </Card>
+              {facility === "valenbisi" && (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  <ModeButton
+                    active={constraint === "count"}
+                    onClick={() => selectConstraint("count")}
+                    icon={<Target className="h-5 w-5" />}
+                    title="Nº fijo"
+                    subtitle="Seleccionar exactamente N puntos"
+                  />
+                  <ModeButton
+                    active={constraint === "budget"}
+                    onClick={() => selectConstraint("budget")}
+                    icon={<Coins className="h-5 w-5" />}
+                    title="Presupuesto"
+                    subtitle="No superar el coste máximo"
+                  />
+                </div>
+              )}
 
-        <div className="space-y-4 lg:col-span-2">
-          {ran && (
-            <Callout
-              tone={apiUnavailable ? "amber" : result ? "teal" : "brand"}
-              title={
-                apiUnavailable
-                  ? "API no disponible"
-                  : result
-                    ? "Lectura del resultado"
-                    : "Calculando escenario"
-              }
-            >
-              {apiUnavailable
-                ? "La interfaz está funcionando, pero no ha podido obtener una solución del backend. Revisa NEXT_PUBLIC_API_URL o el estado del Space."
-                : result
-                  ? result.n_selected > 0
-                    ? `El solver selecciona ${result.n_selected} ubicaciones${
-                        budgetUsage != null
-                          ? ` usando aproximadamente el ${budgetUsage}% del presupuesto`
-                          : ""
-                      }. La primera recomendación es el candidato #${topCandidate?.candidate_id}.`
-                    : "El solver no ha seleccionado ubicaciones con esta restricción. Sube el presupuesto o reduce las exigencias del escenario."
-                  : "Ejecutando PuLP/CBC sobre los artefactos curados del proyecto."}
-            </Callout>
+              <div className="mt-5 space-y-5">
+                {facility === "valenbisi" && constraint === "count" ? (
+                  <Field label="Número de ubicaciones" value={n}>
+                    <PresetButtons items={COUNT_PRESETS} active={n} onSelect={setN} />
+                    <div className="mt-3 grid grid-cols-[1fr_5rem] gap-3">
+                      <input
+                        type="range"
+                        min={1}
+                        max={30}
+                        value={n}
+                        onChange={(e) => setN(+e.target.value)}
+                        className="range"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={n}
+                        onChange={(e) => setN(clamp(+e.target.value, 1, 30))}
+                        className="input py-1.5 text-center"
+                      />
+                    </div>
+                    <Scale left="1" right="30" />
+                  </Field>
+                ) : (
+                  <Field label="Presupuesto disponible" value={`${budget} u.`}>
+                    <PresetButtons
+                      items={BUDGET_PRESETS}
+                      active={budget}
+                      onSelect={setBudget}
+                    />
+                    <div className="mt-3 grid grid-cols-[1fr_5.5rem] gap-3">
+                      <input
+                        type="range"
+                        min={10}
+                        max={500}
+                        step={10}
+                        value={budget}
+                        onChange={(e) => setBudget(+e.target.value)}
+                        className="range"
+                      />
+                      <input
+                        type="number"
+                        min={10}
+                        max={500}
+                        step={10}
+                        value={budget}
+                        onChange={(e) => setBudget(clamp(+e.target.value, 10, 500))}
+                        className="input py-1.5 text-center"
+                      />
+                    </div>
+                    <Scale left="10" right="500" />
+                  </Field>
+                )}
+
+                {facility === "multi" && (
+                  <Field label="λ deporte" value={lambdaSports.toFixed(2)}>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={lambdaSports}
+                      onChange={(e) => setLambdaSports(+e.target.value)}
+                      className="range"
+                    />
+                    <Scale left="0 salud" right="1 deporte" />
+                  </Field>
+                )}
+
+                {facility === "valenbisi" && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Pesos del score
+                    </p>
+                    <Weight
+                      icon={<Activity className="h-4 w-4 text-slate-700" />}
+                      label="Tráfico"
+                      v={wTraf}
+                      set={setWTraf}
+                    />
+                    <Weight
+                      icon={<Users className="h-4 w-4 text-teal-600" />}
+                      label="Población"
+                      v={wPob}
+                      set={setWPob}
+                    />
+                    <Weight
+                      icon={<Layers className="h-4 w-4 text-amber-600" />}
+                      label="Déficit"
+                      v={wDef}
+                      set={setWDef}
+                    />
+                  </div>
+                )}
+
+                <button className="btn-primary w-full" onClick={run} disabled={loading}>
+                  <Play className="h-4 w-4" />
+                  {loading ? "Optimizando..." : "Ejecutar optimización"}
+                </button>
+
+                <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                  <strong className="text-slate-700">Criterio:</strong>{" "}
+                  {usesRealPopulation
+                    ? "maximizar población nueva cubierta sin superar presupuesto."
+                    : constraint === "count"
+                      ? "elegir exactamente N ubicaciones con mayor score conjunto."
+                      : "maximizar score conjunto sin superar presupuesto."}
+                </div>
+              </div>
+            </Card>
+
+            <div className="space-y-4">
+              <Card>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="eyebrow">Mapa GIS de decisión</p>
+                    <h3 className="mt-1 text-xl font-bold text-slate-900">
+                      Valencia: capas y recomendaciones
+                    </h3>
+                    <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                      {helper.output} Las capas ayudan a revisar cobertura actual,
+                      presión de movilidad y puntos propuestos antes de aceptar una
+                      solución.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <LayerToggle
+                      active={showTraffic}
+                      onClick={() => setShowTraffic((v) => !v)}
+                      tone="amber"
+                      label="Tráfico"
+                      count={trafficLines.length}
+                    />
+                    <LayerToggle
+                      active={showCoverage}
+                      onClick={() => setShowCoverage((v) => !v)}
+                      tone="blue"
+                      label="Cobertura"
+                      count={coveragePolygons.length}
+                    />
+                    <LayerToggle
+                      active={showValenbisi}
+                      onClick={() => setShowValenbisi((v) => !v)}
+                      tone="slate"
+                      label="Valenbisi"
+                      count={valenbisiMarkers.length}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <DynamicMap
+                    markers={mapMarkers}
+                    polygons={coveragePolygons}
+                    lines={trafficLines}
+                    height={560}
+                  />
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                  <LegendDot color="#f97316" label="Tráfico" />
+                  <LegendDot color="#2563eb" label="Cobertura deportiva" />
+                  <LegendDot color="#059669" label="Cobertura sanitaria" />
+                  <LegendDot color="#64748b" label="Valenbisi actual" />
+                  <LegendDot color="#7c3aed" label="Recomendación" />
+                  {layersLoading && <span>Cargando capas GIS...</span>}
+                  {result && <span>Restricción aplicada: {result.constraint}</span>}
+                </div>
+              </Card>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Stat
+                  label="Elegidas"
+                  value={result?.n_selected ?? "—"}
+                  tone="brand"
+                  icon={<MapPin className="h-4 w-4" />}
+                />
+                <Stat
+                  label={usesRealPopulation ? "Población cubierta" : "Impacto total"}
+                  value={
+                    result
+                      ? usesRealPopulation && result.population_covered != null
+                        ? result.population_covered.toLocaleString("es-ES")
+                        : result.total_score.toFixed(2)
+                      : "—"
+                  }
+                  tone="teal"
+                  hint={usesRealPopulation ? "Nueva cobertura" : "Score ponderado"}
+                />
+                <Stat
+                  label="Coste"
+                  value={result ? result.total_cost.toFixed(1) : "—"}
+                  hint={
+                    budgetUsage != null
+                      ? `${budgetUsage}% del presupuesto · medio ${avgCost}`
+                      : `Coste medio: ${avgCost}`
+                  }
+                />
+                <Stat
+                  label="Modo"
+                  value={result?.mode ?? FACILITY_LABELS[facility]}
+                  hint={helper.basis}
+                />
+              </div>
+
+              {ran && (
+                <Callout
+                  tone={apiUnavailable ? "amber" : result ? "teal" : "brand"}
+                  title={
+                    apiUnavailable
+                      ? "API no disponible"
+                      : result
+                        ? "Lectura del resultado"
+                        : "Calculando escenario"
+                  }
+                >
+                  {apiUnavailable
+                    ? "La interfaz funciona, pero no ha podido obtener solución del backend. Revisa NEXT_PUBLIC_API_URL o que la API local esté arrancada."
+                    : result
+                      ? result.n_selected > 0
+                        ? `El solver propone ${result.n_selected} ubicaciones${
+                            budgetUsage != null
+                              ? ` usando aproximadamente el ${budgetUsage}% del presupuesto`
+                              : ""
+                          }. La primera recomendación es el candidato #${topCandidate?.candidate_id}.`
+                        : "El solver no ha seleccionado ubicaciones con esta restricción. Sube el presupuesto o reduce las exigencias del escenario."
+                      : "Ejecutando PuLP/CBC sobre los artefactos curados del proyecto."}
+                </Callout>
+              )}
+            </div>
+          </section>
+
+          {ran && result && result.selected.length > 0 && (
+            <Card>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="eyebrow">Ranking de decisión</p>
+                  <h3 className="mt-1 text-lg font-bold text-slate-900">
+                    Ubicaciones recomendadas
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Ordenadas por impacto. Cada fila corresponde a un candidato
+                    que el solver ha seleccionado para el escenario activo.
+                  </p>
+                </div>
+                <Badge color="blue">{result.selected.length} candidatos</Badge>
+              </div>
+              <div className="mt-4 overflow-x-auto scroll-thin">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                      <th className="py-2 pr-3">#</th>
+                      <th className="py-2 pr-3">ID</th>
+                      <th className="py-2 pr-3">Tipo</th>
+                      <th className="py-2 pr-3">Zona</th>
+                      <th className="py-2 pr-3">Coordenadas</th>
+                      <th className="py-2 pr-3">Población / score</th>
+                      <th className="py-2">Coste</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.selected.map((s, i) => (
+                      <tr
+                        key={`${s.candidate_id}-${s.facility_type ?? ""}`}
+                        className="border-b border-slate-100 last:border-0"
+                      >
+                        <td className="py-2.5 pr-3">
+                          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
+                            {i + 1}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-3 font-medium text-slate-700">
+                          #{s.candidate_id}
+                        </td>
+                        <td className="py-2.5 pr-3 text-slate-600">
+                          {formatFacilityType(s.facility_type, facility)}
+                        </td>
+                        <td className="py-2.5 pr-3 text-slate-600">
+                          {s.zona ?? "—"}
+                        </td>
+                        <td className="py-2.5 pr-3 font-mono text-xs text-slate-500">
+                          {s.lat.toFixed(4)}, {s.lon.toFixed(4)}
+                        </td>
+                        <td className="py-2.5 pr-3 font-semibold text-teal-600">
+                          {s.score.toLocaleString("es-ES")}
+                        </td>
+                        <td className="py-2.5 text-slate-600">{s.cost}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat
-              label="Ubicaciones elegidas"
-              value={result?.n_selected ?? "—"}
-              tone="brand"
-              icon={<MapPin className="h-4 w-4" />}
-            />
-            <Stat
-              label={
-                usesRealPopulation ? "Población cubierta" : "Impacto total"
-              }
-              value={
-                result
-                  ? usesRealPopulation && result.population_covered != null
-                    ? result.population_covered.toLocaleString("es-ES")
-                    : result.total_score.toFixed(2)
-                  : "—"
-              }
-              tone="teal"
-              hint={
-                usesRealPopulation
-                  ? "Habitantes en hexágonos nuevos cubiertos"
-                  : "Suma de scores ponderados"
-              }
-            />
-            <Stat
-              label="Coste total"
-              value={result ? result.total_cost.toFixed(1) : "—"}
-              hint={
-                budgetUsage != null
-                  ? `Uso presupuesto: ${budgetUsage}% · coste medio: ${avgCost}`
-                  : `Coste medio: ${avgCost}`
-              }
-            />
-            <Stat
-              label="Modo"
-              value={result?.mode ?? "—"}
-              hint={FACILITY_LABELS[facility]}
-            />
-          </div>
-
-          <Card>
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">
-                Mapa de la propuesta
-              </h3>
-              {result && <Badge color="blue">{result.n_selected} puntos</Badge>}
-            </div>
-            <div className="mt-4">
-              <DynamicMap markers={markers} height={440} />
-            </div>
-            {result && (
-              <p className="mt-3 text-xs text-slate-400">
-                Restricción aplicada: {result.constraint}
-              </p>
-            )}
-          </Card>
-        </div>
-      </div>
-
-      {ran && result && result.selected.length > 0 && (
-        <Card>
-          <h3 className="text-base font-bold text-slate-900">
-            Ubicaciones recomendadas
-          </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Ordenadas por impacto. Datos: localizaciones2.csv + población
-            censal + isócronas del proyecto.
-          </p>
-          <div className="mt-4 overflow-x-auto scroll-thin">
-            <table className="w-full min-w-[600px] text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="py-2 pr-3">#</th>
-                  <th className="py-2 pr-3">ID</th>
-                  <th className="py-2 pr-3">Tipo</th>
-                  <th className="py-2 pr-3">Zona</th>
-                  <th className="py-2 pr-3">Coordenadas</th>
-                  <th className="py-2 pr-3">Población / score</th>
-                  <th className="py-2">Coste</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.selected.map((s, i) => (
-                  <tr
-                    key={`${s.candidate_id}-${s.facility_type ?? ""}`}
-                    className="border-b border-slate-100 last:border-0"
-                  >
-                    <td className="py-2.5 pr-3">
-                      <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">
-                        {i + 1}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3 font-medium text-slate-700">
-                      #{s.candidate_id}
-                    </td>
-                    <td className="py-2.5 pr-3 text-slate-600">
-                      {formatFacilityType(s.facility_type, facility)}
-                    </td>
-                    <td className="py-2.5 pr-3 text-slate-600">
-                      {s.zona ?? "—"}
-                    </td>
-                    <td className="py-2.5 pr-3 font-mono text-xs text-slate-500">
-                      {s.lat.toFixed(4)}, {s.lon.toFixed(4)}
-                    </td>
-                    <td className="py-2.5 pr-3 font-semibold text-teal-600">
-                      {s.score.toLocaleString("es-ES")}
-                    </td>
-                    <td className="py-2.5 text-slate-600">{s.cost}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {ran && result && result.selected.length === 0 && (
-        <Callout tone="amber" title="Sin solución para este escenario">
-          No se seleccionó ninguna ubicación. Prueba a aumentar el presupuesto
-          o revisa que la API esté desplegada con los artefactos de cobertura.
-        </Callout>
-      )}
-
-      <Card>
-        <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
-          <div>
-            <h3 className="text-base font-bold text-slate-900">
-              Formulación matemática del motor
-            </h3>
-            {usesRealPopulation ? (
-              <>
-                <div className="mt-3 overflow-x-auto rounded-xl bg-slate-900 p-4 font-mono text-xs text-slate-100 sm:text-sm">
-                  max Σⱼ pⱼ Yⱼ &nbsp; (pⱼ = población en hex sin cobertura
-                  previa)
-                  <br />
-                  s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0 &nbsp; ∀j
-                  <br />
-                  Σᵢ costᵢ Xᵢ ≤ presupuesto
-                  <br />
-                  {facility === "multi" && (
+          {ran && result && result.selected.length === 0 && (
+            <Callout tone="amber" title="Sin solución para este escenario">
+              No se seleccionó ninguna ubicación. Prueba a aumentar el presupuesto
+              o revisa que la API esté desplegada con los artefactos de cobertura.
+            </Callout>
+          )}
+        </>
+      ) : (
+        <section className="space-y-5">
+          <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+            <Card>
+              <div className="flex items-start gap-3">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-700" />
+                <div>
+                  <p className="eyebrow">Método del optimizador</p>
+                  <h3 className="mt-1 text-lg font-bold text-slate-900">
+                    Formulación matemática del motor
+                  </h3>
+                  {usesRealPopulation ? (
                     <>
-                      <br />
-                      Multi: max λ Σ pⱼ Yⱼ + (1−λ) Σ p&apos;ⱼ Y&apos;ⱼ
-                      <br />
-                      Xᵢ + X&apos;ᵢ ≤ 1
+                      <div className="mt-4 overflow-x-auto rounded-lg bg-slate-900 p-4 font-mono text-xs text-slate-100 sm:text-sm">
+                        max Σⱼ pⱼ Yⱼ &nbsp; (pⱼ = población en hex sin cobertura previa)
+                        <br />
+                        s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0 &nbsp; ∀j
+                        <br />
+                        Σᵢ costᵢ Xᵢ ≤ presupuesto
+                        <br />
+                        {facility === "multi" && (
+                          <>
+                            <br />
+                            Multi: max λ Σ pⱼ Yⱼ + (1−λ) Σ p&apos;ⱼ Y&apos;ⱼ
+                            <br />
+                            Xᵢ + X&apos;ᵢ ≤ 1
+                          </>
+                        )}
+                      </div>
+                      <p className="mt-3 text-sm text-slate-600">
+                        αᵢⱼ vale 1 si el centroide del hexágono censal j cae
+                        dentro de la isócrona del candidato i. Así se mide nueva
+                        cobertura, no solo cercanía visual.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mt-4 overflow-x-auto rounded-lg bg-slate-900 p-4 font-mono text-xs text-slate-100 sm:text-sm">
+                        scoreᵢ = w_tráfico·tráficoᵢ + w_población·poblaciónᵢ +
+                        w_déficit·déficitᵢ
+                        <br />
+                        max Σ scoreᵢ·xᵢ
+                      </div>
+                      <p className="mt-3 text-sm text-slate-600">
+                        El modo Valenbisi pondera presión de tráfico, población
+                        alcanzable y déficit de estaciones actuales para comparar
+                        candidatos homogéneos.
+                      </p>
                     </>
                   )}
                 </div>
-                <p className="mt-3 text-sm text-slate-600">
-                  αᵢⱼ = 1 si el centroide del hexágono censal j cae dentro de
-                  la isócrona del candidato i. pⱼ usa{" "}
-                  <strong>population_spain.gpkg</strong> filtrado a Valencia.
-                  Instalaciones existentes: centros-deportivo-valencia.csv y
-                  hospitales-valencia.csv.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="mt-3 overflow-x-auto rounded-xl bg-slate-900 p-4 font-mono text-xs text-slate-100 sm:text-sm">
-                  scoreᵢ = w_tráfico·tráficoᵢ + w_población·poblaciónᵢ +
-                  w_déficit·déficitᵢ
-                  <br />
-                  max Σ scoreᵢ·xᵢ
-                </div>
-                <p className="mt-3 text-sm text-slate-600">
-                  El modo Valenbisi usa un score compuesto para comparar
-                  presión de tráfico, población alcanzable y déficit de
-                  cobertura de estaciones existentes.
-                </p>
-              </>
-            )}
-            <p className="mt-2 text-xs text-slate-400">
-              Autores: Sergio Ortiz Montesinos, Luis Trigueros Espada, Fernando
-              Martínez Gómez
-            </p>
-          </div>
-        </div>
-      </Card>
+              </div>
+            </Card>
 
-      <Card>
-        <div className="flex items-start gap-3">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
-          <div className="min-w-0">
-            <h3 className="text-base font-bold text-slate-900">
-              Cobertura funcional del motor UrbanFlow
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              La app integra los módulos necesarios para una decisión urbana
-              completa y separa el cálculo público determinista del análisis
-              exploratorio interno.
-            </p>
-            <div className="mt-4 overflow-x-auto scroll-thin">
-              <table className="w-full min-w-[780px] text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="py-2 pr-3">Fuente</th>
-                    <th className="py-2 pr-3">Bloque funcional</th>
-                    <th className="py-2 pr-3">Implementación en la app</th>
-                    <th className="py-2">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {FUNCTIONAL_TRACE.map((row) => (
-                    <tr key={row.source} className="border-b border-slate-100 last:border-0">
-                      <td className="py-3 pr-3 align-top font-medium text-slate-800">
-                        {row.source}
-                      </td>
-                      <td className="py-3 pr-3 align-top text-slate-600">
-                        {row.block}
-                      </td>
-                      <td className="py-3 pr-3 align-top text-slate-600">
-                        {row.app}
-                      </td>
-                      <td className="py-3 align-top">
-                        <Badge color={traceStatusColor(row.status)}>
-                          {row.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Callout tone="amber" title="Criterio de despliegue">
-              <span className="inline-flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>
-                  El algoritmo genético y el Voronoi dinámico siguen explicados
-                  como análisis interno, pero el servicio público usa PuLP/CBC
-                  porque es reproducible, testeable y más estable en Hugging
-                  Face.
-                </span>
-              </span>
-            </Callout>
+            <Card>
+              <div className="flex items-start gap-3">
+                <ListChecks className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
+                <div>
+                  <p className="eyebrow">Cómo leer la herramienta</p>
+                  <h3 className="mt-1 text-lg font-bold text-slate-900">
+                    De escenario a decisión
+                  </h3>
+                  <div className="mt-4 grid gap-3">
+                    <InfoStep
+                      icon={<MapIcon className="h-4 w-4" />}
+                      title="1. Ajusta el escenario"
+                      text="Selecciona servicio, presupuesto, N puntos o pesos de movilidad."
+                    />
+                    <InfoStep
+                      icon={<Route className="h-4 w-4" />}
+                      title="2. Revisa el mapa GIS"
+                      text="Activa capas para ver tráfico, cobertura existente y estaciones actuales."
+                    />
+                    <InfoStep
+                      icon={<CheckCircle2 className="h-4 w-4" />}
+                      title="3. Contrasta el ranking"
+                      text="El ranking muestra qué ubicaciones cumplen mejor la restricción activa."
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
-        </div>
-      </Card>
+
+          <Card>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
+              <div className="min-w-0">
+                <p className="eyebrow">Trazabilidad funcional</p>
+                <h3 className="mt-1 text-lg font-bold text-slate-900">
+                  Cobertura funcional del motor UrbanFlow
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Esta pestaña documenta qué piezas del motor están activas,
+                  cuáles son capas de contexto y cuáles quedan como análisis
+                  interno para mantener la app estable.
+                </p>
+                <div className="mt-4 overflow-x-auto scroll-thin">
+                  <table className="w-full min-w-[780px] text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                        <th className="py-2 pr-3">Fuente</th>
+                        <th className="py-2 pr-3">Bloque funcional</th>
+                        <th className="py-2 pr-3">Implementación en la app</th>
+                        <th className="py-2">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FUNCTIONAL_TRACE.map((row) => (
+                        <tr key={row.source} className="border-b border-slate-100 last:border-0">
+                          <td className="py-3 pr-3 align-top font-medium text-slate-800">
+                            {row.source}
+                          </td>
+                          <td className="py-3 pr-3 align-top text-slate-600">
+                            {row.block}
+                          </td>
+                          <td className="py-3 pr-3 align-top text-slate-600">
+                            {row.app}
+                          </td>
+                          <td className="py-3 align-top">
+                            <Badge color={traceStatusColor(row.status)}>
+                              {row.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Callout tone="amber" title="Criterio de despliegue">
+                  <span className="inline-flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Los análisis experimentales se explican aquí, pero la ruta
+                      pública ejecuta PuLP/CBC porque es reproducible, testeable y
+                      más estable en despliegue.
+                    </span>
+                  </span>
+                </Callout>
+              </div>
+            </div>
+          </Card>
+        </section>
+      )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
+        active
+          ? "bg-slate-900 text-white shadow-sm"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -738,15 +918,15 @@ function FacilityButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${
+      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
         active
           ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
           : "border-slate-200 bg-white hover:border-slate-300"
       }`}
     >
       <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-          active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+          active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
         }`}
       >
         {icon}
@@ -779,15 +959,15 @@ function ModeButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${
+      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
         active
           ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
           : "border-slate-200 bg-white hover:border-slate-300"
       }`}
     >
       <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-          active ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+          active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
         }`}
       >
         {icon}
@@ -798,7 +978,46 @@ function ModeButton({
         >
           {title}
         </span>
-        <span className="mt-0.5 block text-sm text-slate-500">{subtitle}</span>
+        <span className="mt-0.5 block text-xs text-slate-500">{subtitle}</span>
+      </span>
+    </button>
+  );
+}
+
+function LayerToggle({
+  active,
+  onClick,
+  label,
+  count,
+  tone,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+  tone: "amber" | "blue" | "slate";
+}) {
+  const toneMap = {
+    amber: active
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : "border-slate-200 bg-white text-slate-500",
+    blue: active
+      ? "border-brand-200 bg-brand-50 text-brand-800"
+      : "border-slate-200 bg-white text-slate-500",
+    slate: active
+      ? "border-slate-300 bg-slate-100 text-slate-800"
+      : "border-slate-200 bg-white text-slate-500",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold transition hover:border-slate-300 ${toneMap[tone]}`}
+    >
+      <span className="block">{label}</span>
+      <span className="block text-[11px] font-medium opacity-70">
+        {active ? `${count} elementos` : "Oculto"}
       </span>
     </button>
   );
@@ -817,7 +1036,7 @@ function Field({
     <div>
       <div className="mb-2 flex items-center justify-between">
         <label className="text-sm font-medium text-slate-600">{label}</label>
-        <span className="rounded-lg bg-brand-50 px-2 py-0.5 text-sm font-bold text-brand-700">
+        <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-sm font-bold text-slate-700">
           {value}
         </span>
       </div>
@@ -870,34 +1089,34 @@ function Weight({
   );
 }
 
-function GuideStep({
-  n,
+function InfoStep({
+  icon,
   title,
   text,
 }: {
-  n: string;
+  icon: React.ReactNode;
   title: string;
   text: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">
-        {n}
+    <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-slate-700 shadow-sm">
+        {icon}
       </span>
-      <p className="mt-2 font-semibold text-slate-900">{title}</p>
-      <p className="mt-1 text-xs text-slate-600">{text}</p>
+      <div>
+        <p className="font-semibold text-slate-900">{title}</p>
+        <p className="mt-0.5 text-sm text-slate-500">{text}</p>
+      </div>
     </div>
   );
 }
 
-function SummaryRow({ k, v }: { k: string; v: string }) {
+function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <div className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {k}
-      </dt>
-      <dd className="mt-0.5 text-slate-600">{v}</dd>
-    </div>
+    <span className="inline-flex items-center gap-1.5">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
+    </span>
   );
 }
 
@@ -919,7 +1138,7 @@ function PresetButtons({
           onClick={() => onSelect(item.value)}
           className={`rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
             active === item.value
-              ? "border-brand-300 bg-brand-50 text-brand-700"
+              ? "border-slate-300 bg-slate-100 text-slate-900"
               : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
           }`}
         >
@@ -930,6 +1149,117 @@ function PresetButtons({
   );
 }
 
+function pointFeaturesToMarkers(
+  collection: GeoJSONFeatureCollection,
+  options: { color: string; label: string; limit: number; radius: number },
+): MapMarker[] {
+  return collection.features.slice(0, options.limit).flatMap((feature) => {
+    const coordinates = feature.geometry?.coordinates;
+    const point = toLatLon(coordinates);
+    if (!point) return [];
+
+    return [
+      {
+        lat: point[0],
+        lon: point[1],
+        label: featureLabel(feature, options.label),
+        color: options.color,
+        radius: options.radius,
+      },
+    ];
+  });
+}
+
+function lineFeaturesToLines(
+  collection: GeoJSONFeatureCollection,
+  options: { color: string; label: string; limit: number },
+): MapLine[] {
+  return collection.features.slice(0, options.limit).flatMap((feature) => {
+    if (feature.geometry?.type !== "LineString") return [];
+    if (!Array.isArray(feature.geometry.coordinates)) return [];
+
+    const positions = feature.geometry.coordinates
+      .map(toLatLon)
+      .filter((point): point is [number, number] => Boolean(point));
+
+    if (positions.length < 2) return [];
+
+    return [
+      {
+        positions,
+        label: featureLabel(feature, options.label),
+        color: options.color,
+        opacity: 0.38,
+        weight: 2,
+      },
+    ];
+  });
+}
+
+function polygonFeaturesToPolygons(
+  collection: GeoJSONFeatureCollection,
+  options: { color: string; label: string },
+): MapPolygon[] {
+  return collection.features.flatMap((feature) =>
+    polygonRings(feature).map((positions) => ({
+      positions,
+      label: featureLabel(feature, options.label),
+      color: options.color,
+      fillOpacity: 0.08,
+      weight: 1.2,
+    })),
+  );
+}
+
+function polygonRings(feature: GeoJSONFeature): [number, number][][] {
+  const geometry = feature.geometry;
+  if (!geometry) return [];
+
+  if (geometry.type === "Polygon") {
+    return ringsFromPolygon(geometry.coordinates);
+  }
+
+  if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates.flatMap(ringsFromPolygon);
+  }
+
+  return [];
+}
+
+function ringsFromPolygon(coordinates: unknown): [number, number][][] {
+  if (!Array.isArray(coordinates)) return [];
+
+  return coordinates.slice(0, 1).flatMap((ring) => {
+    if (!Array.isArray(ring)) return [];
+
+    const positions = ring
+      .map(toLatLon)
+      .filter((point): point is [number, number] => Boolean(point));
+
+    return positions.length > 2 ? [positions] : [];
+  });
+}
+
+function toLatLon(coordinates: unknown): [number, number] | null {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+
+  const [lon, lat] = coordinates;
+  if (typeof lat !== "number" || typeof lon !== "number") return null;
+
+  return [lat, lon];
+}
+
+function featureLabel(feature: GeoJSONFeature, fallback: string) {
+  const props = feature.properties ?? {};
+  const name = props.name ?? props.zona ?? props.id;
+
+  if (typeof name === "string" || typeof name === "number") {
+    return `${fallback}: ${name}`;
+  }
+
+  return fallback;
+}
+
 function formatFacilityType(type: string | null | undefined, fallback: FacilityMode) {
   if (type === "polideportivo") return "Polideportivo";
   if (type === "centro_salud") return "Centro de salud";
@@ -937,7 +1267,7 @@ function formatFacilityType(type: string | null | undefined, fallback: FacilityM
 }
 
 function traceStatusColor(status: string): "green" | "amber" | "blue" {
-  if (status === "Activo en API") return "green";
+  if (status === "Activo en API" || status === "Activo en app") return "green";
   if (status === "Parcial" || status === "Sustituido") return "amber";
   return "blue";
 }

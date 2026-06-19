@@ -29,10 +29,10 @@ export function Badge({
 }) {
   const map: Record<string, string> = {
     slate: "bg-slate-100 text-slate-700",
-    green: "bg-green-100 text-green-700",
-    amber: "bg-amber-100 text-amber-700",
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
     red: "bg-red-100 text-red-700",
-    blue: "bg-brand-50 text-brand-700",
+    blue: "bg-indigo-50 text-indigo-700",
   };
   return <span className={`badge ${map[color]}`}>{children}</span>;
 }

@@ -1,6 +1,7 @@
 import { API_URL } from "./constants";
 import type {
   GlobalMetrics,
+  GeoJSONFeatureCollection,
   HourMetric,
   Metadata,
   Monitoring,
@@ -33,6 +34,11 @@ async function postJSON<T>(path: string, body: unknown, fallback: T): Promise<T>
     return fallback;
   }
 }
+
+const emptyFeatureCollection: GeoJSONFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 export const api = {
   health: () => getJSON<{ status: string }>("/health", { status: "down" }),
@@ -114,6 +120,14 @@ export const api = {
       n_selected: 0,
       constraint: "API no disponible",
     }),
+  existingSports: () =>
+    getJSON<GeoJSONFeatureCollection>("/map/existing-sports", emptyFeatureCollection),
+  existingHealth: () =>
+    getJSON<GeoJSONFeatureCollection>("/map/existing-health", emptyFeatureCollection),
+  trafficSegments: () =>
+    getJSON<GeoJSONFeatureCollection>("/map/traffic-segments", emptyFeatureCollection),
+  currentValenbisi: () =>
+    getJSON<GeoJSONFeatureCollection>("/map/current-valenbisi", emptyFeatureCollection),
   monitoring: () =>
     getJSON<Monitoring>("/monitoring/alerts", {
       model_active: "CatBoost por hora",
