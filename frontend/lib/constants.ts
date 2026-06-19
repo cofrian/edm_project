@@ -19,11 +19,15 @@ export const NIVEL_COLORS: Record<string, string> = {
   alta: "#dc2626",
 };
 
-/** Navegación principal para el operario municipal */
-export const NAV_LINKS = [
-  { href: "/", label: "Inicio" },
-  { href: "/mapa", label: "Mapa urbano" },
+/** Herramientas principales de la consola municipal */
+export const WORKSPACE_LINKS = [
+  { href: "/mapa", label: "Explorador" },
   { href: "/optimizacion", label: "Optimización" },
+];
+
+/** @deprecated Usar WORKSPACE_LINKS — mantenido por compatibilidad */
+export const NAV_LINKS = [
+  ...WORKSPACE_LINKS,
   { href: "/metodologia", label: "Documentación" },
 ];
 

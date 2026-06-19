@@ -26,8 +26,6 @@ import { demandTypeForSector, layersForSector } from "@/lib/mapLayers";
 import { exportProposalCsv, exportProposalGeoJson, printProposalReport } from "@/lib/exportProposal";
 import { loadScenarios, saveScenario, type SavedScenario } from "@/lib/scenarios";
 import { ApiStatusBanner } from "@/components/ApiStatusBanner";
-import { Card, Badge } from "@/components/Card";
-import { Stat, PageHeader, Callout } from "@/components/ui";
 import { CityMap } from "@/components/DynamicMap";
 import type { GeoFeatureCollection, MapMarker, OptimizeResponse } from "@/lib/types";
 
@@ -35,10 +33,34 @@ type Sector = "valenbisi" | "sports" | "health" | "multi";
 type ConstraintMode = "budget" | "count";
 
 const SECTORS = [
-  { id: "valenbisi" as const, title: "Movilidad · Valenbisi", subtitle: "Modo A (N fijo) y Modo B (presupuesto)", icon: <Bike className="h-5 w-5" />, accent: "from-orange-500 to-amber-600" },
-  { id: "sports" as const, title: "Polideportivos", subtitle: "ILP censal · maximizar población cubierta", icon: <Dumbbell className="h-5 w-5" />, accent: "from-blue-500 to-indigo-600" },
-  { id: "health" as const, title: "Centros de salud", subtitle: "ILP censal · cobertura sanitaria", icon: <HeartPulse className="h-5 w-5" />, accent: "from-emerald-500 to-teal-600" },
-  { id: "multi" as const, title: "Plan mixto", subtitle: "Deporte + salud con un presupuesto", icon: <Blend className="h-5 w-5" />, accent: "from-violet-500 to-purple-600" },
+  {
+    id: "valenbisi" as const,
+    title: "Valenbisi",
+    subtitle: "Modo A / B",
+    icon: <Bike className="h-4 w-4" />,
+    color: "#f97316",
+  },
+  {
+    id: "sports" as const,
+    title: "Deporte",
+    subtitle: "ILP censal",
+    icon: <Dumbbell className="h-4 w-4" />,
+    color: "#3b82f6",
+  },
+  {
+    id: "health" as const,
+    title: "Salud",
+    subtitle: "ILP censal",
+    icon: <HeartPulse className="h-4 w-4" />,
+    color: "#10b981",
+  },
+  {
+    id: "multi" as const,
+    title: "Mixto",
+    subtitle: "Deporte + salud",
+    icon: <Blend className="h-4 w-4" />,
+    color: "#a855f7",
+  },
 ];
 
 const FACILITY_COLORS: Record<string, string> = {
@@ -68,6 +90,7 @@ export default function OptimizacionClient() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [ran, setRan] = useState(false);
+  const [showRanking, setShowRanking] = useState(true);
   const [showTech, setShowTech] = useState(false);
   const [highlightId, setHighlightId] = useState<string | number | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lon: number } | null>(null);
@@ -164,7 +187,6 @@ export default function OptimizacionClient() {
           lon: s.lon,
           label: `#${s.candidate_id} · ${formatImpact(s.score, sector)}`,
           color: FACILITY_COLORS[s.facility_type ?? sector] ?? FACILITY_COLORS.default,
-          radius: 12,
         };
       }) ?? [],
     [result, sector]
@@ -196,160 +218,210 @@ export default function OptimizacionClient() {
   const activeSector = SECTORS.find((s) => s.id === sector)!;
 
   return (
-    <div className="space-y-6 print:space-y-4">
-      <PageHeader
-        eyebrow="Consola de planificación · Ayuntamiento de Valencia"
-        title="Optimización de equipamientos urbanos"
-        description="Simula escenarios con los modelos PuLP del pipeline Jupyter: Valenbisi (Modo A/B), polideportivos, salud y plan mixto. La presión de tráfico es precalculada (CatBoost oct-2023)."
-      >
-        <Badge color="blue">PuLP · CBC</Badge>
-      </PageHeader>
+    <div className="flex h-[100dvh] min-h-0">
+      <aside className="console-panel z-10 flex w-[340px] shrink-0 flex-col overflow-hidden rounded-none border-y-0 border-l-0">
+        <div className="console-panel-header">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-400/80">
+            Optimización
+          </p>
+          <h1 className="text-base font-semibold text-white">Generar propuesta</h1>
+          <div className="mt-2">
+            <ApiStatusBanner compact />
+          </div>
+        </div>
 
-      <ApiStatusBanner />
-
-      {!coverageDataOk && popMode && (
-        <Callout tone="amber" title="Modo simplificado activo">
-          No se detectaron artefactos censales completos. Deporte/salud pueden estar usando el
-          optimizador de score compuesto en lugar del ILP de cobertura poblacional.
-        </Callout>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {SECTORS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => {
-              setSector(s.id);
-              setResult(null);
-              setRan(false);
-              setApiError(null);
-              setCoveredGeo(null);
-            }}
-            className={`relative overflow-hidden rounded-2xl border p-4 text-left transition ${
-              sector === s.id
-                ? "border-brand-300 bg-white shadow-card ring-2 ring-brand-200"
-                : "border-slate-200 bg-white/80 hover:border-slate-300"
-            }`}
-          >
-            {sector === s.id && (
-              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
-            )}
-            <span className={`grid h-10 w-10 place-items-center rounded-xl ${sector === s.id ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-              {s.icon}
-            </span>
-            <p className="mt-3 font-semibold text-slate-900">{s.title}</p>
-            <p className="mt-1 text-xs text-slate-500">{s.subtitle}</p>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <Card className="!p-0 overflow-hidden">
-            <div className={`bg-gradient-to-br ${activeSector.accent} p-4 text-white`}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Escenario activo</p>
-              <p className="mt-1 text-lg font-bold">{activeSector.title}</p>
+        <div className="flex-1 space-y-4 overflow-y-auto scroll-thin p-4">
+          {!coverageDataOk && popMode && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              Artefactos censales incompletos — modo simplificado posible.
             </div>
-            <div className="space-y-5 p-5">
-              {sector === "valenbisi" && (
-                <div className="grid grid-cols-2 gap-2">
-                  <ModeChip active={constraint === "budget"} onClick={() => setConstraint("budget")} icon={<Coins className="h-4 w-4" />} label="Presupuesto" />
-                  <ModeChip active={constraint === "count"} onClick={() => setConstraint("count")} icon={<Target className="h-4 w-4" />} label="Nº fijo" />
-                </div>
-              )}
+          )}
 
-              {sector === "valenbisi" && constraint === "count" ? (
-                <SliderField label="Estaciones a implantar" value={n} min={1} max={25}>
-                  <input type="range" min={1} max={25} value={n} onChange={(e) => setN(+e.target.value)} className="range" />
-                </SliderField>
-              ) : (
-                <SliderField label="Presupuesto (coste relativo cost1)" value={`${budget}`} hint="Unidades del dataset localizaciones2.csv">
-                  <input type="range" min={20} max={400} step={10} value={budget} onChange={(e) => setBudget(+e.target.value)} className="range" />
-                </SliderField>
-              )}
-
-              {sector === "multi" && (
-                <SliderField label="Peso deporte (λ)" value={lambdaSports.toFixed(2)}>
-                  <input type="range" min={0} max={1} step={0.05} value={lambdaSports} onChange={(e) => setLambdaSports(+e.target.value)} className="range" />
-                </SliderField>
-              )}
-
-              {sector === "valenbisi" && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Pesos α·tráfico + β·población + γ·déficit
-                  </p>
-                  <WeightSlider icon={<Activity className="h-3.5 w-3.5" />} label="Tráfico (precalc.)" v={wTraf} set={setWTraf} />
-                  <WeightSlider icon={<Users className="h-3.5 w-3.5" />} label="Población" v={wPob} set={setWPob} />
-                  <WeightSlider icon={<Layers className="h-3.5 w-3.5" />} label="Déficit" v={wDef} set={setWDef} />
-                </div>
-              )}
-
-              <button className="btn-primary w-full" onClick={run} disabled={loading}>
-                <Play className="h-4 w-4" />
-                {loading ? "Calculando…" : "Generar propuesta"}
+          <div className="grid grid-cols-2 gap-1.5">
+            {SECTORS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setSector(s.id);
+                  setResult(null);
+                  setRan(false);
+                  setApiError(null);
+                  setCoveredGeo(null);
+                }}
+                className={`rounded-xl border px-2.5 py-2.5 text-left transition ${
+                  sector === s.id
+                    ? "border-cyan-500/30 bg-cyan-500/10 ring-1 ring-cyan-500/20"
+                    : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"
+                }`}
+              >
+                <span
+                  className="mb-1.5 inline-flex rounded-lg p-1.5"
+                  style={{
+                    backgroundColor: `${s.color}22`,
+                    color: s.color,
+                  }}
+                >
+                  {s.icon}
+                </span>
+                <p className="text-xs font-semibold text-white">{s.title}</p>
+                <p className="text-[10px] text-slate-500">{s.subtitle}</p>
               </button>
-            </div>
-          </Card>
+            ))}
+          </div>
 
-          <div className="grid gap-3">
-            <Stat label="Ubicaciones" value={result?.n_selected ?? "—"} tone="brand" icon={<MapPin className="h-4 w-4" />} />
-            <Stat label={impactLabel} value={impactValue} tone="teal" />
-            <Stat label="Coste total" value={result ? result.total_cost.toFixed(1) : "—"} hint={`Medio: ${avgCost}`} />
+          {sector === "valenbisi" && (
+            <div className="grid grid-cols-2 gap-1.5">
+              <ModeChip
+                active={constraint === "budget"}
+                onClick={() => setConstraint("budget")}
+                icon={<Coins className="h-3.5 w-3.5" />}
+                label="Presupuesto"
+              />
+              <ModeChip
+                active={constraint === "count"}
+                onClick={() => setConstraint("count")}
+                icon={<Target className="h-3.5 w-3.5" />}
+                label="N fijo"
+              />
+            </div>
+          )}
+
+          {sector === "valenbisi" && constraint === "count" ? (
+            <SliderField label="Estaciones" value={n}>
+              <input
+                type="range"
+                min={1}
+                max={25}
+                value={n}
+                onChange={(e) => setN(+e.target.value)}
+                className="console-range"
+              />
+            </SliderField>
+          ) : (
+            <SliderField label="Presupuesto" value={budget}>
+              <input
+                type="range"
+                min={20}
+                max={400}
+                step={10}
+                value={budget}
+                onChange={(e) => setBudget(+e.target.value)}
+                className="console-range"
+              />
+            </SliderField>
+          )}
+
+          {sector === "multi" && (
+            <SliderField label="Peso deporte λ" value={lambdaSports.toFixed(2)}>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={lambdaSports}
+                onChange={(e) => setLambdaSports(+e.target.value)}
+                className="console-range"
+              />
+            </SliderField>
+          )}
+
+          {sector === "valenbisi" && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Pesos α·tráfico + β·población + γ·déficit
+              </p>
+              <WeightSlider icon={<Activity className="h-3 w-3" />} label="Tráfico" v={wTraf} set={setWTraf} />
+              <WeightSlider icon={<Users className="h-3 w-3" />} label="Población" v={wPob} set={setWPob} />
+              <WeightSlider icon={<Layers className="h-3 w-3" />} label="Déficit" v={wDef} set={setWDef} />
+            </div>
+          )}
+
+          <button className="console-btn-primary w-full" onClick={run} disabled={loading}>
+            <Play className="h-4 w-4" />
+            {loading ? "Calculando…" : "Generar propuesta"}
+          </button>
+
+          <div className="grid gap-2">
+            <MetricRow icon={<MapPin className="h-3.5 w-3.5" />} label="Ubicaciones" value={result?.n_selected ?? "—"} />
+            <MetricRow label={impactLabel} value={impactValue} accent />
+            <MetricRow label="Coste total" value={result ? result.total_cost.toFixed(1) : "—"} hint={`Medio: ${avgCost}`} />
           </div>
 
           {result && result.selected.length > 0 && (
-            <div className="flex flex-wrap gap-2 print:hidden">
-              <button type="button" className="btn-secondary flex-1 text-xs" onClick={handleSaveScenario}>
-                <Save className="h-3.5 w-3.5" /> Guardar escenario
+            <div className="flex flex-wrap gap-1.5 print:hidden">
+              <button type="button" className="console-btn-ghost flex-1" onClick={handleSaveScenario}>
+                <Save className="h-3.5 w-3.5" /> Guardar
               </button>
-              <button type="button" className="btn-secondary text-xs" onClick={() => exportProposalCsv(result)}>
-                <Download className="h-3.5 w-3.5" /> CSV
+              <button type="button" className="console-btn-ghost" onClick={() => exportProposalCsv(result)}>
+                <Download className="h-3.5 w-3.5" />
               </button>
-              <button type="button" className="btn-secondary text-xs" onClick={() => exportProposalGeoJson(result)}>
-                <Download className="h-3.5 w-3.5" /> GeoJSON
+              <button type="button" className="console-btn-ghost" onClick={() => exportProposalGeoJson(result)}>
+                GeoJSON
               </button>
-              <button type="button" className="btn-secondary text-xs" onClick={printProposalReport}>
-                <Printer className="h-3.5 w-3.5" /> Imprimir
+              <button type="button" className="console-btn-ghost" onClick={printProposalReport}>
+                <Printer className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
           {scenarios.length > 0 && (
-            <Card className="!p-4 print:hidden">
-              <p className="text-xs font-semibold uppercase text-slate-400">Escenarios guardados (sesión)</p>
-              <ul className="mt-2 space-y-2 text-sm">
+            <div className="rounded-xl border border-white/[0.06] p-3">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Escenarios (sesión)</p>
+              <ul className="mt-2 space-y-1.5 text-xs">
                 {scenarios.map((sc) => (
-                  <li key={sc.id} className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="font-medium text-slate-800">{sc.label}</p>
-                    <p className="text-xs text-slate-500">
-                      {sc.result.n_selected} ubic. ·{" "}
-                      {sc.result.population_covered?.toLocaleString("es-ES") ?? sc.result.total_score.toFixed(2)}
-                    </p>
+                  <li key={sc.id} className="rounded-lg bg-white/[0.03] px-2.5 py-2 text-slate-300">
+                    {sc.label}
                   </li>
                 ))}
               </ul>
-            </Card>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowTech((v) => !v)}
+            className="flex w-full items-center justify-between text-xs text-slate-500 hover:text-slate-300"
+          >
+            Detalle técnico
+            {showTech ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showTech && (
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              {popMode
+                ? "ILP censal (nb. 07): maximiza población cubierta bajo presupuesto."
+                : scoreMode && constraint === "count"
+                  ? "Modo A (nb. 05): N estaciones fijas, score compuesto precalculado."
+                  : "Modo B (nb. 06): presupuesto máximo, score compuesto."}
+            </p>
           )}
         </div>
+      </aside>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Mapa de la propuesta</h2>
-              <p className="text-sm text-slate-500">Infraestructura, demanda, candidatos y cobertura nueva.</p>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative min-h-0 flex-1">
+          {result && (
+            <div className="absolute right-4 top-4 z-[600] console-panel px-3 py-2 text-xs text-slate-300">
+              <Sparkles className="mr-1 inline h-3.5 w-3.5 text-cyan-400" />
+              {result.n_selected} recomendadas · {activeSector.title}
             </div>
-            {result && (
-              <Badge color="blue">
-                <Sparkles className="mr-1 h-3 w-3" />
-                {result.n_selected} recomendadas
-              </Badge>
-            )}
-          </div>
+          )}
+
+          {apiError && (
+            <div className="absolute left-4 top-4 z-[600] max-w-sm rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              {apiError}
+            </div>
+          )}
+
+          {!ran && !apiError && (
+            <div className="absolute bottom-20 left-1/2 z-[600] -translate-x-1/2 console-panel px-4 py-2 text-xs text-slate-400">
+              Ajusta sector y presupuesto, luego genera la propuesta
+            </div>
+          )}
 
           <CityMap
-            height="min(68vh, 640px)"
+            height="100%"
+            fullBleed
             layers={mapLayers}
             demandType={demandType}
             proposedMarkers={proposedMarkers}
@@ -358,86 +430,78 @@ export default function OptimizacionClient() {
             highlightId={highlightId}
             flyTo={flyTo}
             onMarkerSelect={(id) => setHighlightId(id)}
+            showLayerControl={false}
+            showLegend
           />
-
-          {apiError && (
-            <Callout tone="amber" title="Error de conexión">{apiError}</Callout>
-          )}
-
-          {!ran && !apiError && (
-            <Callout tone="brand" title="Flujo recomendado">
-              Explora <strong>/mapa</strong>, elige sector y genera la propuesta. Clic en fila del ranking para centrar el mapa.
-            </Callout>
-          )}
-
-          {ran && !apiError && result && result.selected.length === 0 && (
-            <Callout tone="amber" title="Sin solución viable">
-              Ningún candidato cumple la restricción. Aumenta presupuesto o N.
-            </Callout>
-          )}
         </div>
-      </div>
 
-      {ran && result && result.selected.length > 0 && (
-        <Card className="print:break-inside-avoid">
-          <h3 className="text-base font-bold text-slate-900">Ranking de ubicaciones</h3>
-          <p className="mt-1 text-sm text-slate-500">Restricción: {result.constraint}</p>
-          <div className="mt-4 overflow-x-auto scroll-thin">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="py-2 pr-3">#</th>
-                  <th className="py-2 pr-3">ID</th>
-                  <th className="py-2 pr-3">Tipo</th>
-                  <th className="py-2 pr-3">Zona</th>
-                  <th className="py-2 pr-3">Impacto</th>
-                  <th className="py-2">Coste</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.selected.map((s, i) => {
-                  const rowId = `${s.facility_type ?? sector}-${s.candidate_id}`;
-                  return (
-                    <tr
-                      key={rowId}
-                      className={`cursor-pointer border-b border-slate-100 last:border-0 ${highlightId === rowId ? "bg-brand-50" : "hover:bg-slate-50"}`}
-                      onClick={() => {
-                        setHighlightId(rowId);
-                        setFlyTo({ lat: s.lat, lon: s.lon });
-                      }}
-                    >
-                      <td className="py-2.5 pr-3"><span className="grid h-6 w-6 place-items-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">{i + 1}</span></td>
-                      <td className="py-2.5 pr-3 font-medium">#{s.candidate_id}</td>
-                      <td className="py-2.5 pr-3 capitalize">{(s.facility_type ?? sector).replace(/_/g, " ")}</td>
-                      <td className="py-2.5 pr-3">{s.zona ?? "—"}</td>
-                      <td className="py-2.5 pr-3 font-semibold text-teal-600">{formatImpact(s.score, sector)}</td>
-                      <td className="py-2.5">{s.cost}</td>
+        {ran && result && result.selected.length > 0 && (
+          <div className="console-panel max-h-[220px] shrink-0 overflow-hidden rounded-none border-x-0 border-b-0">
+            <button
+              type="button"
+              onClick={() => setShowRanking((v) => !v)}
+              className="flex w-full items-center justify-between console-panel-header py-2.5"
+            >
+              <span className="text-sm font-semibold text-white">Ranking de ubicaciones</span>
+              {showRanking ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+            </button>
+            {showRanking && (
+              <div className="overflow-x-auto scroll-thin px-4 pb-3">
+                <table className="w-full min-w-[640px] text-xs">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-left text-[10px] uppercase tracking-wide text-slate-500">
+                      <th className="py-2 pr-3">#</th>
+                      <th className="py-2 pr-3">ID</th>
+                      <th className="py-2 pr-3">Tipo</th>
+                      <th className="py-2 pr-3">Zona</th>
+                      <th className="py-2 pr-3">Impacto</th>
+                      <th className="py-2">Coste</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      <Card className="!p-0 overflow-hidden print:hidden">
-        <button type="button" onClick={() => setShowTech((v) => !v)} className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50">
-          <span className="font-semibold text-slate-900">Detalle técnico (notebooks 05–06)</span>
-          {showTech ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
-        </button>
-        {showTech && (
-          <div className="border-t border-slate-200 px-5 pb-5 pt-4 text-sm text-slate-600">
-            {popMode ? (
-              <p>ILP censal: max Σ pⱼ Yⱼ con restricciones de cobertura y presupuesto.</p>
-            ) : scoreMode && constraint === "count" ? (
-              <p>Modo A (nb. 05): max Σ score·x, Σ x = N. Tráfico precalculado por CatBoost oct-2023.</p>
-            ) : (
-              <p>Modo B (nb. 06): max Σ score·x, Σ coste·x ≤ presupuesto.</p>
+                  </thead>
+                  <tbody>
+                    {result.selected.map((s, i) => {
+                      const rowId = `${s.facility_type ?? sector}-${s.candidate_id}`;
+                      return (
+                        <tr
+                          key={rowId}
+                          className={`cursor-pointer border-b border-white/[0.04] last:border-0 ${
+                            highlightId === rowId ? "bg-cyan-500/10" : "hover:bg-white/[0.03]"
+                          }`}
+                          onClick={() => {
+                            setHighlightId(rowId);
+                            setFlyTo({ lat: s.lat, lon: s.lon });
+                          }}
+                        >
+                          <td className="py-2 pr-3">
+                            <span className="grid h-5 w-5 place-items-center rounded-full bg-cyan-500/15 text-[10px] font-bold text-cyan-300">
+                              {i + 1}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3 font-medium text-slate-200">#{s.candidate_id}</td>
+                          <td className="py-2 pr-3 capitalize text-slate-400">
+                            {(s.facility_type ?? sector).replace(/_/g, " ")}
+                          </td>
+                          <td className="py-2 pr-3 text-slate-400">{s.zona ?? "—"}</td>
+                          <td className="py-2 pr-3 font-semibold text-teal-400">
+                            {formatImpact(s.score, sector)}
+                          </td>
+                          <td className="py-2 text-slate-300">{s.cost}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
-      </Card>
+
+        {ran && !apiError && result && result.selected.length === 0 && (
+          <div className="shrink-0 border-t border-white/[0.06] bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+            Sin solución viable — aumenta presupuesto o N.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -447,38 +511,108 @@ function formatImpact(score: number, sector: Sector) {
   return score.toFixed(3);
 }
 
-function ModeChip({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function ModeChip({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
-    <button type="button" onClick={onClick} className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold ${active ? "border-brand-300 bg-brand-50 text-brand-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-      {icon}{label}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11px] font-semibold ${
+        active
+          ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
+          : "border-white/[0.06] text-slate-400 hover:bg-white/[0.04]"
+      }`}
+    >
+      {icon}
+      {label}
     </button>
   );
 }
 
-function SliderField({ label, value, min, max, hint, children }: { label: string; value: React.ReactNode; min?: number; max?: number; hint?: string; children: React.ReactNode }) {
+function SliderField({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <label className="text-sm font-medium text-slate-600">{label}</label>
-        <span className="rounded-lg bg-brand-50 px-2 py-0.5 text-sm font-bold text-brand-700">{value}</span>
+        <label className="text-xs font-medium text-slate-400">{label}</label>
+        <span className="rounded-lg bg-cyan-500/10 px-2 py-0.5 text-xs font-bold text-cyan-300">
+          {value}
+        </span>
       </div>
       {children}
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-      {min != null && max != null && (
-        <div className="mt-1 flex justify-between text-xs text-slate-400"><span>{min}</span><span>{max}</span></div>
-      )}
     </div>
   );
 }
 
-function WeightSlider({ icon, label, v, set }: { icon: React.ReactNode; label: string; v: number; set: (n: number) => void }) {
+function WeightSlider({
+  icon,
+  label,
+  v,
+  set,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  v: number;
+  set: (n: number) => void;
+}) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
+      <div className="mb-1 flex items-center justify-between text-[11px] text-slate-400">
         <span className="flex items-center gap-1">{icon}{label}</span>
-        <span className="font-semibold">{v.toFixed(1)}</span>
+        <span className="font-semibold text-slate-300">{v.toFixed(1)}</span>
       </div>
-      <input type="range" min={0} max={3} step={0.1} value={v} onChange={(e) => set(+e.target.value)} className="range" />
+      <input
+        type="range"
+        min={0}
+        max={3}
+        step={0.1}
+        value={v}
+        onChange={(e) => set(+e.target.value)}
+        className="console-range"
+      />
+    </div>
+  );
+}
+
+function MetricRow({
+  icon,
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="console-stat flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        {icon}
+        {label}
+      </div>
+      <div>
+        <p className={`text-sm font-bold ${accent ? "text-teal-400" : "text-white"}`}>{value}</p>
+        {hint && <p className="text-[10px] text-slate-600">{hint}</p>}
+      </div>
     </div>
   );
 }

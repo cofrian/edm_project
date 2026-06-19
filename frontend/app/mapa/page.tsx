@@ -2,12 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, Bike, HeartPulse, Route } from "lucide-react";
+import { ArrowRight, Building2, Bike, HeartPulse, Route, Users } from "lucide-react";
 import { CityMap } from "@/components/DynamicMap";
-import { Card } from "@/components/Card";
-import { PageHeader } from "@/components/ui";
 import { ApiStatusBanner } from "@/components/ApiStatusBanner";
-import { DEFAULT_LAYERS, LAYER_META } from "@/lib/mapLayers";
+import { DEFAULT_LAYERS } from "@/lib/mapLayers";
 import { api } from "@/lib/api";
 import type { LayerKey } from "@/lib/types";
 
@@ -17,33 +15,78 @@ const PRESETS: {
   icon: React.ReactNode;
   layers: Partial<Record<LayerKey, boolean>>;
   sector: string;
+  demandType?: "sports" | "health";
 }[] = [
   {
     id: "all",
-    label: "Vista completa",
-    icon: <Building2 className="h-4 w-4" />,
-    layers: { valenbisi: true, sports: true, health: true, candidates: true, traffic: true, proposed: false },
+    label: "Vista general",
+    icon: <Building2 className="h-3.5 w-3.5" />,
+    layers: {
+      valenbisi: true,
+      sports: true,
+      health: true,
+      candidates: false,
+      traffic: false,
+      demand: false,
+      proposed: false,
+    },
     sector: "multi",
   },
   {
     id: "mobility",
     label: "Movilidad",
-    icon: <Bike className="h-4 w-4" />,
-    layers: { valenbisi: true, candidates: true, traffic: true, sports: false, health: false, proposed: false },
+    icon: <Bike className="h-3.5 w-3.5" />,
+    layers: {
+      valenbisi: true,
+      candidates: true,
+      traffic: true,
+      sports: false,
+      health: false,
+      proposed: false,
+    },
     sector: "valenbisi",
   },
   {
     id: "facilities",
     label: "Equipamientos",
-    icon: <HeartPulse className="h-4 w-4" />,
-    layers: { sports: true, health: true, demand: true, candidates: true, valenbisi: false, proposed: false },
+    icon: <HeartPulse className="h-3.5 w-3.5" />,
+    layers: {
+      sports: true,
+      health: true,
+      demand: true,
+      candidates: true,
+      valenbisi: false,
+      proposed: false,
+    },
     sector: "sports",
+    demandType: "sports",
+  },
+  {
+    id: "health",
+    label: "Salud",
+    icon: <Users className="h-3.5 w-3.5" />,
+    layers: {
+      health: true,
+      demand: true,
+      candidates: true,
+      sports: false,
+      valenbisi: false,
+      proposed: false,
+    },
+    sector: "health",
+    demandType: "health",
   },
   {
     id: "traffic",
     label: "Red viaria",
-    icon: <Route className="h-4 w-4" />,
-    layers: { traffic: true, valenbisi: true, sports: false, health: false, proposed: false },
+    icon: <Route className="h-3.5 w-3.5" />,
+    layers: {
+      traffic: true,
+      valenbisi: true,
+      sports: false,
+      health: false,
+      proposed: false,
+    },
     sector: "valenbisi",
   },
 ];
@@ -51,14 +94,13 @@ const PRESETS: {
 function MapaContent() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [preset, setPreset] = useState("all");
-  const [summary, setSummary] = useState<Awaited<ReturnType<typeof api.coverageSummary>> | null>(null);
-  const [meta, setMeta] = useState<Awaited<ReturnType<typeof api.metadata>> | null>(null);
+  const [demandType, setDemandType] = useState<"sports" | "health">("sports");
+  const [summary, setSummary] = useState<Awaited<ReturnType<typeof api.coverageSummary>> | null>(
+    null
+  );
 
   useEffect(() => {
-    Promise.all([api.coverageSummary(), api.metadata()]).then(([s, m]) => {
-      setSummary(s);
-      setMeta(m);
-    });
+    api.coverageSummary().then(setSummary);
   }, []);
 
   function applyPreset(id: string) {
@@ -66,91 +108,80 @@ function MapaContent() {
     if (!p) return;
     setPreset(id);
     setLayers({ ...DEFAULT_LAYERS, ...p.layers });
+    if (p.demandType) setDemandType(p.demandType);
   }
 
   const activePreset = PRESETS.find((p) => p.id === preset);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Explorador urbano · Valencia"
-        title="Mapa de la ciudad"
-        description="Visualiza Valenbisi, equipamientos, demanda censal y candidatos antes de lanzar una optimización."
-      />
-
-      <ApiStatusBanner />
-
-      {summary && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="!p-4">
-            <p className="text-xs text-slate-500">Candidatos</p>
-            <p className="text-2xl font-bold text-slate-900">{summary.n_candidates}</p>
-          </Card>
-          <Card className="!p-4">
-            <p className="text-xs text-slate-500">Hexágonos con demanda deporte</p>
-            <p className="text-2xl font-bold text-slate-900">{summary.hexes_need_sports}</p>
-          </Card>
-          <Card className="!p-4">
-            <p className="text-xs text-slate-500">Hexágonos con demanda salud</p>
-            <p className="text-2xl font-bold text-slate-900">{summary.hexes_need_health}</p>
-          </Card>
-          <Card className="!p-4">
-            <p className="text-xs text-slate-500">Datos</p>
-            <p className="text-sm font-semibold text-slate-900">{meta?.data_date ?? "—"}</p>
-            <p className="text-xs text-slate-500">
-              ILP censal: {meta?.coverage_data ? "activo" : "modo simplificado"}
+    <div className="flex h-[100dvh] min-h-0 flex-col">
+      <header className="console-panel z-10 shrink-0 rounded-none border-x-0 border-t-0">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-400/80">
+              Explorador urbano
             </p>
-          </Card>
-        </div>
-      )}
+            <h1 className="text-lg font-semibold tracking-tight text-white">
+              Mapa de Valencia
+            </h1>
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {PRESETS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => applyPreset(p.id)}
-            className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-              preset === p.id
-                ? "border-brand-300 bg-brand-50 text-brand-800"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-            }`}
-          >
-            {p.icon}
-            {p.label}
-          </button>
-        ))}
-        {activePreset && (
-          <Link
-            href={`/optimizacion?sector=${activePreset.sector}`}
-            className="btn-primary ml-auto"
-          >
-            Optimizar este ámbito <ArrowRight className="h-4 w-4" />
-          </Link>
-        )}
-      </div>
-
-      <CityMap
-        height="min(72vh, 720px)"
-        layers={layers}
-        demandType="sports"
-        proposedMarkers={[]}
-        showLayerControl
-        fitToProposed={false}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {(Object.keys(LAYER_META) as LayerKey[]).map((key) => (
-          <Card key={key} className="!p-4">
-            <div className="flex items-start gap-3">
-              <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: LAYER_META[key].color }} />
-              <div>
-                <p className="font-semibold text-slate-900">{LAYER_META[key].label}</p>
-                <p className="mt-1 text-xs text-slate-500">{LAYER_META[key].description}</p>
+          {summary && (
+            <div className="hidden items-center gap-2 lg:flex">
+              <div className="console-stat text-center">
+                <p className="text-[10px] text-slate-500">Candidatos</p>
+                <p className="text-sm font-bold text-white">{summary.n_candidates}</p>
+              </div>
+              <div className="console-stat text-center">
+                <p className="text-[10px] text-slate-500">Demanda deporte</p>
+                <p className="text-sm font-bold text-white">{summary.hexes_need_sports}</p>
+              </div>
+              <div className="console-stat text-center">
+                <p className="text-[10px] text-slate-500">Demanda salud</p>
+                <p className="text-sm font-bold text-white">{summary.hexes_need_health}</p>
               </div>
             </div>
-          </Card>
-        ))}
+          )}
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p.id)}
+                className={`console-chip ${preset === p.id ? "console-chip-active" : ""}`}
+              >
+                {p.icon}
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {activePreset && (
+            <Link
+              href={`/optimizacion?sector=${activePreset.sector}`}
+              className="console-btn-primary shrink-0 text-xs"
+            >
+              Optimizar <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </div>
+        <div className="border-t border-white/[0.06] px-4 py-2">
+          <ApiStatusBanner compact />
+        </div>
+      </header>
+
+      <div className="relative min-h-0 flex-1">
+        <CityMap
+          height="100%"
+          fullBleed
+          layers={layers}
+          demandType={demandType}
+          proposedMarkers={[]}
+          showLayerControl
+          showLegend
+          fitToProposed={false}
+        />
       </div>
     </div>
   );
@@ -158,7 +189,13 @@ function MapaContent() {
 
 export default function MapaPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-slate-500">Cargando mapa…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex h-[100dvh] items-center justify-center text-slate-500">
+          Cargando mapa…
+        </div>
+      }
+    >
       <MapaContent />
     </Suspense>
   );

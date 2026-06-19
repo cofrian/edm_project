@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CircleMarker,
   GeoJSON,
   MapContainer,
-  Popup,
+  Marker,
   TileLayer,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import { Layers, Loader2 } from "lucide-react";
+import { Layers, Loader2, Maximize2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { VALENCIA_CENTER } from "@/lib/constants";
 import { DEFAULT_LAYERS, LAYER_META } from "@/lib/mapLayers";
@@ -28,31 +27,48 @@ interface CityMapProps {
   demandType?: "sports" | "health";
   zoom?: number;
   showLayerControl?: boolean;
-  basemap?: "dark" | "light";
+  showLegend?: boolean;
+  basemap?: "dark" | "light" | "satellite";
   fitToProposed?: boolean;
   highlightId?: string | number | null;
   flyTo?: { lat: number; lon: number } | null;
   onMarkerSelect?: (id: string | number) => void;
+  className?: string;
+  fullBleed?: boolean;
 }
 
 const BASEMAPS = {
   dark: {
     url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &middot; <a href="https://carto.com/">CARTO</a>',
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · <a href="https://carto.com/">CARTO</a>',
   },
   light: {
     url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &middot; <a href="https://carto.com/">CARTO</a>',
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · <a href="https://carto.com/">CARTO</a>',
   },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "&copy; Esri",
+  },
+};
+
+const HIGHWAY_COLORS: Record<string, string> = {
+  motorway: "#ef4444",
+  trunk: "#f97316",
+  primary: "#eab308",
+  secondary: "#64748b",
+  tertiary: "#475569",
+  residential: "#334155",
+  living_street: "#1e293b",
 };
 
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
     if (points.length === 0) return;
-    map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: 15 });
+    map.fitBounds(L.latLngBounds(points), { padding: [56, 56], maxZoom: 15 });
   }, [map, points]);
   return null;
 }
@@ -61,35 +77,75 @@ function FlyToPoint({ target }: { target: { lat: number; lon: number } | null })
   const map = useMap();
   useEffect(() => {
     if (!target) return;
-    map.flyTo([target.lat, target.lon], 15, { duration: 0.6 });
+    map.flyTo([target.lat, target.lon], 16, { duration: 0.7 });
   }, [map, target]);
   return null;
 }
 
+function filterCollection(
+  collection: GeoFeatureCollection,
+  layer: LayerKey
+): GeoFeatureCollection {
+  const features = collection.features.filter((f) => {
+    if (f.properties?.point && (layer === "sports" || layer === "health")) {
+      return false;
+    }
+    return true;
+  });
+  return { ...collection, features };
+}
+
+function demandColor(weight: number, maxWeight = 15000): string {
+  const t = Math.min(1, weight / maxWeight);
+  const r = Math.round(234 + t * (239 - 234));
+  const g = Math.round(179 - t * 120);
+  const b = Math.round(8 + t * (68 - 8));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 function styleFeature(layer: LayerKey, feature?: GeoFeature): L.PathOptions {
   const color = LAYER_META[layer].color;
+  const p = feature?.properties ?? {};
 
   if (feature?.geometry?.type === "LineString") {
-    return { color: "#64748b", weight: 1.2, opacity: 0.35 };
+    const highway = String(p.highway ?? "secondary");
+    return {
+      color: HIGHWAY_COLORS[highway] ?? "#475569",
+      weight: highway === "motorway" || highway === "trunk" ? 2.5 : 1.2,
+      opacity: 0.55,
+    };
   }
 
   if (layer === "demand" || layer === "covered") {
-    const weight = Number(feature?.properties?.weight ?? 1);
-    const opacity = Math.min(0.85, 0.25 + weight / 20000);
+    const weight = Number(p.weight ?? 1);
+    const fill = layer === "covered" ? "#22d3ee" : demandColor(weight);
+    const opacity = Math.min(0.75, 0.2 + weight / 18000);
     return {
-      color: "#ffffff",
-      weight: 1,
-      fillColor: color,
+      color: "rgba(255,255,255,0.15)",
+      weight: 0.5,
+      fillColor: fill,
       fillOpacity: opacity,
     };
   }
 
-  if (feature?.geometry?.type === "Point" || feature?.properties?.point) {
+  if (layer === "sports" || layer === "health") {
+    if (feature?.geometry?.type === "Polygon") {
+      return {
+        color: color,
+        weight: 1.5,
+        fillColor: color,
+        fillOpacity: 0.18,
+        opacity: 0.85,
+      };
+    }
+  }
+
+  if (feature?.geometry?.type === "Point") {
     return {
       color: "#ffffff",
       weight: 1.5,
       fillColor: color,
-      fillOpacity: feature?.properties?.point ? 0.95 : 0.85,
+      fillOpacity: 0.9,
     };
   }
 
@@ -97,19 +153,21 @@ function styleFeature(layer: LayerKey, feature?: GeoFeature): L.PathOptions {
     color,
     weight: 1.5,
     fillColor: color,
-    fillOpacity: 0.12,
-    opacity: 0.7,
+    fillOpacity: 0.15,
+    opacity: 0.75,
   };
 }
 
 function markerRadius(layer: LayerKey, feature?: GeoFeature): number {
   if (layer === "demand" || layer === "covered") {
     const w = Number(feature?.properties?.weight ?? 1000);
-    return Math.max(3, Math.min(10, 3 + w / 5000));
+    return Math.max(4, Math.min(12, 4 + w / 4000));
   }
-  if (layer === "candidates") return 5;
-  if (feature?.properties?.point) return 6;
-  if (layer === "valenbisi") return 4;
+  if (layer === "candidates") {
+    const score = Number(feature?.properties?.traffic_score ?? 50);
+    return Math.max(4, Math.min(9, 4 + score / 25));
+  }
+  if (layer === "valenbisi") return 5;
   return 6;
 }
 
@@ -117,37 +175,76 @@ function popupHtml(layer: LayerKey, feature: GeoFeature): string {
   const p = feature.properties ?? {};
   if (layer === "candidates") {
     return `<div class="map-popup"><strong>Candidato #${p.candidate_id}</strong>
-      <br/>Coste deporte: ${p.cost_sports ?? "—"} · salud: ${p.cost_health ?? "—"}
-      <br/>Tráfico (precalc.): ${Number(p.traffic_score ?? 0).toFixed(1)}
-      <br/>Población isócrona: ${Number(p.population_in_isochrone ?? 0).toLocaleString("es-ES")}</div>`;
+      <div class="metric"><span>Tráfico</span><b>${Number(p.traffic_score ?? 0).toFixed(1)}</b></div>
+      <div class="metric"><span>Población isócrona</span><b>${Number(p.population_in_isochrone ?? 0).toLocaleString("es-ES")}</b></div>
+      <div class="metric"><span>Coste deporte</span><b>${p.cost_sports ?? "—"}</b></div>
+      <div class="metric"><span>Coste salud</span><b>${p.cost_health ?? "—"}</b></div></div>`;
   }
   if (layer === "demand" || layer === "covered") {
-    return `<div class="map-popup"><strong>Hex ${p.hex_id}</strong>
-      <br/>Población: ${Number(p.population ?? 0).toLocaleString("es-ES")}
-      <br/>Peso demanda: ${Number(p.weight ?? 0).toLocaleString("es-ES")}</div>`;
+    return `<div class="map-popup"><strong>Hexágono ${p.hex_id}</strong>
+      <div class="metric"><span>Población</span><b>${Number(p.population ?? 0).toLocaleString("es-ES")}</b></div>
+      <div class="metric"><span>Peso demanda</span><b>${Number(p.weight ?? 0).toLocaleString("es-ES")}</b></div></div>`;
   }
-  const label = (p.name as string) ?? (p.zona != null ? `Zona ${p.zona}` : LAYER_META[layer].label);
-  return `<div class="map-popup"><strong>${label}</strong><br/><span>${LAYER_META[layer].label}</span></div>`;
+  if (layer === "traffic") {
+    return `<div class="map-popup"><strong>${p.name ?? "Vía"}</strong>
+      <span class="muted">${p.highway ?? "segmento"} · ${Math.round(Number(p.length ?? 0))} m</span></div>`;
+  }
+  const label = (p.name as string) ?? (p.zona != null ? `Estación zona ${p.zona}` : LAYER_META[layer].label);
+  return `<div class="map-popup"><strong>${label}</strong><span class="muted">${LAYER_META[layer].label}</span></div>`;
 }
 
 function pointToLayer(layer: LayerKey, feature: GeoFeature, latlng: L.LatLng): L.Layer {
+  if (layer === "valenbisi") {
+    return L.marker(latlng, {
+      icon: L.divIcon({
+        className: "valenbisi-marker-wrap",
+        html: `<div class="valenbisi-marker"></div>`,
+        iconSize: [10, 10],
+        iconAnchor: [5, 5],
+      }),
+    });
+  }
+  if (layer === "candidates") {
+    const score = Number(feature.properties?.traffic_score ?? 50);
+    const size = markerRadius(layer, feature);
+    return L.marker(latlng, {
+      icon: L.divIcon({
+        className: "candidate-marker-wrap",
+        html: `<div class="candidate-marker" style="width:${size}px;height:${size}px;background:#6366f1"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      }),
+    });
+  }
+
   const style = styleFeature(layer, feature);
   return L.circleMarker(latlng, {
     radius: markerRadius(layer, feature),
     color: style.color,
-    weight: style.weight,
+    weight: style.weight ?? 1.5,
     fillColor: style.fillColor,
     fillOpacity: style.fillOpacity,
+  });
+}
+
+function proposedIcon(color: string, selected: boolean) {
+  return L.divIcon({
+    className: "proposed-marker-wrap",
+    html: `<div class="proposed-marker ${selected ? "proposed-marker-selected" : ""}" style="--marker-color:${color}"></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 
 function LayerToggle({
   layer,
   active,
+  loading,
   onToggle,
 }: {
   layer: LayerKey;
   active: boolean;
+  loading?: boolean;
   onToggle: (layer: LayerKey) => void;
 }) {
   const meta = LAYER_META[layer];
@@ -155,34 +252,38 @@ function LayerToggle({
     <button
       type="button"
       onClick={() => onToggle(layer)}
-      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition ${
         active
-          ? "bg-white/10 text-white ring-1 ring-white/20"
-          : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          ? "bg-cyan-500/10 text-cyan-100 ring-1 ring-cyan-500/25"
+          : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
       }`}
     >
       <span
-        className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/30"
+        className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/20"
         style={{ backgroundColor: meta.color }}
       />
-      <span className="font-medium">{meta.label}</span>
+      <span className="flex-1 font-medium">{meta.label}</span>
+      {loading && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
     </button>
   );
 }
 
 export default function CityMap({
-  height = 520,
+  height = "100%",
   layers: layersProp,
   proposedMarkers = [],
   coveredGeo = null,
   demandType = "sports",
   zoom = 12,
   showLayerControl = true,
+  showLegend = true,
   basemap = "dark",
   fitToProposed = true,
   highlightId = null,
   flyTo = null,
   onMarkerSelect,
+  className = "",
+  fullBleed = false,
 }: CityMapProps) {
   const [layerState, setLayerState] = useState<LayerState>({
     ...DEFAULT_LAYERS,
@@ -243,25 +344,29 @@ export default function CityMap({
   }, [fitToProposed, proposedMarkers]);
 
   const map = BASEMAPS[basemap];
+  const activeLayers = (Object.keys(layerState) as LayerKey[]).filter((k) => layerState[k]);
 
-  const renderGeoLayer = (key: LayerKey, collection: GeoFeatureCollection) => (
-    <GeoJSON
-      key={`${key}-${collection.features.length}-${demandType}`}
-      data={collection as never}
-      style={(feature) => styleFeature(key, feature as unknown as GeoFeature)}
-      pointToLayer={(feature, latlng) =>
-        pointToLayer(key, feature as unknown as GeoFeature, latlng)
-      }
-      onEachFeature={(feature, layerInstance) => {
-        const f = feature as unknown as GeoFeature;
-        layerInstance.bindPopup(popupHtml(key, f));
-      }}
-    />
-  );
+  const renderGeoLayer = (key: LayerKey, collection: GeoFeatureCollection) => {
+    const filtered = filterCollection(collection, key);
+    return (
+      <GeoJSON
+        key={`${key}-${filtered.features.length}-${demandType}`}
+        data={filtered as never}
+        style={(feature) => styleFeature(key, feature as unknown as GeoFeature)}
+        pointToLayer={(feature, latlng) =>
+          pointToLayer(key, feature as unknown as GeoFeature, latlng)
+        }
+        onEachFeature={(feature, layerInstance) => {
+          const f = feature as unknown as GeoFeature;
+          layerInstance.bindPopup(popupHtml(key, f), { className: "city-popup" });
+        }}
+      />
+    );
+  };
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-slate-800/80 shadow-2xl shadow-slate-900/20"
+      className={`relative overflow-hidden ${fullBleed ? "" : "rounded-2xl border border-white/[0.06]"} ${className}`}
       style={{ height }}
     >
       <MapContainer center={VALENCIA_CENTER} zoom={zoom} scrollWheelZoom className="city-map">
@@ -284,52 +389,75 @@ export default function CityMap({
             const id = m.id ?? `proposed-${i}`;
             const selected = highlightId != null && highlightId === id;
             return (
-              <CircleMarker
+              <Marker
                 key={id}
-                center={[m.lat, m.lon]}
-                radius={selected ? 14 : m.radius ?? 11}
-                pathOptions={{
-                  color: selected ? "#fde047" : "#ffffff",
-                  weight: selected ? 4 : 3,
-                  fillColor: m.color ?? LAYER_META.proposed.color,
-                  fillOpacity: 0.95,
-                }}
+                position={[m.lat, m.lon]}
+                icon={proposedIcon(m.color ?? LAYER_META.proposed.color, selected)}
                 eventHandlers={{
                   click: () => onMarkerSelect?.(id),
                 }}
-              >
-                {m.label && (
-                  <Popup>
-                    <div className="map-popup">
-                      <strong>{m.label}</strong>
-                    </div>
-                  </Popup>
-                )}
-              </CircleMarker>
+              />
             );
           })}
       </MapContainer>
 
-      {showLayerControl && (
+      {(showLayerControl || showLegend) && (
         <div className="pointer-events-none absolute inset-0 z-[500]">
-          <div className="pointer-events-auto absolute left-3 top-3 max-w-[220px] rounded-xl border border-white/10 bg-slate-950/80 p-3 text-white backdrop-blur-md">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
-              <Layers className="h-3.5 w-3.5" />
-              Capas urbanas
+          {showLayerControl && (
+            <div className="pointer-events-auto absolute left-4 top-4 w-[210px] console-panel shadow-2xl">
+              <div className="console-panel-header flex items-center gap-2">
+                <Layers className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">
+                  Capas
+                </span>
+              </div>
+              <div className="max-h-[320px] space-y-0.5 overflow-y-auto scroll-thin p-2">
+                {(Object.keys(LAYER_META) as LayerKey[]).map((key) => (
+                  <LayerToggle
+                    key={key}
+                    layer={key}
+                    active={layerState[key]}
+                    loading={loading[key]}
+                    onToggle={toggleLayer}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="max-h-[280px] space-y-1 overflow-y-auto scroll-thin">
-              {(Object.keys(LAYER_META) as LayerKey[]).map((key) => (
-                <div key={key} className="relative">
-                  <LayerToggle layer={key} active={layerState[key]} onToggle={toggleLayer} />
-                  {loading[key] && (
-                    <Loader2 className="absolute right-2 top-2 h-3.5 w-3.5 animate-spin text-slate-400" />
-                  )}
+          )}
+
+          {showLegend && activeLayers.length > 0 && (
+            <div className="pointer-events-auto absolute bottom-4 left-4 console-panel px-3 py-2.5">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Leyenda
+              </p>
+              <div className="space-y-1.5">
+                {activeLayers.slice(0, 6).map((key) => (
+                  <div key={key} className="flex items-center gap-2 text-[11px] text-slate-300">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: LAYER_META[key].color }}
+                    />
+                    {LAYER_META[key].label}
+                  </div>
+                ))}
+              </div>
+              {(layerState.demand || layerState.covered) && (
+                <div className="mt-2.5 border-t border-white/[0.06] pt-2">
+                  <p className="mb-1 text-[10px] text-slate-500">Intensidad demanda</p>
+                  <div
+                    className="h-1.5 w-full rounded-full"
+                    style={{
+                      background: "linear-gradient(90deg, #eab308, #ef4444)",
+                    }}
+                  />
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-          <div className="absolute bottom-3 right-3 rounded-lg border border-white/10 bg-slate-950/75 px-3 py-2 text-[11px] text-slate-300 backdrop-blur-md">
-            Valencia · planificación urbana · datos oct-2023
+          )}
+
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 text-[10px] text-slate-500">
+            <Maximize2 className="h-3 w-3" />
+            Valencia · oct-2023
           </div>
         </div>
       )}
