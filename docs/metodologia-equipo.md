@@ -8,11 +8,13 @@ Objetivo: que cualquier cambio pase por el mismo flujo **GitFlow + CI/CD** y lle
 
 ## 1. Repositorios y despliegues
 
-| Qué | Dónde | Quién despliega |
-|-----|--------|-----------------|
-| Código fuente (monorepo) | [github.com/cofrian/edm_project](https://github.com/cofrian/edm_project) | — |
-| Frontend web | [edm-project.vercel.app](https://edm-project.vercel.app) | **Vercel** (integración GitHub) |
-| API backend | [cofrian-edm-proyect.hf.space](https://cofrian-edm-proyect.hf.space) | **GitHub Actions** (`deploy-hf.yml`) |
+
+| Qué                      | Dónde                                                                    | Quién despliega                      |
+| ------------------------ | ------------------------------------------------------------------------ | ------------------------------------ |
+| Código fuente (monorepo) | [github.com/cofrian/edm_project](https://github.com/cofrian/edm_project) | —                                    |
+| Frontend web             | [edm-project.vercel.app](https://edm-project.vercel.app)                 | **Vercel** (integración GitHub)      |
+| API backend              | [cofrian-edm-proyect.hf.space](https://cofrian-edm-proyect.hf.space)     | **GitHub Actions** (`deploy-hf.yml`) |
+
 
 No hace falta acceso a Vercel ni a Hugging Face para desarrollar: basta con permisos de escritura en el repo de GitHub.
 
@@ -24,19 +26,21 @@ No hace falta acceso a Vercel ni a Hugging Face para desarrollar: basta con perm
 feature/*  →  develop  →  main  →  production
 ```
 
-| Rama | Para qué sirve | ¿Despliega? |
-|------|----------------|-------------|
-| `feature/nombre` | Trabajo diario de cada persona | No |
-| `develop` | Integración de features del equipo | No |
-| `main` | Código estable, listo para publicar | No (solo CI) |
-| `production` | Versión en la demo / entrega EDM | **Sí** (Vercel + HF) |
+
+| Rama             | Para qué sirve                      | ¿Despliega?          |
+| ---------------- | ----------------------------------- | -------------------- |
+| `feature/nombre` | Trabajo diario de cada persona      | No                   |
+| `develop`        | Integración de features del equipo  | No                   |
+| `main`           | Código estable, listo para publicar | No (solo CI)         |
+| `production`     | Versión en la demo / entrega EDM    | **Sí** (Vercel + HF) |
+
 
 ### Diferencia `main` vs `production`
 
-- **`main`**: “está probado y mergeado”. Corre tests y builds, pero **no** actualiza la demo pública.
-- **`production`**: “está publicado”. Cada push aquí dispara el despliegue real.
+- `**main`**: “está probado y mergeado”. Corre tests y builds, pero **no** actualiza la demo pública.
+- `**production`**: “está publicado”. Cada push aquí dispara el despliegue real.
 
-**Regla de oro:** no hacer commits directos en `main` ni en `production`. Siempre pasar por `feature/*` y Pull Request.
+**Regla de oro:** no hacer commits directos en `main` ni en `production`. Siempre pasar por `feature/`* y Pull Request.
 
 ---
 
@@ -53,23 +57,27 @@ git checkout -b feature/descripcion-corta
 ```
 
 Nombre de rama recomendado:
+
 - `feature/optimizacion-multi-ui`
 - `fix/ci-ruff-imports`
 - `docs/actualizar-readme`
 
 ### 3.2 Dónde editar según el cambio
 
-| Si tocas… | Carpeta | Afecta a |
-|-----------|---------|----------|
-| Páginas, UI, mapas web | `frontend/` | Vercel |
-| API, optimización, modelos | `backend/` | Hugging Face |
-| Generar CSV/GeoJSON desde datos locales | `scripts/` | Backend (tras regenerar artefactos en `backend/data/processed/`) |
-| Documentación EDM | `docs/` | Solo repo (no despliega) |
-| Workflows CI/CD | `.github/workflows/` | Comportamiento del pipeline |
+
+| Si tocas…                               | Carpeta              | Afecta a                                                         |
+| --------------------------------------- | -------------------- | ---------------------------------------------------------------- |
+| Páginas, UI, mapas web                  | `frontend/`          | Vercel                                                           |
+| API, optimización, modelos              | `backend/`           | Hugging Face                                                     |
+| Generar CSV/GeoJSON desde datos locales | `scripts/`           | Backend (tras regenerar artefactos en `backend/data/processed/`) |
+| Documentación EDM                       | `docs/`              | Solo repo (no despliega)                                         |
+| Workflows CI/CD                         | `.github/workflows/` | Comportamiento del pipeline                                      |
+
 
 ### 3.3 Probar en local antes de subir
 
 **Backend:**
+
 ```bash
 cd backend
 pip install -r requirements.txt
@@ -80,6 +88,7 @@ uvicorn main:app --reload --port 8000
 ```
 
 **Frontend:**
+
 ```bash
 cd frontend
 npm ci
@@ -98,7 +107,8 @@ git push -u origin feature/descripcion-corta
 ```
 
 En GitHub:
-1. **Compare & pull request** → base: **`develop`** (no `main`).
+
+1. **Compare & pull request** → base: `**develop`** (no `main`).
 2. Rellenar la plantilla del PR (`.github/pull_request_template.md`).
 3. Esperar a que **CI esté en verde**.
 
@@ -114,7 +124,7 @@ git merge develop
 git push origin main
 ```
 
-3. **Publicar en la demo** (despliegue real):
+1. **Publicar en la demo** (despliegue real):
 
 ```bash
 git checkout production
@@ -124,23 +134,27 @@ git push origin production
 ```
 
 Tras el push a `production`:
+
 - **Vercel** reconstruye el frontend (si hubo cambios en `frontend/`).
-- **`deploy-hf.yml`** valida el backend y sincroniza `backend/` al Space de HF (si hubo cambios en `backend/` o en el workflow).
-- **`deploy-check.yml`** comprueba `GET /health` de la API.
+- `**deploy-hf.yml`** valida el backend y sincroniza `backend/` al Space de HF (si hubo cambios en `backend/` o en el workflow).
+- `**deploy-check.yml**` comprueba `GET /health` de la API.
 
 ---
 
 ## 4. Qué dispara cada workflow (CI/CD)
 
-| Workflow | Cuándo corre | Qué hace |
-|----------|--------------|----------|
-| `backend-ci.yml` | Push/PR con cambios en `backend/` | Ruff + pytest + import app |
-| `frontend-ci.yml` | Push/PR con cambios en `frontend/` | ESLint + TypeScript + build |
-| `docker-build.yml` | Push a `main` con cambios en `backend/` | Build imagen Docker |
-| `deploy-hf.yml` | Push a `production` con cambios en `backend/` | Tests + sync a HF + health check |
-| `deploy-check.yml` | Push a `production` | `curl` a la API |
+
+| Workflow           | Cuándo corre                                  | Qué hace                         |
+| ------------------ | --------------------------------------------- | -------------------------------- |
+| `backend-ci.yml`   | Push/PR con cambios en `backend/`             | Ruff + pytest + import app       |
+| `frontend-ci.yml`  | Push/PR con cambios en `frontend/`            | ESLint + TypeScript + build      |
+| `docker-build.yml` | Push a `main` con cambios en `backend/`       | Build imagen Docker              |
+| `deploy-hf.yml`    | Push a `production` con cambios en `backend/` | Tests + sync a HF + health check |
+| `deploy-check.yml` | Push a `production`                           | `curl` a la API                  |
+
 
 Los colaboradores **no configuran secrets**. Los admins del repo mantienen:
+
 - `HF_TOKEN` — token Write de Hugging Face (solo en GitHub Secrets).
 - `API_URL` — (opcional) URL para smoke test.
 
@@ -150,16 +164,19 @@ Los colaboradores **no configuran secrets**. Los admins del repo mantienen:
 
 Usar prefijos claros:
 
-| Prefijo | Uso |
-|---------|-----|
-| `feat:` | Nueva funcionalidad |
-| `fix:` | Corrección de bug |
-| `docs:` | Solo documentación |
-| `ci:` | Cambios en pipelines |
-| `chore:` | Tareas menores (versiones, limpieza) |
+
+| Prefijo     | Uso                                         |
+| ----------- | ------------------------------------------- |
+| `feat:`     | Nueva funcionalidad                         |
+| `fix:`      | Corrección de bug                           |
+| `docs:`     | Solo documentación                          |
+| `ci:`       | Cambios en pipelines                        |
+| `chore:`    | Tareas menores (versiones, limpieza)        |
 | `refactor:` | Reestructuración sin cambiar comportamiento |
 
+
 Ejemplos:
+
 ```
 feat: selector multi en pagina de optimizacion
 fix: orden imports ruff en optimize_facility
@@ -178,6 +195,7 @@ git lfs pull
 ```
 
 No subir:
+
 - `.env` con secretos
 - Carpetas locales `samsung/`, `CURSO SMARTCITIES/` (solo contexto local; los artefactos curados van en `backend/data/processed/`)
 - Builds (`frontend/.next/`, `__pycache__/`)
@@ -186,7 +204,7 @@ No subir:
 
 ## 7. Checklist antes de mergear un PR
 
-- [ ] La rama sale de **`develop`**
+- [ ] La rama sale de `**develop**`
 - [ ] **CI en verde** (Backend CI y/o Frontend CI)
 - [ ] Probado en local (al menos el módulo tocado)
 - [ ] Sin secretos ni archivos generados innecesarios
@@ -197,23 +215,27 @@ No subir:
 
 ## 8. Errores frecuentes
 
-| Problema | Causa | Solución |
-|----------|--------|----------|
-| Backend CI rojo en “Lint” | Imports desordenados (Ruff) | `cd backend && ruff check --fix .` |
-| Cambios no aparecen en la web | Solo mergeaste a `develop` | Promover `main` → `production` |
-| API no se actualiza en HF | Push solo a `main` o sin tocar `backend/` | Merge a `production` con cambios en `backend/` |
-| `deploy-hf` falla al inicio | Falta `HF_TOKEN` en secrets | Avisar al admin del repo |
-| Modelos no cargan en CI | LFS no descargado | `git lfs pull` antes de commitear |
+
+| Problema                      | Causa                                     | Solución                                       |
+| ----------------------------- | ----------------------------------------- | ---------------------------------------------- |
+| Backend CI rojo en “Lint”     | Imports desordenados (Ruff)               | `cd backend && ruff check --fix .`             |
+| Cambios no aparecen en la web | Solo mergeaste a `develop`                | Promover `main` → `production`                 |
+| API no se actualiza en HF     | Push solo a `main` o sin tocar `backend/` | Merge a `production` con cambios en `backend/` |
+| `deploy-hf` falla al inicio   | Falta `HF_TOKEN` en secrets               | Avisar al admin del repo                       |
+| Modelos no cargan en CI       | LFS no descargado                         | `git lfs pull` antes de commitear              |
+
 
 ---
 
 ## 9. Roles recomendados
 
-| Rol | Responsabilidad |
-|-----|-----------------|
-| **Colaborador** | Feature branch → PR a `develop`, CI verde |
-| **Integrador** (cualquiera del equipo) | Merge a `develop`, promoción a `main` |
-| **Release** (p. ej. Sergio) | Merge `main` → `production` cuando toque publicar la demo |
+
+| Rol                                    | Responsabilidad                                           |
+| -------------------------------------- | --------------------------------------------------------- |
+| **Colaborador**                        | Feature branch → PR a `develop`, CI verde                 |
+| **Integrador** (cualquiera del equipo) | Merge a `develop`, promoción a `main`                     |
+| **Release** (p. ej. Sergio)            | Merge `main` → `production` cuando toque publicar la demo |
+
 
 Opcional en GitHub: proteger `main` y `production` (Settings → Branches) para exigir PR y checks.
 
@@ -233,15 +255,17 @@ flowchart LR
   C --> H
 ```
 
+
+
 ---
 
 ## 11. Enlaces útiles
 
-- Arquitectura: [`docs/arquitectura.md`](arquitectura.md)
-- Despliegue y secrets: [`docs/despliegue.md`](despliegue.md)
-- Metodología EDM (temario): [`docs/metodologia_edm.md`](metodologia_edm.md)
-- Demo para profesores: [`docs/demo_profesores.md`](demo_profesores.md)
-- API en vivo: https://cofrian-edm-proyect.hf.space/docs
+- Arquitectura: `[docs/arquitectura.md](arquitectura.md)`
+- Despliegue y secrets: `[docs/despliegue.md](despliegue.md)`
+- Metodología EDM (temario): `[docs/metodologia_edm.md](metodologia_edm.md)`
+- Demo para profesores: `[docs/demo_profesores.md](demo_profesores.md)`
+- API en vivo: [https://cofrian-edm-proyect.hf.space/docs](https://cofrian-edm-proyect.hf.space/docs)
 
 ---
 
