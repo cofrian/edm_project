@@ -10,4 +10,3 @@ Pipeline reproducible, explicado y comentado:
 | `04_prepare_optimization_data.ipynb` | Datos de optimización (población, valenbisi, isócronas) y candidatos. |
 | `05_optimization_valenbisi.ipynb` | Modo A — selección de N ubicaciones (PuLP). |
 | `06_optimization_coverage.ipynb` | Modo B — cobertura bajo presupuesto (PuLP). |
-| `07_coverage_facilities_ilp.ipynb` | ILP deporte/salud/mixto — ejecuta `generate_coverage_artifacts.py` y valida artefactos censales. |

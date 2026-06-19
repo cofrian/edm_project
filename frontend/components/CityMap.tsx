@@ -302,12 +302,14 @@ export default function CityMap({
       setLoading((prev) => ({ ...prev, [key]: true }));
       try {
         let data: GeoFeatureCollection = { type: "FeatureCollection", features: [] };
-        if (key === "valenbisi") data = await api.mapValenbisi();
-        if (key === "sports") data = await api.mapSports();
-        if (key === "health") data = await api.mapHealth();
-        if (key === "traffic") data = await api.mapTraffic();
-        if (key === "demand") data = await api.mapPopulationHexes(demandType);
-        if (key === "candidates") data = await api.mapCandidatesFacilities();
+        let res;
+        if (key === "valenbisi") res = await api.mapValenbisi();
+        else if (key === "sports") res = await api.mapSports();
+        else if (key === "health") res = await api.mapHealth();
+        else if (key === "traffic") res = await api.mapTraffic();
+        else if (key === "demand") res = await api.mapPopulationHexes(demandType);
+        else if (key === "candidates") res = await api.mapCandidatesFacilities();
+        if (res) data = res.ok ? res.data : data;
         setGeo((prev) => ({ ...prev, [key]: data }));
       } finally {
         setLoading((prev) => ({ ...prev, [key]: false }));

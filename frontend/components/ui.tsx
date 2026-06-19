@@ -16,11 +16,11 @@ export function PageHeader({
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
       <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             {title}
           </h1>
           {description && (
-            <p className="mt-2 max-w-2xl text-sm text-slate-400 sm:text-base">
+            <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
               {description}
             </p>
           )}
@@ -47,25 +47,25 @@ export function Stat({
   icon?: ReactNode;
 }) {
   const toneMap = {
-    default: "text-white",
-    brand: "text-cyan-400",
-    teal: "text-teal-400",
-    amber: "text-amber-400",
-    red: "text-red-400",
+    default: "text-slate-900",
+    brand: "text-brand-700",
+    teal: "text-teal-600",
+    amber: "text-amber-600",
+    red: "text-red-600",
   };
   return (
     <div className="card card-interactive">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-400">{label}</p>
-        {icon && <span className="text-slate-600">{icon}</span>}
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        {icon && <span className="text-slate-300">{icon}</span>}
       </div>
       <p className={`mt-2 text-2xl font-bold sm:text-3xl ${toneMap[tone]}`}>
         {value}
         {unit && (
-          <span className="ml-1 text-base font-medium text-slate-500">{unit}</span>
+          <span className="ml-1 text-base font-medium text-slate-400">{unit}</span>
         )}
       </p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );
 }
@@ -83,9 +83,9 @@ export function Steps({
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-bold text-brand-700">
               {s.icon ?? i + 1}
             </span>
-            <p className="font-semibold text-white">{s.title}</p>
+            <p className="font-semibold text-slate-900">{s.title}</p>
           </div>
-          <p className="mt-3 text-sm text-slate-400">{s.description}</p>
+          <p className="mt-3 text-sm text-slate-600">{s.description}</p>
         </li>
       ))}
     </ol>
@@ -102,14 +102,14 @@ export function Callout({
   children: ReactNode;
 }) {
   const map = {
-    brand: "border-cyan-500/25 bg-cyan-500/10 text-cyan-100",
-    amber: "border-amber-500/25 bg-amber-500/10 text-amber-100",
-    teal: "border-teal-500/25 bg-teal-500/10 text-teal-100",
+    brand: "border-brand-200 bg-brand-50 text-brand-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-900",
+    teal: "border-teal-200 bg-teal-50 text-teal-900",
   };
   return (
     <div className={`rounded-2xl border p-4 text-sm ${map[tone]}`}>
       {title && <p className="mb-1 font-semibold">{title}</p>}
-      <div className="text-slate-300">{children}</div>
+      <div className="text-slate-700">{children}</div>
     </div>
   );
 }
@@ -123,8 +123,8 @@ export function SectionHeading({
 }) {
   return (
     <div className="mb-4">
-      <h2 className="text-lg font-bold text-white sm:text-xl">{title}</h2>
-      {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
+      <h2 className="text-lg font-bold text-slate-900 sm:text-xl">{title}</h2>
+      {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
     </div>
   );
 }

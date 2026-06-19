@@ -9,25 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        surface: {
-          950: "#060a12",
-          900: "#0c1220",
-          800: "#131b2e",
-          700: "#1a2540",
-        },
+        // Azul institucional (primario)
         brand: {
-          50: "#ecfeff",
-          100: "#cffafe",
-          200: "#a5f3fc",
-          300: "#67e8f9",
-          400: "#22d3ee",
-          500: "#06b6d4",
-          600: "#0891b2",
-          700: "#0e7490",
-          800: "#155e75",
-          900: "#164e63",
-          950: "#083344",
+          50: "#eef4ff",
+          100: "#d9e6ff",
+          200: "#bcd3ff",
+          300: "#8eb6ff",
+          400: "#598dff",
+          500: "#3366ff",
+          600: "#1d4ed8",
+          700: "#1e40af",
+          800: "#1e3a8a",
+          900: "#1c3576",
+          950: "#11214d",
         },
+        // Verde-azulado (cobertura / impacto positivo)
         teal: {
           50: "#effcf9",
           100: "#c8fbef",
@@ -42,26 +38,20 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-jakarta)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgb(0 0 0 / 0.2), 0 4px 16px -4px rgb(0 0 0 / 0.35)",
-        "card-hover": "0 8px 32px -8px rgb(0 0 0 / 0.45)",
-        "glow-cyan": "0 0 24px rgb(34 211 238 / 0.25)",
+        card: "0 1px 2px 0 rgb(16 33 77 / 0.04), 0 1px 3px 0 rgb(16 33 77 / 0.06)",
+        "card-hover": "0 8px 24px -8px rgb(16 33 77 / 0.18)",
       },
       keyframes: {
         "fade-in-up": {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        shimmer: {
-          "0%": { backgroundPosition: "200% 0" },
-          "100%": { backgroundPosition: "-200% 0" },
-        },
       },
       animation: {
         "fade-in-up": "fade-in-up 0.4s ease-out both",
-        shimmer: "shimmer 2.5s linear infinite",
       },
     },
   },

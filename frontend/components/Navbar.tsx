@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, Menu, X } from "lucide-react";
+import { Network, Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 
 export function Navbar() {
@@ -21,13 +21,13 @@ export function Navbar() {
           className="flex items-center gap-2.5"
           onClick={() => setOpen(false)}
         >
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-teal-600 text-white shadow-sm">
-            <Map className="h-5 w-5" />
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <Network className="h-5 w-5" />
           </span>
           <span className="leading-tight">
             <span className="block font-bold text-slate-900">UrbanFlow</span>
             <span className="block text-xs font-medium text-slate-500">
-              Valencia · Planificación urbana
+              Valencia · Optimización urbana
             </span>
           </span>
         </Link>

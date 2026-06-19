@@ -6,77 +6,23 @@ html,
 body {
   padding: 0;
   margin: 0;
-  height: 100%;
 }
 
 body {
-  @apply bg-surface-950 font-sans text-slate-200 antialiased;
+  @apply bg-slate-50 font-sans text-slate-800 antialiased;
+  background-image:
+    radial-gradient(60rem 60rem at 110% -10%, rgb(51 102 255 / 0.06), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 0%, rgb(15 169 156 / 0.05), transparent 55%);
+  background-attachment: fixed;
 }
 
 @layer components {
-  .console-sidebar {
-    @apply relative z-[1000];
-  }
-
-  .console-nav-item {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400
-      transition hover:bg-white/[0.05] hover:text-slate-200;
-  }
-
-  .console-nav-item-active {
-    @apply bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-500/20;
-  }
-
-  .console-panel {
-    @apply rounded-2xl border border-white/[0.08] bg-surface-900/80 backdrop-blur-xl;
-  }
-
-  .console-panel-header {
-    @apply border-b border-white/[0.06] px-4 py-3;
-  }
-
-  .console-stat {
-    @apply rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5;
-  }
-
-  .console-chip {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04]
-      px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-white/[0.14]
-      hover:bg-white/[0.07];
-  }
-
-  .console-chip-active {
-    @apply border-cyan-500/40 bg-cyan-500/10 text-cyan-200 ring-1 ring-cyan-500/20;
-  }
-
-  .console-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600
-      to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-glow-cyan transition
-      hover:from-cyan-500 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .console-btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.1]
-      bg-white/[0.04] px-3 py-2 text-xs font-medium text-slate-300 transition
-      hover:border-white/[0.16] hover:bg-white/[0.08];
-  }
-
-  .console-input {
-    @apply w-full rounded-xl border border-white/[0.1] bg-surface-950/60 px-3 py-2 text-sm
-      text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none
-      focus:ring-2 focus:ring-cyan-500/20;
-  }
-
-  .console-range {
-    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-cyan-500;
-  }
-
   .card {
-    @apply rounded-2xl border border-white/[0.08] bg-surface-900/70 p-5 backdrop-blur-sm sm:p-6;
+    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6;
   }
 
   .card-interactive {
-    @apply transition duration-200 hover:border-white/[0.12] hover:bg-surface-900/90;
+    @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-card-hover;
   }
 
   .badge {
@@ -84,191 +30,61 @@ body {
   }
 
   .btn-primary {
-    @apply console-btn-primary;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5
+      text-sm font-semibold text-white shadow-sm transition
+      hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40
+      disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply console-btn-ghost;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300
+      bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition
+      hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
   }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm
-      font-semibold text-slate-400 transition hover:bg-white/[0.05] hover:text-slate-200;
+      font-semibold text-slate-600 transition hover:bg-slate-100;
   }
 
   .input {
-    @apply console-input;
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800
+      shadow-sm transition placeholder:text-slate-400
+      focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
   }
 
   .label {
-    @apply mb-1.5 block text-sm font-medium text-slate-400;
+    @apply mb-1.5 block text-sm font-medium text-slate-600;
   }
 
   .range {
-    @apply console-range;
+    @apply h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-600;
   }
 
   .chip {
-    @apply console-chip;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5
+      py-1 text-xs font-medium text-slate-600;
   }
 
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-cyan-400/80;
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-brand-600;
   }
 }
 
-/* Leaflet — mapa GIS a pantalla completa */
+/* Leaflet container necesita altura explícita */
 .leaflet-container {
   height: 100%;
   width: 100%;
+  border-radius: 1rem;
   font-family: inherit;
   z-index: 0;
 }
 
-.city-map.leaflet-container {
-  border-radius: 0;
-  background: #060a12;
-}
-
-.city-map .leaflet-control-attribution {
-  background: rgb(6 10 18 / 0.82);
-  color: rgb(100 116 139);
-  font-size: 10px;
-  backdrop-filter: blur(8px);
-  border-radius: 6px 0 0 0;
-  margin: 0;
-}
-
-.city-map .leaflet-control-attribution a {
-  color: rgb(148 163 184);
-}
-
-.city-map .leaflet-popup-content-wrapper {
-  background: rgb(15 23 42 / 0.95);
-  color: rgb(226 232 240);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgb(0 0 0 / 0.45);
-  backdrop-filter: blur(12px);
-}
-
-.city-map .leaflet-popup-tip {
-  background: rgb(15 23 42 / 0.95);
-}
-
-.map-popup strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 13px;
-  color: rgb(241 245 249);
-}
-
-.map-popup span,
-.map-popup .muted {
-  color: rgb(148 163 184);
-  font-size: 11px;
-}
-
-.map-popup .metric {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 4px;
-  font-size: 11px;
-}
-
-.map-popup .metric b {
-  color: rgb(34 211 238);
-  font-weight: 600;
-}
-
-/* Marcadores propuesta — pulso */
-.proposed-marker-wrap {
-  background: transparent !important;
-  border: none !important;
-}
-
-.proposed-marker {
-  position: relative;
-  width: 28px;
-  height: 28px;
-}
-
-.proposed-marker::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: var(--marker-color, #a855f7);
-  opacity: 0.35;
-  animation: marker-pulse 2s ease-out infinite;
-}
-
-.proposed-marker::after {
-  content: "";
-  position: absolute;
-  inset: 6px;
-  border-radius: 9999px;
-  background: var(--marker-color, #a855f7);
-  border: 2px solid white;
-  box-shadow: 0 0 12px var(--marker-color, #a855f7);
-}
-
-.proposed-marker-selected::after {
-  inset: 4px;
-  border-width: 3px;
-  box-shadow: 0 0 20px #fde047, 0 0 8px var(--marker-color, #a855f7);
-}
-
-@keyframes marker-pulse {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.6;
-  }
-  70% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-
-.valenbisi-marker {
-  width: 10px;
-  height: 10px;
-  border-radius: 9999px;
-  background: #f97316;
-  border: 2px solid rgb(255 255 255 / 0.9);
-  box-shadow: 0 0 8px rgb(249 115 22 / 0.6);
-}
-
-.candidate-marker {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  transform: rotate(45deg);
-  border: 1.5px solid rgb(255 255 255 / 0.85);
-  box-shadow: 0 0 6px rgb(99 102 241 / 0.5);
-}
-
+/* Scrollbar discreta para tablas y paneles */
 .scroll-thin::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
+  height: 8px;
+  width: 8px;
 }
-
 .scroll-thin::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-white/15;
-}
-
-.scroll-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-@media print {
-  .console-sidebar,
-  .print\\:hidden {
-    display: none !important;
-  }
+  @apply rounded-full bg-slate-300;
 }

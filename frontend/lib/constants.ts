@@ -19,22 +19,24 @@ export const NIVEL_COLORS: Record<string, string> = {
   alta: "#dc2626",
 };
 
-/** Herramientas principales de la consola municipal */
-export const WORKSPACE_LINKS = [
-  { href: "/mapa", label: "Explorador" },
-  { href: "/optimizacion", label: "Optimización" },
-];
-
-/** @deprecated Usar WORKSPACE_LINKS — mantenido por compatibilidad */
 export const NAV_LINKS = [
-  ...WORKSPACE_LINKS,
+  { href: "/", label: "Inicio" },
+  { href: "/optimizacion", label: "Optimización" },
+  { href: "/datos", label: "Datos" },
+  { href: "/prediccion", label: "Demanda" },
+  { href: "/evaluacion", label: "Evaluación" },
+  { href: "/monitorizacion", label: "Monitorización" },
   { href: "/metodologia", label: "Documentación" },
 ];
 
-/** Páginas técnicas (pipeline Jupyter / CatBoost) */
+export const WORKSPACE_LINKS = [
+  { href: "/mapa", label: "Mapa urbano" },
+  { href: "/optimizacion", label: "Optimización" },
+  { href: "/prediccion", label: "Demanda en vivo" },
+];
+
 export const DOC_LINKS = [
-  { href: "/prediccion", label: "Modelo de demanda" },
-  { href: "/evaluacion", label: "Evaluación CatBoost" },
-  { href: "/monitorizacion", label: "Monitorización" },
-  { href: "/datos", label: "Datos urbanos" },
+  { href: "/metodologia", label: "Metodología" },
+  { href: "/datos", label: "Datos" },
+  { href: "/evaluacion", label: "Evaluación" },
 ];

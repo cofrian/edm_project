@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from .data_loader import load_metrics_by_hour
+from .integrations.aemet import weather_for_model
 from .model_loader import get_level_thresholds, get_model
 from .pipeline import classify_level
 from .schemas import PredictRequest, PredictResponse
@@ -35,14 +38,17 @@ def _reliability(mae_hora: float | None) -> str:
 def predict(req: PredictRequest) -> PredictResponse:
     model = get_model()
     q33, q66 = get_level_thresholds()
+    today = date.today()
+    live = weather_for_model(today)
     weather = {
-        "temp_c": req.temp_c,
+        "temp_c": req.temp_c if req.temp_c != 20.0 else live["temp_c"],
         "hum_rel": req.hum_rel,
         "pres_mb": req.pres_mb,
         "vel_viento_ms": req.vel_viento_ms,
         "vel_viento_max_ms": req.vel_viento_max_ms,
         "dir_viento_grados": req.dir_viento_grados,
         "precip_lm2": req.precip_lm2,
+        "dia_mes_norm": today.day / 31.0,
     }
 
     if model is not None:

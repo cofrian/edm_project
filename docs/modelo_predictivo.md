@@ -83,3 +83,29 @@ El modelo CatBoost definitivo reproduce con alta fidelidad los patrones horarios
 - Datos de un único mes (sesgo estacional posible).
 - Mayor error en horas valle y algunas zonas periféricas.
 - Los lags meteorológicos en `/predict` se aproximan con el valor actual cuando no se dispone de la serie completa del día.
+
+## Mapa en vivo (inferencia espacial)
+
+### Endpoints nuevos
+
+| Endpoint | Uso |
+|---|---|
+| `GET /map/zones` | Puntos GeoJSON de las ~1.158 zonas (`zones_points.geojson`) |
+| `GET /predict/heatmap?fecha=&hora=` | Intensidad batch + GeoJSON coloreado |
+| `GET /weather/current` | Meteo AEMET (estación 8416X) o valores por defecto |
+| `GET /traffic/live` | Estado por tramo (0=fluido … 3=cortado), cache 3 min |
+| `GET /events?from=&to=` | Catálogo `city_events.json` (conciertos, deporte, mercadillos) |
+
+### Eventos e impacto
+
+El módulo `event_impact.py` aplica un multiplicador espacio-temporal sobre la intensidad predicha:
+- Rampa 2 h antes del evento → pico durante el evento → decaimiento 1 h después.
+- Decaimiento espacial cuadrático dentro de `radio_metros`.
+
+Catálogo generado con `python scripts/seed_city_events.py` → `backend/data/processed/city_events.json`.
+
+### Fuentes externas
+
+- **AEMET:** `AEMET_API_KEY` en HF/GitHub ([opendata.aemet.es](https://opendata.aemet.es))
+- **Tráfico:** ArcGIS público Valencia (`geoportal.valencia.es/.../Trafico/MapServer/192`)
+- **Eventos:** JSON manual + reglas recurrentes (mercadillos, ocio nocturno); sin API Google Events oficial

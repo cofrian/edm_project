@@ -13,8 +13,8 @@ export function Card({
 }) {
   return (
     <section className={`card ${className}`}>
-      {title && <h3 className="text-lg font-semibold text-white">{title}</h3>}
-      {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
+      {title && <h3 className="text-lg font-semibold text-slate-900">{title}</h3>}
+      {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
       <div className={title ? "mt-4" : ""}>{children}</div>
     </section>
   );

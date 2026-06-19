@@ -24,20 +24,10 @@ movilidad sostenible (PuLP). Forma parte de la entrega EDM.
 | GET | `/metrics/by-hour` | Métricas por hora |
 | GET | `/metrics/errors-by-zone` | Zonas con más error |
 | POST | `/predict` | Intensidad y nivel de presión |
-| POST | `/optimize/valenbisi` | Modo A — N estaciones Valenbisi (PuLP, notebook 05) |
-| POST | `/optimize/coverage` | Modo B — cobertura bajo presupuesto (PuLP, notebook 06) |
-| POST | `/optimize/sports` | ILP polideportivos (población censal) |
-| POST | `/optimize/health` | ILP centros de salud |
-| POST | `/optimize/multi` | Plan mixto deporte + salud |
-| GET | `/map/traffic-segments` | GeoJSON red viaria (muestra) |
-| GET | `/map/current-valenbisi` | Estaciones Valenbisi actuales |
-| GET | `/map/existing-sports` | Polideportivos + isócronas |
-| GET | `/map/existing-health` | Centros de salud + isócronas |
-| GET | `/map/population-hexes` | Demanda censal (query `facility_type=sports\|health`) |
-| GET | `/map/candidates-facilities` | 131 candidatos como GeoJSON |
-| POST | `/map/covered-hexes` | Hexágonos cubiertos por candidatos seleccionados |
-| GET | `/coverage/summary` | Contadores de demanda y candidatos |
-| GET | `/candidates/valenbisi` | Candidatos Modo A (CSV-like JSON) |
+| POST | `/optimize/valenbisi` | Selección de N ubicaciones (PuLP) |
+| POST | `/optimize/coverage` | Cobertura bajo presupuesto (PuLP) |
+| GET | `/map/traffic-segments` | GeoJSON ligero |
+| GET | `/candidates/valenbisi` | Candidatos disponibles |
 | GET | `/monitoring/alerts` | Alertas de fiabilidad |
 
 Documentación interactiva en `/docs`.

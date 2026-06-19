@@ -95,12 +95,15 @@ function MapaContent() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [preset, setPreset] = useState("all");
   const [demandType, setDemandType] = useState<"sports" | "health">("sports");
-  const [summary, setSummary] = useState<Awaited<ReturnType<typeof api.coverageSummary>> | null>(
-    null
-  );
+  const [summary, setSummary] = useState<{
+    n_candidates: number;
+    n_hexes: number;
+    hexes_need_sports: number;
+    hexes_need_health: number;
+  } | null>(null);
 
   useEffect(() => {
-    api.coverageSummary().then(setSummary);
+    api.coverageSummary().then((r) => setSummary(r.ok ? r.data : null));
   }, []);
 
   function applyPreset(id: string) {
