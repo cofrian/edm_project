@@ -64,7 +64,7 @@ export default function DatosPage() {
         description="La app separa datos de optimización, demanda y monitorización para que cada resultado pueda explicarse desde su fuente."
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Candidatos" value={128} tone="brand" icon={<MapPinned className="h-4 w-4" />} />
         <Stat label="Equipamientos" value="40+" tone="teal" icon={<Building2 className="h-4 w-4" />} />
         <Stat label="Zonas tráfico" value="~1.158" icon={<Car className="h-4 w-4" />} />
@@ -84,7 +84,7 @@ export default function DatosPage() {
           </p>
           <div className="mt-5 grid gap-3">
             {OPT_DATA.map(([name, detail]) => (
-              <div key={name} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div key={name} className="rounded-2xl bg-slate-50 p-4">
                 <p className="font-semibold text-slate-950">{name}</p>
                 <p className="mt-1 text-sm text-slate-600">{detail}</p>
               </div>
@@ -104,8 +104,8 @@ export default function DatosPage() {
           </h3>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {CONCEPTS.map((concept) => (
-              <div key={concept.title} className="rounded-lg border border-slate-200 p-3">
-                <span className="grid h-8 w-8 place-items-center rounded-md bg-slate-100 text-slate-700">
+              <div key={concept.title} className="rounded-2xl bg-slate-50 p-4">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-slate-700 shadow-sm">
                   {concept.icon}
                 </span>
                 <p className="mt-3 font-semibold text-slate-950">{concept.title}</p>
@@ -113,7 +113,7 @@ export default function DatosPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-slate-700">
+          <div className="mt-4 rounded-2xl bg-cyan-50 p-5 text-sm leading-6 text-slate-700">
             La cobertura se calcula cruzando centroides de población con
             isócronas. Así la app distingue entre habitantes ya cubiertos y
             nueva cobertura potencial.
@@ -153,8 +153,8 @@ export default function DatosPage() {
           </h3>
           <div className="mt-4 space-y-2">
             {PREP_STEPS.map((step, index) => (
-              <div key={step} className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white text-xs font-semibold text-slate-700 shadow-sm">
+              <div key={step} className="flex gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white text-xs font-semibold text-slate-700 shadow-sm">
                   {index + 1}
                 </span>
                 {step}

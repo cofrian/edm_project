@@ -334,7 +334,7 @@ export default function OptimizacionPage() {
   const mapMarkers = [...valenbisiMarkers, ...selectedMarkers];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-9">
       <PageHeader
         eyebrow="UrbanFlow Valencia"
         title="Optimizador urbano"
@@ -344,7 +344,7 @@ export default function OptimizacionPage() {
         <Badge color="green">Solver exacto</Badge>
       </PageHeader>
 
-      <div className="flex w-full flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="inline-flex w-full flex-wrap gap-2 rounded-full bg-white p-1.5 shadow-card sm:w-auto">
         <TabButton
           active={activeTab === "tool"}
           onClick={() => setActiveTab("tool")}
@@ -361,10 +361,10 @@ export default function OptimizacionPage() {
 
       {activeTab === "tool" ? (
         <>
-          <section className="grid gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
+          <section className="grid gap-7 xl:grid-cols-[360px_minmax(0,1fr)]">
             <Card className="xl:self-start">
               <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-700">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-700">
                   <Target className="h-5 w-5" />
                 </span>
                 <div>
@@ -410,7 +410,7 @@ export default function OptimizacionPage() {
               </div>
 
               {facility === "valenbisi" && (
-                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <div className="flex items-start gap-2">
                     <Bike className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
                     <div>
@@ -520,7 +520,7 @@ export default function OptimizacionPage() {
                 )}
 
                 {facility === "valenbisi" && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Pesos del score
                     </p>
@@ -542,7 +542,7 @@ export default function OptimizacionPage() {
                       v={wDef}
                       set={setWDef}
                     />
-                    <p className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                    <p className="mt-3 rounded-full bg-white px-4 py-2 text-xs leading-5 text-slate-500 shadow-card">
                       Score actual: tráfico {wTraf.toFixed(1)} · población{" "}
                       {wPob.toFixed(1)} · déficit {wDef.toFixed(1)}.
                     </p>
@@ -554,7 +554,7 @@ export default function OptimizacionPage() {
                   {loading ? "Optimizando..." : "Ejecutar optimización"}
                 </button>
 
-                <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                <div className="rounded-2xl bg-slate-50 p-4 text-xs leading-5 text-slate-500">
                   <strong className="text-slate-700">Criterio:</strong>{" "}
                   {usesRealPopulation
                     ? "maximizar población nueva cubierta sin superar presupuesto."
@@ -565,15 +565,15 @@ export default function OptimizacionPage() {
               </div>
             </Card>
 
-            <div className="space-y-4">
-              <Card>
+            <div className="space-y-6">
+              <Card className="p-4 sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="eyebrow">Mapa GIS de decisión</p>
                     <h3 className="mt-1 text-xl font-bold text-slate-900">
                       Valencia: capas y recomendaciones
                     </h3>
-                    <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                       {helper.output} Las capas ayudan a revisar cobertura actual,
                       presión de movilidad y puntos propuestos antes de aceptar una
                       solución.
@@ -609,7 +609,7 @@ export default function OptimizacionPage() {
                     markers={mapMarkers}
                     polygons={coveragePolygons}
                     lines={trafficLines}
-                    height={560}
+                    height={660}
                   />
                 </div>
 
@@ -624,7 +624,7 @@ export default function OptimizacionPage() {
                 </div>
               </Card>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <Stat
                   label="Elegidas"
                   value={result?.n_selected ?? "—"}
@@ -758,7 +758,7 @@ export default function OptimizacionPage() {
         </>
       ) : (
         <section className="space-y-5">
-          <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+          <div className="grid gap-7 xl:grid-cols-[1fr_0.9fr]">
             <Card>
               <div className="flex items-start gap-3">
                 <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-700" />
@@ -937,7 +937,7 @@ function MethodFormula({
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+    <div className="mt-5 rounded-2xl bg-slate-50/80 p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-900">
@@ -951,7 +951,7 @@ function MethodFormula({
               : "Convierte tráfico, población y déficit en una priorización editable."}
           </p>
         </div>
-        <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
+        <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-card">
           PuLP · CBC
         </span>
       </div>
@@ -991,12 +991,12 @@ function FormulaRow({
   detail: string;
 }) {
   return (
-    <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
+    <div className="grid gap-3 rounded-2xl bg-white p-4 shadow-card sm:grid-cols-[8rem_minmax(0,1fr)]">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       <div className="min-w-0">
-        <code className="block max-w-full whitespace-normal break-words rounded-md bg-slate-100 px-3 py-2 font-mono text-xs leading-6 text-slate-800 sm:text-sm">
+        <code className="block max-w-full whitespace-normal break-words rounded-2xl bg-slate-100 px-4 py-3 font-mono text-xs leading-6 text-slate-800 sm:text-sm">
           {formula}
         </code>
         <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
@@ -1020,7 +1020,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition sm:flex-none ${
+      className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition sm:flex-none ${
         active
           ? "bg-slate-900 text-white shadow-sm"
           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -1048,14 +1048,14 @@ function FacilityButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
+      className={`flex items-start gap-3 rounded-2xl p-3.5 text-left transition ${
         active
-          ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
-          : "border-slate-200 bg-white hover:border-slate-300"
+          ? "bg-white shadow-card ring-1 ring-slate-200"
+          : "bg-slate-50 hover:bg-white hover:shadow-card"
       }`}
     >
       <span
-        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
           active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
         }`}
       >
@@ -1063,7 +1063,7 @@ function FacilityButton({
       </span>
       <span>
         <span
-          className={`block font-semibold ${active ? "text-brand-800" : "text-slate-900"}`}
+          className={`block font-semibold ${active ? "text-slate-950" : "text-slate-900"}`}
         >
           {title}
         </span>
@@ -1089,14 +1089,14 @@ function ModeButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
+      className={`flex items-start gap-3 rounded-2xl p-3.5 text-left transition ${
         active
-          ? "border-brand-300 bg-brand-50 ring-1 ring-brand-200"
-          : "border-slate-200 bg-white hover:border-slate-300"
+          ? "bg-white shadow-card ring-1 ring-slate-200"
+          : "bg-slate-100 hover:bg-white hover:shadow-card"
       }`}
     >
       <span
-        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
           active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
         }`}
       >
@@ -1104,7 +1104,7 @@ function ModeButton({
       </span>
       <span>
         <span
-          className={`block font-semibold ${active ? "text-brand-800" : "text-slate-900"}`}
+          className={`block font-semibold ${active ? "text-slate-950" : "text-slate-900"}`}
         >
           {title}
         </span>
@@ -1129,21 +1129,21 @@ function LayerToggle({
 }) {
   const toneMap = {
     amber: active
-      ? "border-amber-200 bg-amber-50 text-amber-800"
-      : "border-slate-200 bg-white text-slate-500",
+      ? "bg-amber-100 text-amber-900"
+      : "bg-slate-100 text-slate-500 hover:bg-white hover:text-slate-800",
     blue: active
-      ? "border-brand-200 bg-brand-50 text-brand-800"
-      : "border-slate-200 bg-white text-slate-500",
+      ? "bg-slate-900 text-white"
+      : "bg-slate-100 text-slate-500 hover:bg-white hover:text-slate-800",
     slate: active
-      ? "border-slate-300 bg-slate-100 text-slate-800"
-      : "border-slate-200 bg-white text-slate-500",
+      ? "bg-slate-200 text-slate-900"
+      : "bg-slate-100 text-slate-500 hover:bg-white hover:text-slate-800",
   };
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold transition hover:border-slate-300 ${toneMap[tone]}`}
+      className={`rounded-full px-4 py-2 text-left text-xs font-semibold transition ${toneMap[tone]}`}
     >
       <span className="block">{label}</span>
       <span className="block text-[11px] font-medium opacity-70">
@@ -1166,7 +1166,7 @@ function Field({
     <div>
       <div className="mb-2 flex items-center justify-between">
         <label className="text-sm font-medium text-slate-600">{label}</label>
-        <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-sm font-bold text-slate-700">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">
           {value}
         </span>
       </div>
@@ -1229,8 +1229,8 @@ function InfoStep({
   text: string;
 }) {
   return (
-    <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-slate-700 shadow-sm">
+    <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-slate-700 shadow-sm">
         {icon}
       </span>
       <div>
@@ -1266,10 +1266,10 @@ function PresetButtons({
           key={item.value}
           type="button"
           onClick={() => onSelect(item.value)}
-          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+          className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
             active === item.value
-              ? "border-slate-300 bg-slate-100 text-slate-900"
-              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-white hover:text-slate-900"
           }`}
         >
           {item.label}

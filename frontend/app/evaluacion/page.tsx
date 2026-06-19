@@ -17,7 +17,7 @@ export default async function EvaluacionPage() {
   ]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <PageHeader
         eyebrow="CRISP-DM · Evaluation"
         title="Evaluación del modelo de demanda"
@@ -33,14 +33,14 @@ export default async function EvaluacionPage() {
         que la presión de tráfico que entra en la optimización es fiable.
       </Callout>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="MAE" value={g.MAE} unit="veh/h" hint="Error absoluto medio" tone="brand" />
         <Stat label="RMSE" value={g.RMSE} hint="Penaliza errores grandes" />
         <Stat label="R²" value={g.R2} hint="Ajuste global (→1 mejor)" tone="teal" />
         <Stat label="sMAPE" value={g.sMAPE} unit="%" hint="Error porcentual" />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-7 lg:grid-cols-2">
         <Card title="MAE por hora" description="Error absoluto medio en cada franja horaria.">
           {byHour.length ? (
             <BarMetric data={byHour as unknown as Record<string, number>[]} xKey="Hora" yKey="MAE" />
@@ -57,7 +57,7 @@ export default async function EvaluacionPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-7 lg:grid-cols-2">
         <Card title="Real vs Predicho" description="Dispersión sobre el holdout (muestra).">
           {scatter.length ? <ScatterRealPred data={scatter} /> : <Empty note="Genera validation_predictions.csv" />}
         </Card>
@@ -66,14 +66,14 @@ export default async function EvaluacionPage() {
             <div className="overflow-x-auto scroll-thin">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                  <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="py-2">Zona</th>
                     <th className="py-2">MAE</th>
                   </tr>
                 </thead>
                 <tbody>
                   {zones.map((z) => (
-                    <tr key={z.Zona} className="border-b border-slate-100 last:border-0">
+                    <tr key={z.Zona} className="border-b border-slate-100/80 last:border-0">
                       <td className="py-2 font-medium text-slate-700">{z.Zona}</td>
                       <td className="py-2 text-slate-600">{z.mae}</td>
                     </tr>
@@ -92,7 +92,7 @@ export default async function EvaluacionPage() {
 
 function Empty({ note }: { note?: string }) {
   return (
-    <div className="flex h-[260px] flex-col items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-400">
+    <div className="flex h-[260px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-400">
       <p>Sin datos disponibles.</p>
       {note && <p className="mt-1 text-xs">{note}</p>}
     </div>

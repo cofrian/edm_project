@@ -23,6 +23,11 @@ const config: Config = {
           900: "#0f172a",
           950: "#020617",
         },
+        surface: {
+          DEFAULT: "#ffffff",
+          muted: "#fafafa",
+          app: "#f8f9fa",
+        },
         // Acento técnico para mapas, métricas positivas y estados activos.
         teal: {
           50: "#ecfeff",
@@ -39,10 +44,12 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-inter)", "ui-sans-serif", "system-ui"],
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgb(15 23 42 / 0.04)",
-        "card-hover": "0 10px 30px -18px rgb(15 23 42 / 0.35)",
+        card: "0 10px 40px -10px rgb(15 23 42 / 0.06), 0 2px 10px -6px rgb(15 23 42 / 0.06)",
+        "card-hover": "0 20px 60px -20px rgb(15 23 42 / 0.14), 0 8px 24px -18px rgb(15 23 42 / 0.12)",
+        map: "0 24px 70px -24px rgb(15 23 42 / 0.22)",
       },
       keyframes: {
         "fade-in-up": {

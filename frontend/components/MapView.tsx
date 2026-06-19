@@ -50,7 +50,7 @@ export default function MapView({
   height?: number;
 }) {
   return (
-    <div style={{ height }} className="overflow-hidden rounded-lg">
+    <div style={{ height }} className="overflow-hidden rounded-[1.5rem] bg-white shadow-map">
       <MapContainer center={center} zoom={zoom} scrollWheelZoom={false}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; &copy; <a href="https://carto.com/">CARTO</a>'

@@ -97,7 +97,7 @@ export default async function Home() {
 
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {CAPABILITIES.map((item) => (
-              <div key={item} className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <div key={item} className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-sm text-slate-700">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-teal-700" />
                 {item}
               </div>
@@ -125,7 +125,7 @@ export default async function Home() {
         </Card>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Candidatos" value={128} hint="Ubicaciones evaluables" tone="brand" icon={<Building2 className="h-4 w-4" />} />
         <Stat label="Capas GIS" value="4" hint="Tráfico, cobertura y estaciones" tone="teal" icon={<Layers className="h-4 w-4" />} />
         <Stat label="Modos" value="4" hint="Deporte, salud, multi y movilidad" icon={<Target className="h-4 w-4" />} />
@@ -144,10 +144,10 @@ export default async function Home() {
             Ver detalle técnico <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {MODULES.map((module) => (
             <Link key={module.href} href={module.href} className="card card-interactive block">
-              <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-700">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-700">
                 {module.icon}
               </span>
               <h3 className="mt-4 font-semibold text-slate-950">{module.title}</h3>
@@ -160,7 +160,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr]">
         <Card>
           <p className="eyebrow">Cómo decide</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">
@@ -210,9 +210,9 @@ function MiniMetric({
   suffix?: string;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+    <div className="rounded-2xl bg-slate-50 p-4">
       <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-slate-950">
+      <p className="mt-3 font-display text-3xl font-semibold leading-none tracking-[-0.04em] text-slate-950">
         {value}
         {suffix && <span className="ml-1 text-xs font-medium text-slate-500">{suffix}</span>}
       </p>
@@ -230,8 +230,8 @@ function FlowStep({
   text: string;
 }) {
   return (
-    <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-slate-700 shadow-sm">
+    <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-slate-700 shadow-sm">
         {icon}
       </span>
       <div>
@@ -252,10 +252,10 @@ function DecisionCard({
   formula: string;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 p-4">
+    <div className="rounded-2xl bg-slate-50 p-5">
       <p className="font-semibold text-slate-950">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-600">{text}</p>
-      <p className="mt-3 rounded-md bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100">
+      <p className="mt-4 rounded-2xl bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100">
         {formula}
       </p>
     </div>

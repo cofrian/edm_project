@@ -14,13 +14,13 @@ export function PageHeader({
   return (
     <header className="animate-fade-in-up">
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-      <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mt-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-5xl">
             {title}
           </h1>
           {description && (
-            <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500 sm:text-base">
               {description}
             </p>
           )}
@@ -54,21 +54,21 @@ export function Stat({
     red: "text-red-600",
   };
   const longValue = typeof value === "string" && value.length > 10;
-  const valueSize = longValue ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl";
+  const valueSize = longValue ? "text-2xl sm:text-3xl" : "text-4xl sm:text-5xl";
 
   return (
     <div className="card card-interactive min-w-0">
       <div className="flex min-w-0 items-center justify-between gap-3">
-        <p className="min-w-0 text-sm font-medium text-slate-500">{label}</p>
-        {icon && <span className="text-slate-300">{icon}</span>}
+        <p className="min-w-0 text-sm font-semibold text-slate-500">{label}</p>
+        {icon && <span className="rounded-full bg-slate-100 p-2 text-slate-400">{icon}</span>}
       </div>
-      <p className={`mt-2 break-words leading-tight ${valueSize} font-bold ${toneMap[tone]}`}>
+      <p className={`mt-5 break-words font-display leading-[0.95] tracking-[-0.045em] ${valueSize} font-semibold ${toneMap[tone]}`}>
         {value}
         {unit && (
-          <span className="ml-1 text-base font-medium text-slate-400">{unit}</span>
+          <span className="ml-1 align-baseline text-base font-semibold tracking-normal text-slate-400">{unit}</span>
         )}
       </p>
-      {hint && <p className="mt-1 max-w-full text-xs leading-5 text-slate-400">{hint}</p>}
+      {hint && <p className="mt-4 max-w-full text-sm leading-6 text-slate-400">{hint}</p>}
     </div>
   );
 }
@@ -83,7 +83,7 @@ export function Steps({
       {steps.map((s, i) => (
         <li key={i} className="card relative">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-sm font-bold text-slate-700">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
               {s.icon ?? i + 1}
             </span>
             <p className="font-semibold text-slate-900">{s.title}</p>
@@ -110,7 +110,7 @@ export function Callout({
     teal: "border-teal-200 bg-teal-50 text-teal-900",
   };
   return (
-    <div className={`rounded-lg border p-4 text-sm ${map[tone]}`}>
+    <div className={`rounded-2xl p-5 text-sm shadow-card ${map[tone]}`}>
       {title && <p className="mb-1 font-semibold">{title}</p>}
       <div className="text-slate-700">{children}</div>
     </div>
