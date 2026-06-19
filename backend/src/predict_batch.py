@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from .data_loader import load_zones_points
 from .event_impact import apply_events_to_intensity
-from .events import events_at, list_events
+from .events import events_at
 from .integrations.aemet import weather_for_model
 from .model_loader import get_level_thresholds, get_model
 from .pipeline import classify_level

@@ -7,7 +7,6 @@ Sirve predicción de tráfico (CatBoost), evaluación del modelo, optimización 
 from __future__ import annotations
 
 from datetime import date
-
 from typing import Literal
 
 from fastapi import FastAPI, Query
@@ -22,10 +21,10 @@ from src.events import list_events
 from src.integrations.aemet import current_weather, forecast_day
 from src.integrations.valencia_traffic import live_traffic
 from src.maps import (
-    candidates_valenbisi,
     candidates_facilities_geojson,
-    covered_hexes_geojson,
+    candidates_valenbisi,
     coverage_summary,
+    covered_hexes_geojson,
     current_valenbisi,
     existing_health,
     existing_sports,
@@ -42,8 +41,8 @@ from src.predict import predict as run_predict
 from src.predict_batch import predict_heatmap, predict_hour_batch
 from src.schemas import (
     CityEvent,
-    CoveredHexesRequest,
     CoverageRequest,
+    CoveredHexesRequest,
     EventsListResponse,
     FacilityRequest,
     MultiFacilityRequest,

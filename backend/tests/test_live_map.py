@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import patch
-
-import pytest
 
 
 def test_map_zones(client):

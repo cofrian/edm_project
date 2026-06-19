@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, datetime
 from functools import lru_cache
 from typing import Any
-
 from zoneinfo import ZoneInfo
 
 from .data_loader import load_city_events_raw

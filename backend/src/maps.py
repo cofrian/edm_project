@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Literal
 
-import pandas as pd
-
 from .coverage_data import (
     load_candidates_facilities,
     load_coverage_alpha,
@@ -13,7 +11,12 @@ from .coverage_data import (
     load_existing_sports,
     load_population_hexes,
 )
-from .data_loader import load_candidates_valenbisi, load_current_valenbisi, load_traffic_segments, load_zones_points
+from .data_loader import (
+    load_candidates_valenbisi,
+    load_current_valenbisi,
+    load_traffic_segments,
+    load_zones_points,
+)
 
 
 def zones_points() -> dict:
