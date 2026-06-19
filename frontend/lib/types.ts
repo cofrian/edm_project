@@ -164,6 +164,21 @@ export interface GeoFeatureCollection {
   features: GeoFeature[];
 }
 
+/** Alias usado por la UI GIS de optimización (Luis). */
+export interface GeoJSONFeature {
+  type?: "Feature";
+  geometry?: {
+    type: "Point" | "LineString" | "Polygon" | "MultiPolygon" | string;
+    coordinates: unknown;
+  } | null;
+  properties?: Record<string, unknown> | null;
+}
+
+export interface GeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
+}
+
 export interface WeatherCurrent {
   temp_c: number;
   hum_rel: number;

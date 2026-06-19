@@ -1,7 +1,17 @@
 "use client";
 
 import { useMemo } from "react";
-import { Circle, GeoJSON, MapContainer, Marker, Polygon, Popup, TileLayer } from "react-leaflet";
+import {
+  Circle,
+  CircleMarker,
+  GeoJSON,
+  MapContainer,
+  Marker,
+  Polygon,
+  Polyline,
+  Popup,
+  TileLayer,
+} from "react-leaflet";
 import L from "leaflet";
 import type { Layer, PathOptions } from "leaflet";
 import { NIVEL_COLORS, TRAFFIC_ESTADO_COLORS, VALENCIA_CENTER } from "@/lib/constants";
@@ -10,6 +20,16 @@ export interface MapPolygon {
   positions: [number, number][];
   color?: string;
   label?: string;
+  fillOpacity?: number;
+  weight?: number;
+}
+
+export interface MapLine {
+  positions: [number, number][];
+  color?: string;
+  label?: string;
+  opacity?: number;
+  weight?: number;
 }
 
 export interface MapMarker {
@@ -85,6 +105,7 @@ function formatVhTooltip(props: Record<string, unknown>, nombre: string, estado:
 export default function MapView({
   markers = [],
   polygons = [],
+  lines = [],
   heatmapPoints = [],
   trafficGeoJson = null,
   showTraffic = true,
@@ -96,9 +117,12 @@ export default function MapView({
   center = VALENCIA_CENTER,
   zoom = 12,
   height = 460,
+  scrollWheelZoom = true,
+  useCircleMarker = false,
 }: {
   markers?: MapMarker[];
   polygons?: MapPolygon[];
+  lines?: MapLine[];
   heatmapPoints?: HeatmapPoint[];
   trafficGeoJson?: { type: string; features: unknown[] } | null;
   showTraffic?: boolean;
@@ -114,6 +138,8 @@ export default function MapView({
   center?: [number, number];
   zoom?: number;
   height?: number;
+  scrollWheelZoom?: boolean;
+  useCircleMarker?: boolean;
 }) {
   const affectedSet = useMemo(() => new Set(affectedTramoIds), [affectedTramoIds]);
 
@@ -210,9 +236,18 @@ export default function MapView({
     `);
   };
 
+  const shellClass = heatmapPoints.length || trafficGeoJson || eventMarkers.length
+    ? "overflow-hidden rounded-2xl"
+    : "overflow-hidden rounded-[1.5rem] bg-white shadow-map";
+
   return (
-    <div style={{ height }} className="overflow-hidden rounded-2xl">
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full">
+    <div style={{ height }} className={shellClass}>
+      <MapContainer
+        center={center}
+        zoom={zoom}
+        scrollWheelZoom={scrollWheelZoom}
+        className="h-full w-full"
+      >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; &copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -273,6 +308,19 @@ export default function MapView({
             </Marker>
           );
         })}
+        {lines.map((line, i) => (
+          <Polyline
+            key={`line-${i}`}
+            positions={line.positions}
+            pathOptions={{
+              color: line.color ?? "#f59e0b",
+              opacity: line.opacity ?? 0.5,
+              weight: line.weight ?? 2,
+            }}
+          >
+            {line.label && <Popup>{line.label}</Popup>}
+          </Polyline>
+        ))}
         {polygons.map((p, i) => (
           <Polygon
             key={`poly-${i}`}
@@ -280,28 +328,44 @@ export default function MapView({
             pathOptions={{
               color: p.color ?? "#0fa99c",
               fillColor: p.color ?? "#0fa99c",
-              fillOpacity: 0.12,
-              weight: 1.5,
+              fillOpacity: p.fillOpacity ?? 0.12,
+              weight: p.weight ?? 1.5,
             }}
           >
             {p.label && <Popup>{p.label}</Popup>}
           </Polygon>
         ))}
-        {markers.map((m, i) => (
-          <Circle
-            key={`mk-${i}`}
-            center={[m.lat, m.lon]}
-            radius={m.radius ?? 80}
-            pathOptions={{
-              color: "#ffffff",
-              weight: 2,
-              fillColor: m.color ?? "#1d4ed8",
-              fillOpacity: 0.9,
-            }}
-          >
-            {m.label && <Popup>{m.label}</Popup>}
-          </Circle>
-        ))}
+        {markers.map((m, i) =>
+          useCircleMarker ? (
+            <CircleMarker
+              key={`mk-${i}`}
+              center={[m.lat, m.lon]}
+              radius={m.radius ?? 8}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 2,
+                fillColor: m.color ?? "#1d4ed8",
+                fillOpacity: 0.9,
+              }}
+            >
+              {m.label && <Popup>{m.label}</Popup>}
+            </CircleMarker>
+          ) : (
+            <Circle
+              key={`mk-${i}`}
+              center={[m.lat, m.lon]}
+              radius={m.radius ?? 80}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 2,
+                fillColor: m.color ?? "#1d4ed8",
+                fillOpacity: 0.9,
+              }}
+            >
+              {m.label && <Popup>{m.label}</Popup>}
+            </Circle>
+          ),
+        )}
       </MapContainer>
     </div>
   );

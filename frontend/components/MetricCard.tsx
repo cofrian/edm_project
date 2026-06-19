@@ -11,12 +11,12 @@ export function MetricCard({
 }) {
   return (
     <div className="card">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">
+      <p className="text-sm font-semibold text-slate-500">{label}</p>
+      <p className="mt-5 font-display text-5xl font-semibold leading-none tracking-[-0.045em] text-slate-950">
         {value}
-        {unit && <span className="ml-1 text-base font-normal text-slate-400">{unit}</span>}
+        {unit && <span className="ml-1 align-baseline text-base font-semibold tracking-normal text-slate-400">{unit}</span>}
       </p>
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="mt-4 text-sm leading-6 text-slate-400">{hint}</p>}
     </div>
   );
 }

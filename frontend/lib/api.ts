@@ -182,14 +182,67 @@ export const api = {
       hexes_need_sports: number;
       hexes_need_health: number;
     }>("/coverage/summary"),
-  optimizeValenbisi: (req: unknown) => tryPost<OptimizeResponse>("/optimize/valenbisi", req),
-  optimizeCoverage: (req: unknown) => tryPost<OptimizeResponse>("/optimize/coverage", req),
+  optimizeValenbisi: (req: unknown) =>
+    postJSON<OptimizeResponse>("/optimize/valenbisi", req, {
+      mode: "valenbisi",
+      selected: [],
+      total_score: 0,
+      total_cost: 0,
+      n_selected: 0,
+      constraint: "API no disponible",
+    }),
+  optimizeCoverage: (req: unknown) =>
+    postJSON<OptimizeResponse>("/optimize/coverage", req, {
+      mode: "coverage",
+      selected: [],
+      total_score: 0,
+      total_cost: 0,
+      n_selected: 0,
+      constraint: "API no disponible",
+    }),
   optimizeSports: (req: { presupuesto: number }) =>
-    tryPost<OptimizeResponse>("/optimize/sports", { ...req, facility_type: "sports" }),
+    postJSON<OptimizeResponse>(
+      "/optimize/sports",
+      { ...req, facility_type: "sports" },
+      {
+        mode: "polideportivo",
+        selected: [],
+        total_score: 0,
+        total_cost: 0,
+        n_selected: 0,
+        constraint: "API no disponible",
+      },
+    ),
   optimizeHealth: (req: { presupuesto: number }) =>
-    tryPost<OptimizeResponse>("/optimize/health", { ...req, facility_type: "health" }),
+    postJSON<OptimizeResponse>(
+      "/optimize/health",
+      { ...req, facility_type: "health" },
+      {
+        mode: "centro_salud",
+        selected: [],
+        total_score: 0,
+        total_cost: 0,
+        n_selected: 0,
+        constraint: "API no disponible",
+      },
+    ),
   optimizeMulti: (req: { presupuesto: number; lambda_sports: number }) =>
-    tryPost<OptimizeResponse>("/optimize/multi", req),
+    postJSON<OptimizeResponse>("/optimize/multi", req, {
+      mode: "multi",
+      selected: [],
+      total_score: 0,
+      total_cost: 0,
+      n_selected: 0,
+      constraint: "API no disponible",
+    }),
+  existingSports: () =>
+    getJSON<GeoFeatureCollection>("/map/existing-sports", emptyGeo),
+  existingHealth: () =>
+    getJSON<GeoFeatureCollection>("/map/existing-health", emptyGeo),
+  trafficSegments: () =>
+    getJSON<GeoFeatureCollection>("/map/traffic-segments", emptyGeo),
+  currentValenbisi: () =>
+    getJSON<GeoFeatureCollection>("/map/current-valenbisi", emptyGeo),
   monitoring: () =>
     getJSON<Monitoring>("/monitoring/alerts", {
       model_active: "CatBoost por hora",

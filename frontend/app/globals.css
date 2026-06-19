@@ -9,48 +9,54 @@ body {
 }
 
 body {
-  @apply bg-slate-50 font-sans text-slate-800 antialiased;
-  background-image:
-    radial-gradient(60rem 60rem at 110% -10%, rgb(51 102 255 / 0.06), transparent 60%),
-    radial-gradient(50rem 50rem at -10% 0%, rgb(15 169 156 / 0.05), transparent 55%);
+  @apply bg-surface-app font-sans text-slate-800 antialiased;
+  background-image: linear-gradient(180deg, #fafafa 0%, #f8f9fa 52%, #f5f7f8 100%);
   background-attachment: fixed;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight text-slate-950;
+  }
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-200/80 bg-white p-5 shadow-card sm:p-6;
+    @apply rounded-2xl bg-white p-6 shadow-card sm:p-8;
   }
 
   .card-interactive {
-    @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-card-hover;
+    @apply transition duration-300 hover:-translate-y-0.5 hover:shadow-card-hover;
   }
 
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-900 px-5 py-3
       text-sm font-semibold text-white shadow-sm transition
-      hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40
+      hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40
       disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300
-      bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition
-      hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3
+      text-sm font-semibold text-slate-700 shadow-card transition
+      hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm
       font-semibold text-slate-600 transition hover:bg-slate-100;
   }
 
   .input {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800
-      shadow-sm transition placeholder:text-slate-400
-      focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+    @apply w-full rounded-full border-0 bg-slate-100 px-4 py-3 text-sm text-slate-800
+      shadow-inner transition placeholder:text-slate-400
+      focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-900/10;
   }
 
   .label {
@@ -58,16 +64,16 @@ body {
   }
 
   .range {
-    @apply h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-600;
+    @apply h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-900;
   }
 
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5
-      py-1 text-xs font-medium text-slate-600;
+    @apply inline-flex items-center gap-1.5 rounded-full bg-white px-3
+      py-1 text-xs font-semibold text-slate-600 shadow-card;
   }
 
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-brand-600;
+    @apply font-display text-xs font-bold uppercase tracking-[0.22em] text-teal-800;
   }
 }
 
@@ -75,7 +81,7 @@ body {
 .leaflet-container {
   height: 100%;
   width: 100%;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   font-family: inherit;
   z-index: 0;
 }
@@ -87,88 +93,4 @@ body {
 }
 .scroll-thin::-webkit-scrollbar-thumb {
   @apply rounded-full bg-slate-300;
-}
-
-/* Marcadores de eventos en mapa Leaflet */
-.event-marker-leaflet {
-  background: transparent !important;
-  border: none !important;
-}
-
-.event-marker-pulse {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  margin: 0 auto;
-}
-
-.event-marker-ring {
-  position: absolute;
-  inset: -4px;
-  border-radius: 9999px;
-  border: 3px solid #7c3aed;
-  animation: event-pulse 2s ease-out infinite;
-}
-
-.event-marker-icon {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin: 6px auto 0;
-  border-radius: 9999px;
-  color: #fff;
-  background: linear-gradient(145deg, #8b5cf6, #6d28d9);
-  border: 3px solid #fff;
-  box-shadow: 0 4px 14px rgb(124 58 237 / 0.45);
-}
-
-.event-marker-icon-selected {
-  width: 42px;
-  height: 42px;
-  margin-top: 3px;
-  background: linear-gradient(145deg, #7c3aed, #5b21b6);
-  box-shadow: 0 6px 18px rgb(91 33 182 / 0.55);
-}
-
-.event-marker-label {
-  display: block;
-  margin-top: 2px;
-  max-width: 72px;
-  text-align: center;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1.1;
-  color: #5b21b6;
-  text-shadow: 0 1px 2px #fff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.leaflet-tooltip {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  box-shadow: 0 4px 12px rgb(15 23 42 / 0.12);
-  font-size: 12px;
-}
-
-@keyframes event-pulse {
-  0% {
-    transform: scale(0.95);
-    opacity: 1;
-  }
-  70% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1.35);
-    opacity: 0;
-  }
 }

@@ -23,6 +23,7 @@ from .coverage_data import (
     load_population_hexes,
 )
 from .schemas import FacilityRequest, MultiFacilityRequest, OptimizeResponse, SelectedCandidate
+from .solver import cbc_solver
 
 
 def _fallback_simple(req: FacilityRequest) -> OptimizeResponse:
@@ -134,7 +135,7 @@ def optimize_facility(req: FacilityRequest) -> OptimizeResponse:
         "budget",
     )
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(cbc_solver(msg=False))
 
     selected_ids = [cid for cid, var in X.items() if var.value() and var.value() > 0.5]
     total_cost = sum(
@@ -201,7 +202,7 @@ def optimize_multi(req: MultiFacilityRequest) -> OptimizeResponse:
     for cid in X:
         prob += X[cid] + Xp[cid] <= 1, f"one_per_site_{cid}"
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(cbc_solver(msg=False))
 
     selected: list[SelectedCandidate] = []
     total_cost = 0.0

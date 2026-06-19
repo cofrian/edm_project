@@ -9,6 +9,7 @@ import {
   Activity,
   ShieldCheck,
   Boxes,
+  BookOpen,
 } from "lucide-react";
 
 export const metadata = { title: "Documentación" };
@@ -19,6 +20,7 @@ const TOC = [
   ["arquitectura", "Arquitectura de la solución"],
   ["despliegue", "Arquitectura de despliegue"],
   ["optimizacion", "Motor de optimización"],
+  ["pipeline", "Pipeline UrbanFlow"],
   ["modelo", "Modelo de demanda"],
   ["monitor", "Evaluación y monitorización"],
   ["stack", "Stack y reproducibilidad"],
@@ -38,9 +40,9 @@ export default function DocumentacionPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Memoria técnica"
+        eyebrow="Documentación técnica"
         title="Documentación del proyecto"
-        description="Todo lo construido en UrbanFlow Valencia: metodología CRISP-DM, arquitectura de la solución, despliegue en profundidad, el motor de optimización, el modelo de demanda y la monitorización."
+        description="Guía completa de UrbanFlow Valencia: metodología CRISP-DM, arquitectura, despliegue, motor de optimización, modelo de demanda y monitorización."
       />
 
       <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
@@ -50,7 +52,7 @@ export default function DocumentacionPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Contenido</p>
             <nav className="mt-3 space-y-1">
               {TOC.map(([id, label]) => (
-                <a key={id} href={`#${id}`} className="block rounded-lg px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-brand-700">
+                <a key={id} href={`#${id}`} className="block rounded-md px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
                   {label}
                 </a>
               ))}
@@ -84,8 +86,9 @@ export default function DocumentacionPage() {
           {/* CRISP */}
           <Section id="crisp" icon={<Boxes className="h-5 w-5" />} title="Metodología CRISP-DM">
             <p>
-              El proyecto sigue las fases de CRISP-DM, integrando además los bloques
-              específicos de la asignatura (Evaluación, Despliegue y Monitorización).
+              El proyecto sigue las fases de CRISP-DM e integra evaluación,
+              despliegue y monitorización para que la solución sea reproducible
+              y operable.
             </p>
             <div className="mt-4 overflow-x-auto scroll-thin">
               <table className="w-full min-w-[520px] text-sm">
@@ -145,7 +148,7 @@ Backend FastAPI  ───────────  Hugging Face Spaces (Docker)
             <h4 className="mt-5 font-semibold text-slate-900">1 · Frontend en Vercel</h4>
             <p className="mt-1">
               Conectado al repositorio con <em>root directory</em> <code>frontend/</code>.
-              En cada push a <code>main</code>, Vercel construye y publica
+              En cada push a <code>production</code>, Vercel construye y publica
               automáticamente. La URL de la API se inyecta como variable de entorno:
             </p>
             <Diagram>{`NEXT_PUBLIC_API_URL = https://cofrian-edm-proyect.hf.space`}</Diagram>
@@ -186,10 +189,11 @@ CMD uvicorn main:app --host 0.0.0.0 --port 7860`}
                     ["backend-ci", "push/PR en backend/", "Ruff, pytest (9 tests), import de la app, CBC + Git LFS"],
                     ["frontend-ci", "push/PR en frontend/", "ESLint, TypeScript, build de Next.js"],
                     ["docker-build", "push en main", "Construcción de la imagen Docker"],
+                    ["deploy-hf", "push a production con backend/", "Sincronización del backend al Space de Hugging Face"],
                     ["deploy-check", "push a production", "curl al /health de la API desplegada"],
                   ].map(([w, t, q]) => (
                     <tr key={w} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-brand-700">{w}</td>
+                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-slate-700">{w}</td>
                       <td className="py-2.5 pr-4 align-top text-slate-500">{t}</td>
                       <td className="py-2.5 text-slate-600">{q}</td>
                     </tr>
@@ -209,26 +213,69 @@ CMD uvicorn main:app --host 0.0.0.0 --port 7860`}
             <p>
               Es el corazón del proyecto. Se modela como un problema de{" "}
               <strong>programación lineal entera binaria</strong> resuelto con el solver
-              CBC a través de PuLP. Cada ubicación candidata tiene una variable{" "}
-              <code>xᵢ ∈ &#123;0,1&#125;</code> y un score que combina tres criterios
-              normalizados.
+              CBC a través de PuLP. Cada ubicación candidata tiene una variable
+              binaria y la solución respeta la restricción de presupuesto o de
+              número de ubicaciones elegida por el usuario.
             </p>
             <Diagram>
-{`scoreᵢ = w_tráfico·tráficoᵢ + w_población·poblaciónᵢ + w_déficitᵢ·déficitᵢ
-max  Σ scoreᵢ · xᵢ
+{`Modelo cobertura:
+max  Σⱼ pⱼ Yⱼ
+s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0
+     Σᵢ costeᵢ Xᵢ ≤ presupuesto
 
-Modo A (nº fijo):     s.a.  Σ xᵢ = N
-Modo B (presupuesto): s.a.  Σ costeᵢ · xᵢ ≤ presupuesto`}
+Modelo multiobjetivo:
+max  λ·cobertura_deporte + (1−λ)·cobertura_salud
+s.a. Xᵢ + X'ᵢ ≤ 1
+
+Modo Valenbisi:
+max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
             </Diagram>
             <ul className="mt-3 list-inside list-disc space-y-1 text-slate-600">
               <li><strong>Tráfico:</strong> presión predicha por CatBoost, agregada por zona.</li>
-              <li><strong>Población alcanzable:</strong> a partir del área de la isócrona del candidato.</li>
-              <li><strong>Déficit:</strong> penaliza solaparse con equipamientos existentes.</li>
+              <li><strong>Población cubierta:</strong> cruce de hexágonos de población con isócronas de candidatos.</li>
+              <li><strong>Déficit:</strong> prioriza zonas no cubiertas por equipamientos existentes.</li>
             </ul>
             <p className="mt-3">
               El resultado es el <strong>óptimo global</strong> para los pesos y la
               restricción elegidos, no una aproximación heurística.
             </p>
+          </Section>
+
+          <Section id="pipeline" icon={<BookOpen className="h-5 w-5" />} title="Pipeline UrbanFlow">
+            <p>
+              La plataforma empaqueta la preparación de datos, el modelo de
+              demanda y el optimizador en una versión desplegable, estable y
+              explicable para el usuario final. La lógica que requiere respuesta
+              determinista está en la API; los análisis exploratorios quedan
+              fuera del cálculo público.
+            </p>
+            <div className="mt-4 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-4">Módulo</th>
+                    <th className="py-2 pr-4">Qué aporta</th>
+                    <th className="py-2">Implementación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Cobertura urbana", "Restricciones de cobertura, presupuesto y población alcanzada.", "PuLP/CBC en /optimize/sports y /optimize/health."],
+                    ["Movilidad Valenbisi", "Score tráfico+población+déficit y comparación de ubicaciones.", "Modo Valenbisi en /optimize/valenbisi y /optimize/coverage."],
+                    ["Multiobjetivo", "Comparación entre cobertura deportiva y sanitaria.", "Suma ponderada activa con λ en /optimize/multi."],
+                    ["Señales urbanas", "Tráfico, población, costes, isócronas y cobertura existente.", "Datos curados en backend/data/processed."],
+                    ["Análisis avanzado", "Heurísticas y áreas dinámicas de influencia para contraste técnico.", "Documentado, no ejecutado en producción por reproducibilidad y coste."],
+                    ["Preparación de artefactos", "Conversión de datos crudos a candidatos y matrices de cobertura.", "Pipeline reproducible con scripts de validación."],
+                  ].map(([n, a, d]) => (
+                    <tr key={n} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-slate-700">{n}</td>
+                      <td className="py-2.5 pr-4 align-top text-slate-600">{a}</td>
+                      <td className="py-2.5 align-top text-slate-600">{d}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Section>
 
           {/* MODELO */}
@@ -251,7 +298,9 @@ Modo B (presupuesto): s.a.  Σ costeᵢ · xᵢ ≤ presupuesto`}
             </div>
             <Callout tone="amber" title="Honestidad metodológica">
               Las métricas de LightGBM (peores) no se mezclan con las de CatBoost.
-              La población alcanzable usa un proxy geométrico documentado.
+              La cobertura usa población hexagonal filtrada a Valencia y se
+              interpreta como apoyo a la decisión, no como sustituto de una
+              evaluación urbanística completa.
             </Callout>
           </Section>
 
@@ -279,8 +328,8 @@ Modo B (presupuesto): s.a.  Σ costeᵢ · xᵢ ≤ presupuesto`}
               <MiniCard icon={<Database className="h-5 w-5" />} title="Datos / modelos" text="Git LFS (.cbm, .parquet) · scripts de validación de artefactos" />
             </div>
             <p className="mt-4 text-slate-600">
-              Notebooks 01–06 documentan el pipeline (preparación, entrenamiento,
-              evaluación y optimización). Los scripts regeneran los artefactos de
+              El pipeline técnico documenta preparación, entrenamiento,
+              evaluación y optimización. Los scripts regeneran los artefactos de
               forma reproducible y <code>validate_artifacts.py</code> verifica su integridad.
             </p>
           </Section>
@@ -304,7 +353,7 @@ function Section({
   return (
     <section id={id} className="scroll-mt-20">
       <div className="mb-3 flex items-center gap-2.5">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-700">{icon}</span>
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-700">{icon}</span>
         <h2 className="text-xl font-bold text-slate-900">{title}</h2>
       </div>
       <div className="text-sm leading-relaxed text-slate-600 sm:text-base">{children}</div>
@@ -314,7 +363,7 @@ function Section({
 
 function Diagram({ children }: { children: React.ReactNode }) {
   return (
-    <pre className="mt-3 overflow-x-auto scroll-thin rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
+    <pre className="mt-3 overflow-x-auto scroll-thin rounded-lg bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
       {children}
     </pre>
   );
@@ -322,8 +371,8 @@ function Diagram({ children }: { children: React.ReactNode }) {
 
 function MiniCard({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-4">
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600">{icon}</span>
+    <div className="rounded-lg border border-slate-200 p-4">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-600">{icon}</span>
       <p className="mt-2 font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-sm text-slate-600">{text}</p>
     </div>
@@ -332,7 +381,7 @@ function MiniCard({ icon, title, text }: { icon: React.ReactNode; title: string;
 
 function Metric({ k, v }: { k: string; v: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-center">
       <p className="text-xs text-slate-500">{k}</p>
       <p className="mt-1 text-lg font-bold text-slate-900">{v}</p>
     </div>

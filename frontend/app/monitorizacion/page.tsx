@@ -12,7 +12,7 @@ export default async function MonitorizacionPage() {
   const hasAlerts = m.alerts.some((a) => a.nivel !== "ok");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <PageHeader
         eyebrow="EDM · Monitoring & ModelOps"
         title="Monitorización y fiabilidad"
@@ -23,7 +23,7 @@ export default async function MonitorizacionPage() {
         </Badge>
       </PageHeader>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Modelo activo" value={m.model_active.split("(")[0]} tone="brand" />
         <Stat label="Fecha de datos" value={m.data_date} />
         <Stat label="MAE global" value={m.mae_global ?? "—"} unit="veh/h" />
@@ -38,7 +38,7 @@ export default async function MonitorizacionPage() {
           {m.alerts.map((a, i) => (
             <div
               key={i}
-              className={`flex items-start gap-3 rounded-xl p-3 text-sm ${
+              className={`flex items-start gap-3 rounded-2xl p-4 text-sm ${
                 a.nivel === "ok"
                   ? "bg-green-50 text-green-800"
                   : a.nivel === "alta"
@@ -57,14 +57,14 @@ export default async function MonitorizacionPage() {
         </div>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-7 lg:grid-cols-2">
         <Card title="MAE por hora" description="Franjas con mayor error → menor confianza.">
           {m.mae_by_hour.length ? (
             <BarMetric
               data={m.mae_by_hour as unknown as Record<string, number>[]}
               xKey="Hora"
               yKey="MAE"
-              color={hasAlerts ? "#dc2626" : "#1d4ed8"}
+              color={hasAlerts ? "#dc2626" : "#0f172a"}
             />
           ) : (
             <p className="text-sm text-slate-400">Sin datos de métricas por hora.</p>
@@ -75,20 +75,20 @@ export default async function MonitorizacionPage() {
             <div className="overflow-x-auto scroll-thin">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="py-2">Zona</th>
-                    <th className="py-2">Calle / sensor</th>
-                    <th className="py-2">MAE</th>
+                  <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-3">Zona</th>
+                    <th className="py-2 pr-3">Calle / sensor</th>
+                    <th className="py-2 text-right">MAE</th>
                   </tr>
                 </thead>
                 <tbody>
                   {m.top_error_zones.map((z) => (
-                    <tr key={z.Zona} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2 font-medium text-slate-700">{z.Zona}</td>
-                      <td className="max-w-xs truncate py-2 text-slate-600" title={z.descripcion ?? z.calle}>
+                    <tr key={z.Zona} className="border-b border-slate-100/80 last:border-0">
+                      <td className="py-2 pr-3 font-medium text-slate-700">{z.Zona}</td>
+                      <td className="max-w-[220px] truncate py-2 pr-3 text-slate-600" title={z.descripcion ?? z.calle}>
                         {z.descripcion ?? z.calle ?? "—"}
                       </td>
-                      <td className="py-2 text-slate-600">{z.mae}</td>
+                      <td className="py-2 text-right text-slate-600">{z.mae}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -102,10 +102,10 @@ export default async function MonitorizacionPage() {
 
       <Card title="Drift y limitaciones">
         <ul className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-          <li className="rounded-lg bg-slate-50 p-3">Datos de octubre 2023; un cambio estacional o de sensores puede degradar el modelo (drift).</li>
-          <li className="rounded-lg bg-slate-50 p-3">Horas valle y zonas periféricas tienen mayor sMAPE: interpretar con cautela.</li>
-          <li className="rounded-lg bg-slate-50 p-3">En producción se reentrenaría periódicamente comparando el error vivo contra este baseline.</li>
-          <li className="rounded-lg bg-slate-50 p-3">La cobertura de población usa un proxy geométrico documentado en la optimización.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">Datos de octubre 2023; un cambio estacional o de sensores puede degradar el modelo (drift).</li>
+          <li className="rounded-2xl bg-slate-50 p-4">Horas valle y zonas periféricas tienen mayor sMAPE: interpretar con cautela.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">En producción se reentrenaría periódicamente comparando el error vivo contra este baseline.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">La cobertura se calcula con población hexagonal e isócronas; debe validarse con criterio urbanístico antes de una decisión real.</li>
         </ul>
         <div className="mt-3"><Badge color="blue">EDM: Monitoring / ModelOps</Badge></div>
       </Card>
