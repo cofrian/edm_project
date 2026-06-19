@@ -87,6 +87,95 @@ export interface Metadata {
   version: string;
   model: string;
   model_loaded: boolean;
+  coverage_data?: boolean;
   data_date: string;
   validation: string;
+}
+
+export type LayerKey =
+  | "valenbisi"
+  | "sports"
+  | "health"
+  | "traffic"
+  | "demand"
+  | "candidates"
+  | "covered"
+  | "proposed";
+
+export interface MapMarker {
+  id?: string | number;
+  lat: number;
+  lon: number;
+  label?: string;
+  color?: string;
+  radius?: number;
+}
+
+export interface GeoFeature {
+  type: "Feature";
+  geometry: { type: string; coordinates: unknown };
+  properties?: Record<string, unknown>;
+}
+
+export interface GeoFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoFeature[];
+}
+
+export interface WeatherCurrent {
+  temp_c: number;
+  hum_rel: number;
+  pres_mb: number;
+  vel_viento_ms: number;
+  vel_viento_max_ms?: number;
+  dir_viento_grados?: number;
+  precip_lm2: number;
+  source?: string;
+  timestamp?: string;
+  note?: string;
+}
+
+export interface CityEvent {
+  id: string;
+  nombre: string;
+  tipo: string;
+  inicio: string;
+  fin: string;
+  lat: number;
+  lon: number;
+  direccion?: string;
+  radio_metros: number;
+  factor_max: number;
+  fuente?: string;
+  enlace?: string;
+}
+
+export interface HeatmapPoint {
+  zona: number;
+  lat: number;
+  lon: number;
+  intensidad: number;
+  baseline: number;
+  nivel: "baja" | "media" | "alta";
+  descripcion?: string;
+}
+
+export interface HeatmapResponse {
+  fecha: string;
+  hora: number;
+  n_points: number;
+  points: HeatmapPoint[];
+  events_active: number;
+  model_loaded: boolean;
+  weather?: Record<string, number>;
+}
+
+export interface TrafficLiveResponse {
+  type: string;
+  features: Array<{
+    type: string;
+    geometry: object;
+    properties: Record<string, unknown>;
+  }>;
+  source?: string;
 }

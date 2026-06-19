@@ -133,6 +133,13 @@ API REST que **carga artefactos precomputados** (no entrena en producción). Sir
 | `GET` | `/metrics/errors-by-zone` | Zonas con mayor error |
 | `GET` | `/evaluation/scatter` | Muestra real vs predicho |
 | `POST` | `/predict` | Intensidad y nivel (baja/media/alta) |
+| `GET` | `/predict/heatmap` | Predicción batch todas las zonas (slider hora) |
+| `POST` | `/predict/hour` | Igual que heatmap con body JSON |
+| `GET` | `/weather/current` | Meteo actual (AEMET o defaults) |
+| `GET` | `/weather/forecast` | Serie horaria del día |
+| `GET` | `/traffic/live` | Tráfico real Ayuntamiento (ArcGIS) |
+| `GET` | `/events` | Eventos urbanos (`?from=&to=`) |
+| `GET` | `/map/zones` | GeoJSON ~1.158 puntos zona |
 | `POST` | `/optimize/sports` | Polideportivo bajo presupuesto (ILP, población real) |
 | `POST` | `/optimize/health` | Centro de salud bajo presupuesto (ILP) |
 | `POST` | `/optimize/multi` | Multi-objetivo deporte + salud con λ |
@@ -181,14 +188,18 @@ El solver **CBC** (`coinor-cbc`) se instala en el contenedor Docker y en CI.
 | Repo del Space | Sincronizado automáticamente desde `backend/` vía `deploy-hf.yml` |
 | Despliegue | GitHub Actions → `git push` al Space → rebuild Docker en HF |
 
-**Variables de entorno en HF:**
+**Variables de entorno en HF** (Settings → Variables and secrets):
 
 ```env
 ENV=production
 ALLOW_ORIGINS=http://localhost:3000,https://edm-project.vercel.app
 ```
 
-> `ALLOW_ORIGINS` debe ser **una sola línea separada por comas** (sin saltos de línea). Tras cambiar variables: **Factory rebuild** del Space.
+| Secret / variable | Obligatorio | Descripción |
+|---|---|---|
+| `AEMET_API_KEY` | No | API key de [opendata.aemet.es](https://opendata.aemet.es). Sin ella, `/weather/current` devuelve valores por defecto (`source: "default"`). Con clave válida: `source: "aemet"`. |
+
+> `ALLOW_ORIGINS` debe ser **una sola línea separada por comas** (sin saltos de línea). Tras cambiar variables o secrets: **Factory rebuild** del Space.
 
 ---
 
@@ -471,6 +482,7 @@ python scripts/validate_artifacts.py
 | `DATA_DIR` | Ruta a datos procesados | `/app/data/processed` |
 | `MODEL_DIR` | Ruta a modelos CatBoost | `/app/models` |
 | `ALLOW_ORIGINS` | Orígenes CORS (coma, una línea) | `http://localhost:3000,https://edm-project.vercel.app` |
+| `AEMET_API_KEY` | API key opendata.aemet.es (meteo en vivo) | *(opcional)* |
 | `MAE_ALERT_THRESHOLD` | Umbral de alerta MAE (opcional) | `60` |
 
 ### Frontend (`frontend/.env.local` o Vercel)

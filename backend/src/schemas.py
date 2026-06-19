@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -30,6 +31,46 @@ class PredictResponse(BaseModel):
     nivel: Literal["baja", "media", "alta"]
     fiabilidad: str
     mae_hora: float | None = None
+
+
+class PredictHourRequest(BaseModel):
+    fecha: date = Field(default_factory=date.today, description="Fecha de predicción")
+    hora: int = Field(..., ge=0, le=23)
+    dia_semana: int = Field(..., ge=0, le=6, description="0=lunes ... 6=domingo")
+    use_live_weather: bool = Field(True, description="Usar AEMET si está configurada")
+    apply_events: bool = Field(True, description="Aplicar impacto de eventos urbanos")
+    temp_c: float = Field(20.0)
+    hum_rel: float = Field(60.0, ge=0, le=100)
+    pres_mb: float = Field(1015.0)
+    vel_viento_ms: float = Field(2.0, ge=0)
+    vel_viento_max_ms: float = Field(5.0, ge=0)
+    dir_viento_grados: float = Field(0.0, ge=0, le=360)
+    precip_lm2: float = Field(0.0, ge=0)
+
+
+class CityEvent(BaseModel):
+    id: str
+    nombre: str
+    tipo: str
+    inicio: str
+    fin: str
+    lat: float
+    lon: float
+    direccion: str | None = None
+    radio_metros: float = 300
+    factor_max: float = 1.3
+    fuente: str = "manual"
+    enlace: str | None = None
+
+
+class EventsListResponse(BaseModel):
+    count: int
+    events: list[CityEvent]
+
+
+class CoveredHexesRequest(BaseModel):
+    candidate_ids: list[int] = Field(..., min_length=1)
+    facility_type: Literal["sports", "health"] = "sports"
 
 
 # --------------------------- Optimización ---------------------------------- #

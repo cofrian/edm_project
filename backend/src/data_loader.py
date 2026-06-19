@@ -83,6 +83,38 @@ def load_current_valenbisi() -> dict:
 
 
 @lru_cache
+def load_zones_points() -> dict:
+    s = get_settings()
+    p = s.path("zones_points.geojson")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    return {"type": "FeatureCollection", "features": []}
+
+
+@lru_cache
+def load_tramo_zone_lookup() -> pd.DataFrame:
+    s = get_settings()
+    p = s.path("tramo_zone_lookup.csv")
+    if os.path.exists(p):
+        return pd.read_csv(p)
+    return pd.DataFrame()
+
+
+@lru_cache
+def load_city_events_raw() -> list:
+    s = get_settings()
+    p = s.path("city_events.json")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data.get("events", [])
+        return data
+    return []
+
+
+@lru_cache
 def _fallback() -> dict:
     """Datos de DEMOSTRACIÓN (no reales) para que la app no se rompa sin artefactos."""
     s = get_settings()

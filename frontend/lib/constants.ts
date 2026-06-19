@@ -28,3 +28,15 @@ export const NAV_LINKS = [
   { href: "/monitorizacion", label: "Monitorización" },
   { href: "/metodologia", label: "Documentación" },
 ];
+
+export const WORKSPACE_LINKS = [
+  { href: "/mapa", label: "Mapa urbano" },
+  { href: "/optimizacion", label: "Optimización" },
+  { href: "/prediccion", label: "Demanda en vivo" },
+];
+
+export const DOC_LINKS = [
+  { href: "/metodologia", label: "Metodología" },
+  { href: "/datos", label: "Datos" },
+  { href: "/evaluacion", label: "Evaluación" },
+];

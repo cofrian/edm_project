@@ -55,7 +55,7 @@ export default function OptimizacionPage() {
   async function run() {
     setLoading(true);
     setRan(true);
-    let res: OptimizeResponse;
+    let res;
 
     if (facility === "valenbisi") {
       res =
@@ -83,7 +83,7 @@ export default function OptimizacionPage() {
       res = await api.optimizeHealth({ presupuesto: budget });
     }
 
-    setResult(res);
+    setResult(res.ok ? res.data : null);
     setLoading(false);
   }
 
