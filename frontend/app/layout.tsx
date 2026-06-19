@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-jakarta",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "UrbanFlow Valencia — Optimización de equipamientos urbanos",
+    default: "UrbanFlow Valencia — Planificación urbana inteligente",
     template: "%s · UrbanFlow Valencia",
   },
   description:
-    "Plataforma de decisión para localizar equipamientos urbanos en Valencia: maximiza la cobertura de población bajo presupuesto con programación lineal entera (PuLP), usando demanda de tráfico predicha con CatBoost.",
+    "Herramienta municipal para explorar Valencia en mapas con capas, optimizar Valenbisi y equipamientos públicos, y planificar inversiones con datos reales y modelos de cobertura.",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={inter.variable}>
+    <html lang="es" className={jakarta.variable}>
       <body>
         <Navbar />
         <main className="mx-auto min-h-[calc(100vh-9rem)] max-w-7xl px-4 py-6 sm:px-6 sm:py-10">

@@ -21,8 +21,8 @@ export const NIVEL_COLORS: Record<string, string> = {
 
 export const NAV_LINKS = [
   { href: "/", label: "Inicio" },
+  { href: "/mapa", label: "Mapa urbano" },
   { href: "/optimizacion", label: "Optimización" },
-  { href: "/datos", label: "Datos" },
   { href: "/prediccion", label: "Demanda" },
   { href: "/evaluacion", label: "Evaluación" },
   { href: "/monitorizacion", label: "Monitorización" },

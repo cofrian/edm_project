@@ -1,5 +1,6 @@
 import { API_URL } from "./constants";
 import type {
+  GeoFeatureCollection,
   GlobalMetrics,
   HourMetric,
   Metadata,
@@ -123,5 +124,25 @@ export const api = {
       alerts: [],
       mae_by_hour: [],
       top_error_zones: [],
+    }),
+  mapValenbisi: () =>
+    getJSON<GeoFeatureCollection>("/map/current-valenbisi", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapSports: () =>
+    getJSON<GeoFeatureCollection>("/map/existing-sports", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapHealth: () =>
+    getJSON<GeoFeatureCollection>("/map/existing-health", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapTraffic: () =>
+    getJSON<GeoFeatureCollection>("/map/traffic-segments", {
+      type: "FeatureCollection",
+      features: [],
     }),
 };
