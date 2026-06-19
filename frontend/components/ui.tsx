@@ -53,19 +53,22 @@ export function Stat({
     amber: "text-amber-600",
     red: "text-red-600",
   };
+  const longValue = typeof value === "string" && value.length > 10;
+  const valueSize = longValue ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl";
+
   return (
-    <div className="card card-interactive">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
+    <div className="card card-interactive min-w-0">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <p className="min-w-0 text-sm font-medium text-slate-500">{label}</p>
         {icon && <span className="text-slate-300">{icon}</span>}
       </div>
-      <p className={`mt-2 text-2xl font-bold sm:text-3xl ${toneMap[tone]}`}>
+      <p className={`mt-2 break-words leading-tight ${valueSize} font-bold ${toneMap[tone]}`}>
         {value}
         {unit && (
           <span className="ml-1 text-base font-medium text-slate-400">{unit}</span>
         )}
       </p>
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="mt-1 max-w-full text-xs leading-5 text-slate-400">{hint}</p>}
     </div>
   );
 }

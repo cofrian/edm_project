@@ -262,6 +262,10 @@ export default function OptimizacionPage() {
     result && result.n_selected > 0
       ? (result.total_cost / result.n_selected).toFixed(1)
       : "—";
+  const modeHint = getModeHint(facility, constraint);
+  const modeValue = result?.mode
+    ? formatModeName(result.mode, facility)
+    : FACILITY_LABELS[facility];
 
   const selectedMarkers: MapMarker[] =
     result?.selected.map((s) => ({
@@ -406,27 +410,41 @@ export default function OptimizacionPage() {
               </div>
 
               {facility === "valenbisi" && (
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                  <ModeButton
-                    active={constraint === "count"}
-                    onClick={() => selectConstraint("count")}
-                    icon={<Target className="h-5 w-5" />}
-                    title="Nº fijo"
-                    subtitle="Seleccionar exactamente N puntos"
-                  />
-                  <ModeButton
-                    active={constraint === "budget"}
-                    onClick={() => selectConstraint("budget")}
-                    icon={<Coins className="h-5 w-5" />}
-                    title="Presupuesto"
-                    subtitle="No superar el coste máximo"
-                  />
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <Bike className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Modo de planificación Valenbisi
+                      </p>
+                      <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                        Elige si quieres fijar cuántas estaciones se proponen o
+                        limitar la solución por coste disponible.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <ModeButton
+                      active={constraint === "count"}
+                      onClick={() => selectConstraint("count")}
+                      icon={<Target className="h-5 w-5" />}
+                      title="Elegir N estaciones"
+                      subtitle="Para un plan cerrado: 5, 10, 20... puntos nuevos."
+                    />
+                    <ModeButton
+                      active={constraint === "budget"}
+                      onClick={() => selectConstraint("budget")}
+                      icon={<Coins className="h-5 w-5" />}
+                      title="Usar presupuesto máximo"
+                      subtitle="Para que el solver decida cuántas caben en el coste."
+                    />
+                  </div>
                 </div>
               )}
 
               <div className="mt-5 space-y-5">
                 {facility === "valenbisi" && constraint === "count" ? (
-                  <Field label="Número de ubicaciones" value={n}>
+                  <Field label="Estaciones nuevas a proponer" value={n}>
                     <PresetButtons items={COUNT_PRESETS} active={n} onSelect={setN} />
                     <div className="mt-3 grid grid-cols-[1fr_5rem] gap-3">
                       <input
@@ -449,7 +467,14 @@ export default function OptimizacionPage() {
                     <Scale left="1" right="30" />
                   </Field>
                 ) : (
-                  <Field label="Presupuesto disponible" value={`${budget} u.`}>
+                  <Field
+                    label={
+                      facility === "valenbisi"
+                        ? "Presupuesto para estaciones"
+                        : "Presupuesto disponible"
+                    }
+                    value={`${budget} u.`}
+                  >
                     <PresetButtons
                       items={BUDGET_PRESETS}
                       active={budget}
@@ -517,6 +542,10 @@ export default function OptimizacionPage() {
                       v={wDef}
                       set={setWDef}
                     />
+                    <p className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                      Score actual: tráfico {wTraf.toFixed(1)} · población{" "}
+                      {wPob.toFixed(1)} · déficit {wDef.toFixed(1)}.
+                    </p>
                   </div>
                 )}
 
@@ -625,8 +654,8 @@ export default function OptimizacionPage() {
                 />
                 <Stat
                   label="Modo"
-                  value={result?.mode ?? FACILITY_LABELS[facility]}
-                  hint={helper.basis}
+                  value={modeValue}
+                  hint={modeHint}
                 />
               </div>
 
@@ -738,45 +767,11 @@ export default function OptimizacionPage() {
                   <h3 className="mt-1 text-lg font-bold text-slate-900">
                     Formulación matemática del motor
                   </h3>
-                  {usesRealPopulation ? (
-                    <>
-                      <div className="mt-4 overflow-x-auto rounded-lg bg-slate-900 p-4 font-mono text-xs text-slate-100 sm:text-sm">
-                        max Σⱼ pⱼ Yⱼ &nbsp; (pⱼ = población en hex sin cobertura previa)
-                        <br />
-                        s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0 &nbsp; ∀j
-                        <br />
-                        Σᵢ costᵢ Xᵢ ≤ presupuesto
-                        <br />
-                        {facility === "multi" && (
-                          <>
-                            <br />
-                            Multi: max λ Σ pⱼ Yⱼ + (1−λ) Σ p&apos;ⱼ Y&apos;ⱼ
-                            <br />
-                            Xᵢ + X&apos;ᵢ ≤ 1
-                          </>
-                        )}
-                      </div>
-                      <p className="mt-3 text-sm text-slate-600">
-                        αᵢⱼ vale 1 si el centroide del hexágono censal j cae
-                        dentro de la isócrona del candidato i. Así se mide nueva
-                        cobertura, no solo cercanía visual.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="mt-4 overflow-x-auto rounded-lg bg-slate-900 p-4 font-mono text-xs text-slate-100 sm:text-sm">
-                        scoreᵢ = w_tráfico·tráficoᵢ + w_población·poblaciónᵢ +
-                        w_déficit·déficitᵢ
-                        <br />
-                        max Σ scoreᵢ·xᵢ
-                      </div>
-                      <p className="mt-3 text-sm text-slate-600">
-                        El modo Valenbisi pondera presión de tráfico, población
-                        alcanzable y déficit de estaciones actuales para comparar
-                        candidatos homogéneos.
-                      </p>
-                    </>
-                  )}
+                  <MethodFormula
+                    facility={facility}
+                    constraint={constraint}
+                    usesRealPopulation={usesRealPopulation}
+                  />
                 </div>
               </div>
             </Card>
@@ -871,6 +866,141 @@ export default function OptimizacionPage() {
           </Card>
         </section>
       )}
+    </div>
+  );
+}
+
+function MethodFormula({
+  facility,
+  constraint,
+  usesRealPopulation,
+}: {
+  facility: FacilityMode;
+  constraint: ConstraintMode;
+  usesRealPopulation: boolean;
+}) {
+  const rows = usesRealPopulation
+    ? [
+        {
+          label: "Objetivo",
+          formula: "max Σⱼ pⱼ · Yⱼ",
+          detail: "Maximizar habitantes nuevos cubiertos por el escenario.",
+        },
+        {
+          label: "Cobertura",
+          formula: "Yⱼ ≤ Σᵢ αᵢⱼ · Xᵢ",
+          detail: "Un hexágono cuenta si cae dentro de una isócrona seleccionada.",
+        },
+        {
+          label: "Presupuesto",
+          formula: "Σᵢ costᵢ · Xᵢ ≤ presupuesto",
+          detail: "La solución no supera el límite económico fijado.",
+        },
+      ]
+    : [
+        {
+          label: "Score",
+          formula: "scoreᵢ = wₜ·tráficoᵢ + wₚ·poblaciónᵢ + w_d·déficitᵢ",
+          detail: "Cada candidato se valora con los pesos configurados.",
+        },
+        {
+          label: "Objetivo",
+          formula: "max Σᵢ scoreᵢ · xᵢ",
+          detail: "Se seleccionan los puntos con mayor impacto conjunto.",
+        },
+        {
+          label: constraint === "count" ? "N estaciones" : "Presupuesto",
+          formula:
+            constraint === "count"
+              ? "Σᵢ xᵢ = N"
+              : "Σᵢ costᵢ · xᵢ ≤ presupuesto",
+          detail:
+            constraint === "count"
+              ? "El usuario fija exactamente cuántas estaciones quiere proponer."
+              : "El solver decide cuántas estaciones caben en el coste máximo.",
+        },
+      ];
+
+  if (facility === "multi") {
+    rows.push(
+      {
+        label: "Balance",
+        formula: "max λ·cobertura_deporte + (1−λ)·cobertura_salud",
+        detail: "λ permite mover prioridad entre deporte y salud.",
+      },
+      {
+        label: "No duplicidad",
+        formula: "Xᵢ + X'ᵢ ≤ 1",
+        detail: "Evita instalar dos servicios en el mismo candidato.",
+      },
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            {usesRealPopulation
+              ? "Modelo de cobertura poblacional"
+              : "Modelo de movilidad Valenbisi"}
+          </p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+            {usesRealPopulation
+              ? "Convierte isócronas y población en una decisión de cobertura nueva."
+              : "Convierte tráfico, población y déficit en una priorización editable."}
+          </p>
+        </div>
+        <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
+          PuLP · CBC
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {rows.map((row) => (
+          <FormulaRow key={row.label} {...row} />
+        ))}
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-slate-600">
+        {usesRealPopulation ? (
+          <>
+            <strong className="text-slate-800">αᵢⱼ</strong> vale 1 si el
+            centroide del hexágono censal j cae dentro de la isócrona del
+            candidato i. Así se mide nueva cobertura, no solo cercanía visual.
+          </>
+        ) : (
+          <>
+            El score se recalcula con los pesos elegidos por el usuario; por
+            eso Valenbisi permite comparar planes por número de estaciones o por
+            presupuesto disponible.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function FormulaRow({
+  label,
+  formula,
+  detail,
+}: {
+  label: string;
+  formula: string;
+  detail: string;
+}) {
+  return (
+    <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <div className="min-w-0">
+        <code className="block max-w-full whitespace-normal break-words rounded-md bg-slate-100 px-3 py-2 font-mono text-xs leading-6 text-slate-800 sm:text-sm">
+          {formula}
+        </code>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
+      </div>
     </div>
   );
 }
@@ -1264,6 +1394,27 @@ function formatFacilityType(type: string | null | undefined, fallback: FacilityM
   if (type === "polideportivo") return "Polideportivo";
   if (type === "centro_salud") return "Centro de salud";
   return FACILITY_LABELS[fallback];
+}
+
+function formatModeName(mode: string, fallback: FacilityMode) {
+  if (mode === "polideportivo") return "Polideportivo";
+  if (mode === "centro_salud") return "Centro salud";
+  if (mode === "coverage") return "Valenbisi";
+  if (mode === "valenbisi") return "Valenbisi";
+  if (mode === "multi") return "Multiobjetivo";
+  return FACILITY_LABELS[fallback];
+}
+
+function getModeHint(facility: FacilityMode, constraint: ConstraintMode) {
+  if (facility === "valenbisi") {
+    return constraint === "count"
+      ? "N estaciones + score"
+      : "Presupuesto + score";
+  }
+
+  if (facility === "multi") return "Balance deporte/salud";
+  if (facility === "health") return "Cobertura sanitaria";
+  return "Cobertura deportiva";
 }
 
 function traceStatusColor(status: string): "green" | "amber" | "blue" {
