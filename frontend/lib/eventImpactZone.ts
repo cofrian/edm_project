@@ -86,17 +86,17 @@ function tramoIdsForEvent(features: TramoFeature[], event: CityEvent): Set<strin
 function corridorsForTramo(
   feat: TramoFeature,
   halfWidthM: number,
-): number[][][] {
+): number[][][][] {
   const coords = feat.geometry?.coordinates;
   if (!coords || coords.length < 2 || feat.geometry?.type !== "LineString") return [];
 
-  const rings: number[][][] = [];
+  const polygons: number[][][][] = [];
   for (let i = 0; i < coords.length - 1; i++) {
     const [lon1, lat1] = coords[i];
     const [lon2, lat2] = coords[i + 1];
-    rings.push([segmentCorridorRing(lat1, lon1, lat2, lon2, halfWidthM)]);
+    polygons.push([segmentCorridorRing(lat1, lon1, lat2, lon2, halfWidthM)]);
   }
-  return rings;
+  return polygons;
 }
 
 /** Zona de impacto como corredor sobre vías reales (geometría Ayuntamiento). */
@@ -122,8 +122,8 @@ export function buildEventImpactZones(
     for (const tid of ids) {
       const feat = byId.get(tid);
       if (!feat) continue;
-      for (const ring of corridorsForTramo(feat, halfW)) {
-        polygons.push(ring);
+      for (const polygon of corridorsForTramo(feat, halfW)) {
+        polygons.push(polygon);
       }
     }
 
