@@ -34,7 +34,6 @@ from src.maps import (
 )
 from src.metrics import global_metrics, metrics_by_hour, metrics_for_hour
 from src.monitoring import alerts, zones_to_review
-from src.system_metrics import system_metrics
 from src.optimize_coverage import optimize as optimize_coverage
 from src.optimize_facility import optimize_facility, optimize_multi
 from src.optimize_valenbisi import optimize as optimize_valenbisi
@@ -53,6 +52,7 @@ from src.schemas import (
     PredictResponse,
     ValenbisiRequest,
 )
+from src.system_metrics import system_metrics
 
 settings = get_settings()
 
