@@ -20,7 +20,7 @@ const TOC = [
   ["arquitectura", "Arquitectura de la solución"],
   ["despliegue", "Arquitectura de despliegue"],
   ["optimizacion", "Motor de optimización"],
-  ["notebooks", "Trazabilidad SMARTCITIES"],
+  ["pipeline", "Pipeline UrbanFlow"],
   ["modelo", "Modelo de demanda"],
   ["monitor", "Evaluación y monitorización"],
   ["stack", "Stack y reproducibilidad"],
@@ -240,30 +240,31 @@ max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
             </p>
           </Section>
 
-          <Section id="notebooks" icon={<BookOpen className="h-5 w-5" />} title="Trazabilidad SMARTCITIES">
+          <Section id="pipeline" icon={<BookOpen className="h-5 w-5" />} title="Pipeline UrbanFlow">
             <p>
-              Los notebooks originales se han convertido en una versión
-              desplegable, más estable y explicable para el usuario final. La
-              lógica que requiere respuesta determinista está en la API; los
-              bloques exploratorios quedan documentados como análisis.
+              La plataforma empaqueta la preparación de datos, el modelo de
+              demanda y el optimizador en una versión desplegable, estable y
+              explicable para el usuario final. La lógica que requiere respuesta
+              determinista está en la API; los análisis exploratorios quedan
+              fuera del cálculo público.
             </p>
             <div className="mt-4 overflow-x-auto scroll-thin">
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="py-2 pr-4">Notebook</th>
+                    <th className="py-2 pr-4">Módulo</th>
                     <th className="py-2 pr-4">Qué aporta</th>
-                    <th className="py-2">Dónde queda</th>
+                    <th className="py-2">Implementación</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ["optimizacion (1).ipynb", "OR-Tools, cobertura, restricciones y multiobjetivo.", "PuLP/CBC en /optimize/sports, /health y /multi."],
-                    ["OptimizaciónValenbisi_CátedraENIA2025.ipynb", "PuLP, score tráfico+población+déficit y comparación de soluciones.", "Modo Valenbisi en /optimize/valenbisi y /optimize/coverage."],
-                    ["Weighted sum / α-lexicographic", "Comparación de estrategias multiobjetivo.", "Suma ponderada activa con λ; lexicográfico documentado como variante."],
-                    ["Tweets y capas externas", "Señales auxiliares descargadas desde Drive.", "No se despliegan si no están curadas; CatBoost cubre demanda operativa."],
-                    ["Algoritmo genético y Voronoi", "Exploración no lineal con áreas dinámicas de influencia.", "Documentado, no ejecutado en producción por reproducibilidad y coste."],
-                    ["Preparación de datos", "Candidatos, población, isócronas, costes y cobertura existente.", "Artefactos curados en backend/data/processed."],
+                    ["Cobertura urbana", "Restricciones de cobertura, presupuesto y población alcanzada.", "PuLP/CBC en /optimize/sports y /optimize/health."],
+                    ["Movilidad Valenbisi", "Score tráfico+población+déficit y comparación de ubicaciones.", "Modo Valenbisi en /optimize/valenbisi y /optimize/coverage."],
+                    ["Multiobjetivo", "Comparación entre cobertura deportiva y sanitaria.", "Suma ponderada activa con λ en /optimize/multi."],
+                    ["Señales urbanas", "Tráfico, población, costes, isócronas y cobertura existente.", "Datos curados en backend/data/processed."],
+                    ["Análisis avanzado", "Heurísticas y áreas dinámicas de influencia para contraste técnico.", "Documentado, no ejecutado en producción por reproducibilidad y coste."],
+                    ["Preparación de artefactos", "Conversión de datos crudos a candidatos y matrices de cobertura.", "Pipeline reproducible con scripts de validación."],
                   ].map(([n, a, d]) => (
                     <tr key={n} className="border-b border-slate-100 last:border-0">
                       <td className="py-2.5 pr-4 align-top font-mono text-xs text-brand-700">{n}</td>
@@ -326,8 +327,8 @@ max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
               <MiniCard icon={<Database className="h-5 w-5" />} title="Datos / modelos" text="Git LFS (.cbm, .parquet) · scripts de validación de artefactos" />
             </div>
             <p className="mt-4 text-slate-600">
-              Notebooks 01–06 documentan el pipeline (preparación, entrenamiento,
-              evaluación y optimización). Los scripts regeneran los artefactos de
+              El pipeline técnico documenta preparación, entrenamiento,
+              evaluación y optimización. Los scripts regeneran los artefactos de
               forma reproducible y <code>validate_artifacts.py</code> verifica su integridad.
             </p>
           </Section>

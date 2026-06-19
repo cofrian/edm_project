@@ -32,77 +32,77 @@ const FACILITY_LABELS: Record<FacilityMode, string> = {
   sports: "Polideportivo",
   health: "Centro de salud",
   multi: "Multi (deporte + salud)",
-  valenbisi: "Valenbisi (curso SMARTCITIES)",
+  valenbisi: "Valenbisi",
 };
 
 const FACILITY_HELP: Record<
   FacilityMode,
-  { question: string; objective: string; output: string; notebook: string }
+  { question: string; objective: string; output: string; basis: string }
 > = {
   sports: {
     question: "¿Dónde abrir nuevas instalaciones deportivas?",
     objective:
       "Maximiza habitantes que pasan a estar cubiertos por polideportivos, evitando duplicar cobertura existente.",
     output: "Ranking de ubicaciones candidatas, coste usado y población cubierta.",
-    notebook: "Modelo 2 de cobertura urbana del notebook de optimización.",
+    basis: "Modelo de cobertura urbana de UrbanFlow.",
   },
   health: {
     question: "¿Dónde reforzar la red sanitaria?",
     objective:
       "Maximiza habitantes que pasan a estar cubiertos por centros de salud u hospitales.",
     output: "Ubicaciones sanitarias priorizadas bajo el presupuesto disponible.",
-    notebook: "Modelo 2 adaptado a cobertura sanitaria.",
+    basis: "Modelo de cobertura sanitaria de UrbanFlow.",
   },
   multi: {
     question: "¿Cómo repartir presupuesto entre deporte y salud?",
     objective:
       "Combina dos objetivos con λ: 1 prioriza deporte, 0 prioriza salud, 0.5 equilibra ambos.",
     output: "Mezcla óptima de equipamientos sin instalar dos servicios en el mismo punto.",
-    notebook: "Modelo 3 multiobjetivo del notebook de optimización.",
+    basis: "Modelo multiobjetivo de UrbanFlow.",
   },
   valenbisi: {
     question: "¿Qué puntos de movilidad tienen mayor potencial?",
     objective:
       "Combina tráfico, población alcanzable y déficit de Valenbisi en un score ponderado.",
-    output: "Selección por número fijo o presupuesto usando el score del taller.",
-    notebook: "Optimización Valenbisi con PuLP del notebook Cátedra ENIA.",
+    output: "Selección por número fijo o presupuesto usando el score de movilidad.",
+    basis: "Modelo de movilidad sostenible de UrbanFlow.",
   },
 };
 
-const NOTEBOOK_TRACE = [
+const FUNCTIONAL_TRACE = [
   {
-    source: "optimizacion (1).ipynb",
-    notebook: "Ciudad de 15 minutos, variables binarias, OR-Tools, restricciones de cobertura y suma ponderada multiobjetivo.",
-    app: "Reimplementado en PuLP/CBC como polideportivo, centro de salud y multiobjetivo, con población hexagonal e isócronas.",
+    source: "Cobertura urbana",
+    block: "Variables binarias, restricciones de cobertura y presupuesto.",
+    app: "Implementado en PuLP/CBC como polideportivo y centro de salud, con población hexagonal e isócronas.",
     status: "Activo en API",
   },
   {
-    source: "OptimizaciónValenbisi_CátedraENIA2025.ipynb",
-    notebook: "Carga de población, tráfico, Valenbisi actual, candidatos y optimización exacta con PuLP.",
+    source: "Movilidad Valenbisi",
+    block: "Candidatos de movilidad, tráfico, población alcanzable, déficit y optimización exacta.",
     app: "Modo Valenbisi con pesos editables y selección de N puntos o presupuesto sobre candidatos curados.",
     status: "Activo en API",
   },
   {
-    source: "Weighted sum / α-lexicographic",
-    notebook: "Comparación de formas de combinar objetivos cuando hay varias métricas urbanas.",
-    app: "La suma ponderada está activa con λ y pesos editables; el lexicográfico queda como variante documentada.",
-    status: "Parcial",
+    source: "Multiobjetivo",
+    block: "Combinación de cobertura deportiva y sanitaria en una misma decisión.",
+    app: "Suma ponderada activa con λ y restricción para evitar duplicar servicios en el mismo punto.",
+    status: "Activo en API",
   },
   {
-    source: "Tweets y capas externas",
-    notebook: "Exploración de señales sociales/geográficas descargadas desde Drive para enriquecer demanda.",
-    app: "No se despliegan datos no curados; la demanda operativa se cubre con CatBoost de tráfico y población.",
+    source: "Señales auxiliares",
+    block: "Capas externas de contexto urbano para enriquecer la demanda.",
+    app: "La versión pública usa solo datos curados: CatBoost de tráfico, población, costes e isócronas.",
     status: "Sustituido",
   },
   {
-    source: "Bloques genético + Voronoi",
-    notebook: "Exploración de DEAP y áreas de influencia dinámicas para comparar soluciones no lineales.",
+    source: "Análisis avanzado",
+    block: "Heurísticas y áreas dinámicas de influencia para comparar alternativas.",
     app: "Documentado como análisis exploratorio: no se ejecuta en producción para mantener resultados deterministas y despliegue ligero.",
     status: "Documentado",
   },
   {
-    source: "04_prepare_optimization_data.ipynb",
-    notebook: "Conversión de datos crudos a candidatos, población, isócronas, costes y cobertura existente.",
+    source: "Preparación de datos",
+    block: "Conversión de datos crudos a candidatos, población, isócronas, costes y cobertura existente.",
     app: "Artefactos servidos desde backend/data/processed: candidates_facilities, population_hexes y coverage_alpha.",
     status: "Curado",
   },
@@ -224,9 +224,9 @@ export default function OptimizacionPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Herramienta de decisión · Notebook SMARTCITIES"
+        eyebrow="Herramienta de decisión · UrbanFlow Valencia"
         title="Optimización de equipamientos urbanos"
-        description="Modelo de cobertura poblacional con población real (population_spain.gpkg), isócronas y costes del curso. Maximiza habitantes cubiertos bajo presupuesto con PuLP · CBC."
+        description="Modelo de cobertura poblacional con población real, isócronas y costes de implantación. Maximiza habitantes cubiertos bajo presupuesto con PuLP · CBC."
       >
         <Badge color="blue">PuLP · CBC</Badge>
         <Badge color="green">Población censal real</Badge>
@@ -267,7 +267,7 @@ export default function OptimizacionPage() {
               <p className="mt-2 text-sm text-slate-600">{helper.objective}</p>
               <dl className="mt-4 space-y-2 text-sm">
                 <SummaryRow k="Salida" v={helper.output} />
-                <SummaryRow k="Origen" v={helper.notebook} />
+                <SummaryRow k="Base técnica" v={helper.basis} />
               </dl>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function OptimizacionPage() {
           onClick={() => selectFacility("valenbisi")}
           icon={<Bike className="h-5 w-5" />}
           title="Valenbisi"
-          subtitle="Score de movilidad del taller"
+          subtitle="Score de movilidad urbana"
         />
       </div>
 
@@ -546,7 +546,7 @@ export default function OptimizacionPage() {
           </h3>
           <p className="mt-1 text-sm text-slate-500">
             Ordenadas por impacto. Datos: localizaciones2.csv + población
-            censal + isócronas del curso SMARTCITIES.
+            censal + isócronas del proyecto.
           </p>
           <div className="mt-4 overflow-x-auto scroll-thin">
             <table className="w-full min-w-[600px] text-sm">
@@ -608,7 +608,7 @@ export default function OptimizacionPage() {
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
           <div>
             <h3 className="text-base font-bold text-slate-900">
-              Formulación (notebook optimización SMARTCITIES)
+              Formulación matemática del motor
             </h3>
             {usesRealPopulation ? (
               <>
@@ -646,9 +646,9 @@ export default function OptimizacionPage() {
                   max Σ scoreᵢ·xᵢ
                 </div>
                 <p className="mt-3 text-sm text-slate-600">
-                  Modo Valenbisi del curso: mantiene el score compuesto del
-                  taller para comparar presión de tráfico, población alcanzable
-                  y déficit de cobertura de estaciones existentes.
+                  El modo Valenbisi usa un score compuesto para comparar
+                  presión de tráfico, población alcanzable y déficit de
+                  cobertura de estaciones existentes.
                 </p>
               </>
             )}
@@ -665,31 +665,31 @@ export default function OptimizacionPage() {
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-teal-600" />
           <div className="min-w-0">
             <h3 className="text-base font-bold text-slate-900">
-              Comprobación de contenido respecto a los notebooks
+              Cobertura funcional del motor UrbanFlow
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              La app conserva el contenido operativo del curso, pero separa lo
-              que se despliega como cálculo determinista de lo que queda como
-              análisis exploratorio.
+              La app integra los módulos necesarios para una decisión urbana
+              completa y separa el cálculo público determinista del análisis
+              exploratorio interno.
             </p>
             <div className="mt-4 overflow-x-auto scroll-thin">
               <table className="w-full min-w-[780px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="py-2 pr-3">Fuente</th>
-                    <th className="py-2 pr-3">Contenido del notebook</th>
+                    <th className="py-2 pr-3">Bloque funcional</th>
                     <th className="py-2 pr-3">Implementación en la app</th>
                     <th className="py-2">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {NOTEBOOK_TRACE.map((row) => (
+                  {FUNCTIONAL_TRACE.map((row) => (
                     <tr key={row.source} className="border-b border-slate-100 last:border-0">
                       <td className="py-3 pr-3 align-top font-medium text-slate-800">
                         {row.source}
                       </td>
                       <td className="py-3 pr-3 align-top text-slate-600">
-                        {row.notebook}
+                        {row.block}
                       </td>
                       <td className="py-3 pr-3 align-top text-slate-600">
                         {row.app}
@@ -709,9 +709,9 @@ export default function OptimizacionPage() {
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
                   El algoritmo genético y el Voronoi dinámico siguen explicados
-                  como parte del aprendizaje del notebook, pero el servicio
-                  público usa PuLP/CBC porque es reproducible, testeable y más
-                  estable en Hugging Face.
+                  como análisis interno, pero el servicio público usa PuLP/CBC
+                  porque es reproducible, testeable y más estable en Hugging
+                  Face.
                 </span>
               </span>
             </Callout>
