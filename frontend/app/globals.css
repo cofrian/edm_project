@@ -75,9 +75,36 @@ body {
 .leaflet-container {
   height: 100%;
   width: 100%;
-  border-radius: 1rem;
   font-family: inherit;
   z-index: 0;
+}
+
+.city-map.leaflet-container {
+  border-radius: 0;
+  background: #0f172a;
+}
+
+.city-map .leaflet-control-attribution {
+  background: rgb(15 23 42 / 0.75);
+  color: rgb(148 163 184);
+  font-size: 10px;
+  backdrop-filter: blur(6px);
+}
+
+.city-map .leaflet-control-attribution a {
+  color: rgb(203 213 225);
+}
+
+.map-popup strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.map-popup span {
+  color: #64748b;
+  font-size: 11px;
+  text-transform: capitalize;
 }
 
 /* Scrollbar discreta para tablas y paneles */
@@ -87,4 +114,12 @@ body {
 }
 .scroll-thin::-webkit-scrollbar-thumb {
   @apply rounded-full bg-slate-300;
+}
+
+@media print {
+  header,
+  footer,
+  .print\\:hidden {
+    display: none !important;
+  }
 }

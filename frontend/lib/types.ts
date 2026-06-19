@@ -87,6 +87,40 @@ export interface Metadata {
   version: string;
   model: string;
   model_loaded: boolean;
+  coverage_data?: boolean;
   data_date: string;
   validation: string;
+}
+
+export type LayerKey =
+  | "valenbisi"
+  | "sports"
+  | "health"
+  | "traffic"
+  | "demand"
+  | "candidates"
+  | "covered"
+  | "proposed";
+
+export interface GeoFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoFeature[];
+}
+
+export interface GeoFeature {
+  type: "Feature";
+  geometry: {
+    type: string;
+    coordinates: unknown;
+  };
+  properties?: Record<string, unknown>;
+}
+
+export interface MapMarker {
+  lat: number;
+  lon: number;
+  label?: string;
+  color?: string;
+  radius?: number;
+  id?: string | number;
 }

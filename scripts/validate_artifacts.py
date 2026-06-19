@@ -25,6 +25,10 @@ REQUIRED_CSV = {
     ],
 }
 REQUIRED_JSON = ["global_metrics_catboost.json", "fallback_demo_results.json"]
+REQUIRED_ILP = {
+    "population_hexes.csv": ["hex_id", "population", "weight_sports", "weight_health"],
+    "candidates_facilities.csv": ["candidate_id", "lat", "lon", "cost_sports", "cost_health"],
+}
 
 
 def main() -> int:
@@ -51,6 +55,25 @@ def main() -> int:
             continue
         with open(path, "r", encoding="utf-8") as f:
             json.load(f)
+
+    for name, cols in REQUIRED_ILP.items():
+        path = os.path.join(OUT_DATA, name)
+        if not os.path.exists(path):
+            errors.append(f"FALTA {name} (ILP equipamientos)")
+            continue
+        df = pd.read_csv(path)
+        missing = [c for c in cols if c not in df.columns]
+        if missing:
+            errors.append(f"{name}: faltan columnas {missing}")
+
+    alpha_path = os.path.join(OUT_DATA, "coverage_alpha.json")
+    if not os.path.exists(alpha_path):
+        errors.append("FALTA coverage_alpha.json (ILP equipamientos)")
+    else:
+        with open(alpha_path, encoding="utf-8") as f:
+            alpha = json.load(f)
+        if not alpha.get("alpha"):
+            errors.append("coverage_alpha.json: alpha vacío")
 
     g = os.path.join(OUT_DATA, "global_metrics_catboost.json")
     if os.path.exists(g):

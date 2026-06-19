@@ -1,8 +1,8 @@
 # UrbanFlow Valencia
 
-**Predicción de presión de tráfico urbano y optimización de movilidad sostenible en Valencia.**
+**Herramienta municipal de planificación urbana (mapa + optimización) y pipeline Jupyter de smart city.**
 
-Aplicación web de smart city desarrollada como entrega de la asignatura **EDM — Evaluación, Despliegue y Monitorización de Modelos**. Integra un modelo **CatBoost** de predicción horaria, evaluación rigurosa del rendimiento, optimización urbana con **PuLP**, monitorización de fiabilidad y despliegue profesional en producción.
+UrbanFlow permite a un técnico municipal explorar Valencia en capas (Valenbisi, equipamientos, demanda censal, candidatos), simular inversiones con PuLP (notebooks 05–06 + ILP equipamientos) y exportar propuestas. La **presión de tráfico** que alimenta la optimización es **precalculada** en los notebooks 01–04 (`traffic_score` en candidatos). Un sistema de predicción de tráfico en tiempo real para gestión operativa de la ciudad puede evolucionar **en paralelo** y no forma parte de este producto.
 
 | Demo | URL |
 |---|---|

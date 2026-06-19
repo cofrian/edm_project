@@ -1,5 +1,6 @@
 import { API_URL } from "./constants";
 import type {
+  GeoFeatureCollection,
   GlobalMetrics,
   HourMetric,
   Metadata,
@@ -9,6 +10,10 @@ import type {
   PredictResponse,
   ZoneError,
 } from "./types";
+
+export type ApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
 async function getJSON<T>(path: string, fallback: T): Promise<T> {
   try {
@@ -20,30 +25,56 @@ async function getJSON<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-async function postJSON<T>(path: string, body: unknown, fallback: T): Promise<T> {
+async function postStrict<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   try {
     const res = await fetch(`${API_URL}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
+    if (!res.ok) {
+      return { ok: false, error: `Error del servidor (${res.status})` };
+    }
+    return { ok: true, data: (await res.json()) as T };
   } catch {
-    return fallback;
+    return { ok: false, error: "No se pudo conectar con la API de planificación" };
   }
 }
 
+async function postJSON<T>(path: string, body: unknown, fallback: T): Promise<T> {
+  const result = await postStrict<T>(path, body);
+  return result.ok ? result.data : fallback;
+}
+
 export const api = {
-  health: () => getJSON<{ status: string }>("/health", { status: "down" }),
+  health: () => getJSON<{ status: string; version?: string }>("/health", { status: "down" }),
   metadata: () =>
     getJSON<Metadata>("/metadata", {
       project: "UrbanFlow Valencia API",
       version: "1.0.0",
       model: "CatBoost por hora",
       model_loaded: false,
+      coverage_data: false,
       data_date: "2023-10 (holdout 25-31)",
       validation: "holdout temporal: train 1-24 oct, test 25-31 oct",
+    }),
+  coverageSummary: () =>
+    getJSON<{
+      n_candidates: number;
+      n_valenbisi_candidates: number;
+      n_hexes: number;
+      hexes_need_sports: number;
+      hexes_need_health: number;
+      population_need_sports: number;
+      population_need_health: number;
+    }>("/coverage/summary", {
+      n_candidates: 0,
+      n_valenbisi_candidates: 0,
+      n_hexes: 0,
+      hexes_need_sports: 0,
+      hexes_need_health: 0,
+      population_need_sports: 0,
+      population_need_health: 0,
     }),
   metricsGlobal: () =>
     getJSON<GlobalMetrics>("/metrics/global", {
@@ -69,51 +100,27 @@ export const api = {
       fiabilidad: "desconocida (API no disponible)",
       mae_hora: null,
     }),
-  optimizeValenbisi: (req: unknown) =>
-    postJSON<OptimizeResponse>("/optimize/valenbisi", req, {
-      mode: "valenbisi",
-      selected: [],
-      total_score: 0,
-      total_cost: 0,
-      n_selected: 0,
-      constraint: "API no disponible",
-    }),
-  optimizeCoverage: (req: unknown) =>
-    postJSON<OptimizeResponse>("/optimize/coverage", req, {
-      mode: "coverage",
-      selected: [],
-      total_score: 0,
-      total_cost: 0,
-      n_selected: 0,
-      constraint: "API no disponible",
-    }),
+  optimizeValenbisi: (req: unknown) => postStrict<OptimizeResponse>("/optimize/valenbisi", req),
+  optimizeCoverage: (req: unknown) => postStrict<OptimizeResponse>("/optimize/coverage", req),
   optimizeSports: (req: { presupuesto: number }) =>
-    postJSON<OptimizeResponse>("/optimize/sports", { ...req, facility_type: "sports" }, {
-      mode: "polideportivo",
-      selected: [],
-      total_score: 0,
-      total_cost: 0,
-      n_selected: 0,
-      constraint: "API no disponible",
-    }),
+    postStrict<OptimizeResponse>("/optimize/sports", { ...req, facility_type: "sports" }),
   optimizeHealth: (req: { presupuesto: number }) =>
-    postJSON<OptimizeResponse>("/optimize/health", { ...req, facility_type: "health" }, {
-      mode: "centro_salud",
-      selected: [],
-      total_score: 0,
-      total_cost: 0,
-      n_selected: 0,
-      constraint: "API no disponible",
-    }),
+    postStrict<OptimizeResponse>("/optimize/health", { ...req, facility_type: "health" }),
   optimizeMulti: (req: { presupuesto: number; lambda_sports: number }) =>
-    postJSON<OptimizeResponse>("/optimize/multi", req, {
-      mode: "multi",
-      selected: [],
-      total_score: 0,
-      total_cost: 0,
-      n_selected: 0,
-      constraint: "API no disponible",
-    }),
+    postStrict<OptimizeResponse>("/optimize/multi", req),
+  candidatesValenbisi: () =>
+    getJSON<
+      {
+        candidate_id: number;
+        lat: number;
+        lon: number;
+        zona: number;
+        traffic_score: number;
+        population_score: number;
+        valenbisi_deficit_score: number;
+        cost: number;
+      }[]
+    >("/candidates/valenbisi", []),
   monitoring: () =>
     getJSON<Monitoring>("/monitoring/alerts", {
       model_active: "CatBoost por hora",
@@ -123,5 +130,40 @@ export const api = {
       alerts: [],
       mae_by_hour: [],
       top_error_zones: [],
+    }),
+  mapValenbisi: () =>
+    getJSON<GeoFeatureCollection>("/map/current-valenbisi", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapSports: () =>
+    getJSON<GeoFeatureCollection>("/map/existing-sports", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapHealth: () =>
+    getJSON<GeoFeatureCollection>("/map/existing-health", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapTraffic: () =>
+    getJSON<GeoFeatureCollection>("/map/traffic-segments", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapPopulationHexes: (facilityType: "sports" | "health") =>
+    getJSON<GeoFeatureCollection>(`/map/population-hexes?facility_type=${facilityType}`, {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapCandidatesFacilities: () =>
+    getJSON<GeoFeatureCollection>("/map/candidates-facilities", {
+      type: "FeatureCollection",
+      features: [],
+    }),
+  mapCoveredHexes: (candidateIds: number[], facilityType: "sports" | "health") =>
+    postStrict<GeoFeatureCollection>("/map/covered-hexes", {
+      candidate_ids: candidateIds,
+      facility_type: facilityType,
     }),
 };

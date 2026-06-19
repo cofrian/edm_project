@@ -79,3 +79,8 @@ class OptimizeResponse(BaseModel):
     n_selected: int
     constraint: str
     population_covered: float | None = None
+
+
+class CoveredHexesRequest(BaseModel):
+    candidate_ids: list[int] = Field(..., min_length=1)
+    facility_type: Literal["sports", "health"] = Field("sports")
