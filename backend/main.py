@@ -14,7 +14,15 @@ from src.config import get_settings
 from src.coverage_data import coverage_data_available, load_existing_health, load_existing_sports
 from src.data_loader import models_available
 from src.evaluation import errors_by_zone, scatter_sample
-from src.maps import candidates_valenbisi, current_valenbisi, traffic_segments
+from src.maps import (
+    candidates_facilities_geojson,
+    candidates_valenbisi,
+    coverage_summary,
+    covered_hexes_geojson,
+    current_valenbisi,
+    population_hexes_geojson,
+    traffic_segments,
+)
 from src.metrics import global_metrics, metrics_by_hour
 from src.monitoring import alerts
 from src.optimize_coverage import optimize as optimize_coverage
@@ -22,6 +30,7 @@ from src.optimize_facility import optimize_facility, optimize_multi
 from src.optimize_valenbisi import optimize as optimize_valenbisi
 from src.predict import predict as run_predict
 from src.schemas import (
+    CoveredHexesRequest,
     CoverageRequest,
     FacilityRequest,
     MultiFacilityRequest,
@@ -140,6 +149,27 @@ def map_traffic_segments() -> dict:
 @app.get("/map/current-valenbisi")
 def map_current_valenbisi() -> dict:
     return current_valenbisi()
+
+
+@app.get("/map/population-hexes")
+def map_population_hexes(facility_type: str = "sports") -> dict:
+    ft: str = facility_type if facility_type in ("sports", "health") else "sports"
+    return population_hexes_geojson(facility_type=ft)  # type: ignore[arg-type]
+
+
+@app.get("/map/candidates-facilities")
+def map_candidates_facilities() -> dict:
+    return candidates_facilities_geojson()
+
+
+@app.post("/map/covered-hexes")
+def map_covered_hexes(req: CoveredHexesRequest) -> dict:
+    return covered_hexes_geojson(req.candidate_ids, req.facility_type)
+
+
+@app.get("/coverage/summary")
+def coverage_summary_route() -> dict:
+    return coverage_summary()
 
 
 @app.get("/candidates/valenbisi")

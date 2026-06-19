@@ -19,12 +19,18 @@ export const NIVEL_COLORS: Record<string, string> = {
   alta: "#dc2626",
 };
 
+/** Navegación principal para el operario municipal */
 export const NAV_LINKS = [
   { href: "/", label: "Inicio" },
   { href: "/mapa", label: "Mapa urbano" },
   { href: "/optimizacion", label: "Optimización" },
-  { href: "/prediccion", label: "Demanda" },
-  { href: "/evaluacion", label: "Evaluación" },
-  { href: "/monitorizacion", label: "Monitorización" },
   { href: "/metodologia", label: "Documentación" },
+];
+
+/** Páginas técnicas (pipeline Jupyter / CatBoost) */
+export const DOC_LINKS = [
+  { href: "/prediccion", label: "Modelo de demanda" },
+  { href: "/evaluacion", label: "Evaluación CatBoost" },
+  { href: "/monitorizacion", label: "Monitorización" },
+  { href: "/datos", label: "Datos urbanos" },
 ];

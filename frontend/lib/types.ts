@@ -87,6 +87,7 @@ export interface Metadata {
   version: string;
   model: string;
   model_loaded: boolean;
+  coverage_data?: boolean;
   data_date: string;
   validation: string;
 }
@@ -96,6 +97,9 @@ export type LayerKey =
   | "sports"
   | "health"
   | "traffic"
+  | "demand"
+  | "candidates"
+  | "covered"
   | "proposed";
 
 export interface GeoFeatureCollection {
