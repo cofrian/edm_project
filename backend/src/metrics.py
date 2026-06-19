@@ -35,3 +35,10 @@ def metrics_by_hour() -> list[dict]:
             if isinstance(v, float) and math.isnan(v):
                 r[k] = None
     return records
+
+
+def metrics_for_hour(hora: int) -> dict | None:
+    for row in metrics_by_hour():
+        if int(row.get("Hora", -1)) == hora:
+            return row
+    return None

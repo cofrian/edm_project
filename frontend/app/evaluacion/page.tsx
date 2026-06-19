@@ -68,6 +68,7 @@ export default async function EvaluacionPage() {
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
                     <th className="py-2">Zona</th>
+                    <th className="py-2">Calle / sensor</th>
                     <th className="py-2">MAE</th>
                   </tr>
                 </thead>
@@ -75,6 +76,9 @@ export default async function EvaluacionPage() {
                   {zones.map((z) => (
                     <tr key={z.Zona} className="border-b border-slate-100 last:border-0">
                       <td className="py-2 font-medium text-slate-700">{z.Zona}</td>
+                      <td className="max-w-xs truncate py-2 text-slate-600" title={z.descripcion ?? z.calle}>
+                        {z.descripcion ?? z.calle ?? "—"}
+                      </td>
                       <td className="py-2 text-slate-600">{z.mae}</td>
                     </tr>
                   ))}

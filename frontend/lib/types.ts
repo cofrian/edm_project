@@ -18,6 +18,8 @@ export interface HourMetric {
 export interface ZoneError {
   Zona: number;
   mae: number;
+  descripcion?: string;
+  calle?: string;
 }
 
 export interface PredictRequest {
@@ -80,6 +82,46 @@ export interface Monitoring {
   alerts: MonitoringAlert[];
   mae_by_hour: { Hora: number; MAE: number }[];
   top_error_zones: ZoneError[];
+}
+
+export interface ZoneReviewItem {
+  zona: number;
+  descripcion: string;
+  calle: string;
+  intensidad?: number;
+  mae?: number;
+  nivel?: string;
+  motivo: string;
+}
+
+export interface ZoneReviewResponse {
+  fecha: string;
+  hora: number;
+  n_predicted_high: number;
+  mae_threshold: number;
+  hour_metrics: HourMetric | null;
+  zones_high_pressure: ZoneReviewItem[];
+  zones_low_confidence: ZoneReviewItem[];
+  events_active: number;
+}
+
+export interface SystemMetrics {
+  available: boolean;
+  timestamp?: string;
+  pid?: number;
+  cpu_percent?: number;
+  ram_percent?: number;
+  ram_used_mb?: number;
+  ram_total_mb?: number;
+  disk_percent?: number;
+  uptime_seconds?: number;
+  note?: string;
+}
+
+export interface HourEvaluationResponse {
+  hora: number;
+  hour: HourMetric | null;
+  global: GlobalMetrics;
 }
 
 export interface Metadata {

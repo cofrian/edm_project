@@ -6,13 +6,16 @@ import type {
   HeatmapResponse,
   HourMetric,
   Metadata,
+  HourEvaluationResponse,
   Monitoring,
   OptimizeResponse,
   PredictRequest,
   PredictResponse,
+  SystemMetrics,
   TrafficLiveResponse,
   WeatherCurrent,
   ZoneError,
+  ZoneReviewResponse,
 } from "./types";
 
 export type ApiResult<T> =
@@ -90,8 +93,17 @@ export const api = {
       validation: "holdout temporal días 25-31 oct (DEMO)",
     }),
   metricsByHour: () => getJSON<HourMetric[]>("/metrics/by-hour", []),
-  errorsByZone: (top = 15) =>
-    getJSON<ZoneError[]>(`/metrics/errors-by-zone?top=${top}`, []),
+  errorsByZone: (top = 15, hora?: number) => {
+    const q = new URLSearchParams({ top: String(top) });
+    if (hora != null) q.set("hora", String(hora));
+    return getJSON<ZoneError[]>(`/metrics/errors-by-zone?${q}`, []);
+  },
+  metricsHourEval: (hora: number) =>
+    getJSON<HourEvaluationResponse>(`/metrics/hour/${hora}`, {
+      hora,
+      hour: null,
+      global: { MAE: 0, RMSE: 0, R2: 0, sMAPE: 0 },
+    }),
   scatter: (n = 500) =>
     getJSON<{ y_real: number; y_pred: number }[]>(`/evaluation/scatter?n=${n}`, []),
   predict: (req: PredictRequest) =>
@@ -188,4 +200,23 @@ export const api = {
       mae_by_hour: [],
       top_error_zones: [],
     }),
+  zonesToReview: (hora: number, fecha?: string, applyEvents = true) => {
+    const q = new URLSearchParams({
+      hora: String(hora),
+      apply_events: String(applyEvents),
+    });
+    if (fecha) q.set("fecha", fecha);
+    return getJSON<ZoneReviewResponse>(`/monitoring/zones-to-review?${q}`, {
+      fecha: fecha ?? "",
+      hora,
+      n_predicted_high: 0,
+      mae_threshold: 80,
+      hour_metrics: null,
+      zones_high_pressure: [],
+      zones_low_confidence: [],
+      events_active: 0,
+    });
+  },
+  systemMetrics: () =>
+    getJSON<SystemMetrics>("/monitoring/system", { available: false }),
 };

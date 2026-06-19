@@ -32,8 +32,9 @@ from src.maps import (
     traffic_segments,
     zones_points,
 )
-from src.metrics import global_metrics, metrics_by_hour
-from src.monitoring import alerts
+from src.metrics import global_metrics, metrics_by_hour, metrics_for_hour
+from src.monitoring import alerts, zones_to_review
+from src.system_metrics import system_metrics
 from src.optimize_coverage import optimize as optimize_coverage
 from src.optimize_facility import optimize_facility, optimize_multi
 from src.optimize_valenbisi import optimize as optimize_valenbisi
@@ -105,8 +106,22 @@ def metrics_hour() -> list[dict]:
 
 
 @app.get("/metrics/errors-by-zone")
-def metrics_errors_zone(top: int = 15) -> list[dict]:
-    return errors_by_zone(top=top)
+def metrics_errors_zone(
+    top: int = 15,
+    hora: int | None = Query(None, ge=0, le=23),
+) -> list[dict]:
+    return errors_by_zone(top=top, hora=hora)
+
+
+@app.get("/metrics/hour/{hora}")
+def metrics_single_hour(hora: int) -> dict:
+    row = metrics_for_hour(hora)
+    g = global_metrics()
+    return {
+        "hora": hora,
+        "hour": row,
+        "global": g,
+    }
 
 
 @app.get("/evaluation/scatter")
@@ -240,3 +255,19 @@ def candidates() -> list[dict]:
 @app.get("/monitoring/alerts")
 def monitoring_alerts() -> dict:
     return alerts()
+
+
+@app.get("/monitoring/zones-to-review")
+def monitoring_zones_to_review(
+    hora: int = Query(..., ge=0, le=23),
+    fecha: date | None = None,
+    top: int = Query(15, ge=1, le=50),
+    apply_events: bool = True,
+) -> dict:
+    d = fecha or date.today()
+    return zones_to_review(hora, d, top=top, apply_events=apply_events)
+
+
+@app.get("/monitoring/system")
+def monitoring_system() -> dict:
+    return system_metrics()

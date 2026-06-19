@@ -10,17 +10,52 @@ import { computeAffectedTramoIds } from "@/lib/eventTramos";
 import { buildEventImpactZones } from "@/lib/eventImpactZone";
 import { DIAS_SEMANA, NIVEL_COLORS, TRAFFIC_ESTADO_COLORS, TRAFFIC_ESTADO_LABELS } from "@/lib/constants";
 import { Card, Badge } from "@/components/Card";
+import { Tabs } from "@/components/Tabs";
+import {
+  EvaluacionPanel,
+  EventosPanel,
+  MonitorizacionPanel,
+  ResumenPanel,
+  SistemaPanel,
+} from "@/components/prediccion/PrediccionPanels";
 import { PageHeader, Callout } from "@/components/ui";
-import type { CityEvent, HeatmapResponse, TrafficLiveResponse, WeatherCurrent } from "@/lib/types";
+import type {
+  CityEvent,
+  GlobalMetrics,
+  HeatmapResponse,
+  HourMetric,
+  Monitoring,
+  SystemMetrics,
+  TrafficLiveResponse,
+  WeatherCurrent,
+  ZoneError,
+  ZoneReviewResponse,
+} from "@/lib/types";
 
 const TRAFFIC_REFRESH_MS = 180_000;
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function currentHour(): number {
   return new Date().getHours();
+}
+
+function weekdayIndex(iso: string): number {
+  const wd = new Date(`${iso}T12:00:00`).getDay();
+  return wd === 0 ? 6 : wd - 1;
+}
+
+function syncToNow(): { fecha: string; hora: number; diaSemana: number } {
+  const fecha = todayIso();
+  const hora = currentHour();
+  return { fecha, hora, diaSemana: weekdayIndex(fecha) };
 }
 
 function isViewingNow(fecha: string, hora: number): boolean {
@@ -50,10 +85,6 @@ function eventsForDay(events: CityEvent[], fecha: string): CityEvent[] {
     .sort((a, b) => a.inicio.localeCompare(b.inicio));
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-}
-
 function weatherSourceLabel(source?: string): string {
   if (source === "aemet") return "AEMET España";
   if (source === "open-meteo") return "Open-Meteo";
@@ -61,12 +92,9 @@ function weatherSourceLabel(source?: string): string {
 }
 
 export default function PrediccionPage() {
-  const [fecha, setFecha] = useState(todayIso);
-  const [hora, setHora] = useState(currentHour);
-  const [diaSemana, setDiaSemana] = useState(() => {
-    const d = new Date().getDay();
-    return d === 0 ? 6 : d - 1;
-  });
+  const [fecha, setFecha] = useState(() => syncToNow().fecha);
+  const [hora, setHora] = useState(() => syncToNow().hora);
+  const [diaSemana, setDiaSemana] = useState(() => syncToNow().diaSemana);
   const [roadColorMode, setRoadColorMode] = useState<RoadColorMode>("live");
   const [applyEvents, setApplyEvents] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -77,6 +105,15 @@ export default function PrediccionPage() {
   const [trafficError, setTrafficError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [trafficLoading, setTrafficLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("resumen");
+  const [evalGlobal, setEvalGlobal] = useState<GlobalMetrics | null>(null);
+  const [evalHour, setEvalHour] = useState<HourMetric | null>(null);
+  const [evalZoneErrors, setEvalZoneErrors] = useState<ZoneError[]>([]);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [monitoring, setMonitoring] = useState<Monitoring | null>(null);
+  const [zoneReview, setZoneReview] = useState<ZoneReviewResponse | null>(null);
+  const [monitorLoading, setMonitorLoading] = useState(false);
+  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
 
   const loadTraffic = useCallback(async () => {
     setTrafficLoading(true);
@@ -125,20 +162,84 @@ export default function PrediccionPage() {
   }, [loadModelData]);
 
   useEffect(() => {
+    const now = syncToNow();
+    setFecha(now.fecha);
+    setHora(now.hora);
+    setDiaSemana(now.diaSemana);
+    setRoadColorMode("live");
+    setSelectedEventId(null);
+  }, []);
+
+  useEffect(() => {
     loadTraffic();
     const id = setInterval(loadTraffic, TRAFFIC_REFRESH_MS);
     return () => clearInterval(id);
   }, [loadTraffic]);
 
   useEffect(() => {
-    const d = new Date(fecha + "T12:00:00");
-    const wd = d.getDay();
-    setDiaSemana(wd === 0 ? 6 : wd - 1);
+    setDiaSemana(weekdayIndex(fecha));
   }, [fecha]);
 
   useEffect(() => {
     if (viewingNow) setRoadColorMode("live");
   }, [viewingNow]);
+
+  useEffect(() => {
+    api.zonesToReview(hora, fecha, applyEvents).then(setZoneReview);
+  }, [hora, fecha, applyEvents]);
+
+  useEffect(() => {
+    if (activeTab !== "evaluacion") return;
+    let cancelled = false;
+    const load = async () => {
+      if (activeTab === "evaluacion") {
+        setEvalLoading(true);
+        const [ev, errs] = await Promise.all([
+          api.metricsHourEval(hora),
+          api.errorsByZone(12, hora),
+        ]);
+        if (!cancelled) {
+          setEvalGlobal(ev.global);
+          setEvalHour(ev.hour);
+          setEvalZoneErrors(errs);
+          setEvalLoading(false);
+        }
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, hora]);
+
+  useEffect(() => {
+    if (activeTab !== "monitorizacion") return;
+    let cancelled = false;
+    const load = async () => {
+      setMonitorLoading(true);
+      const mon = await api.monitoring();
+      if (!cancelled) {
+        setMonitoring(mon);
+        setMonitorLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "sistema") return;
+    api.systemMetrics().then(setSystemMetrics);
+  }, [activeTab]);
+
+  const highPressureZones = useMemo(
+    () => (heatmap?.points ?? []).filter((p) => p.nivel === "alta").sort((a, b) => b.intensidad - a.intensidad),
+    [heatmap],
+  );
+
+  const reviewBadge = (zoneReview?.zones_high_pressure.length ?? 0) + (zoneReview?.zones_low_confidence.length ?? 0);
 
   const dayEvents = useMemo(() => eventsForDay(events, fecha), [events, fecha]);
   const activeEvents = useMemo(
@@ -220,8 +321,10 @@ export default function PrediccionPage() {
                       type="button"
                       className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-200"
                       onClick={() => {
-                        setFecha(todayIso());
-                        setHora(currentHour());
+                        const now = syncToNow();
+                        setFecha(now.fecha);
+                        setHora(now.hora);
+                        setRoadColorMode("live");
                       }}
                     >
                       Ahora
@@ -361,7 +464,7 @@ export default function PrediccionPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+      <div className="space-y-4">
         <Card title="Mapa de vías">
           {roadColorMode === "live" && (
             <div className="mb-3 flex flex-wrap gap-3 text-xs">
@@ -421,131 +524,74 @@ export default function PrediccionPage() {
           )}
         </Card>
 
-        <div className="space-y-4">
-          <Card title={viewingNow ? "Tráfico en vivo (panel)" : "Predicción (panel)"}>
-            {viewingNow ? (
-              traffic && !trafficError ? (
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-slate-500">Tramos monitorizados</dt>
-                    <dd className="font-medium">{traffic.n_tramos ?? 0}</dd>
-                  </div>
-                  {traffic.n_with_intensidad_vh != null && (
-                    <div className="flex justify-between">
-                      <dt className="text-slate-500">Con lectura veh/h</dt>
-                      <dd className="font-medium">{traffic.n_with_intensidad_vh}</dd>
-                    </div>
-                  )}
-                  {Object.entries(TRAFFIC_ESTADO_LABELS).map(([key, label]) => (
-                    <div key={key} className="flex justify-between">
-                      <dt className="inline-flex items-center gap-2 text-slate-500">
-                        <span
-                          className="h-2 w-4 rounded-full"
-                          style={{ backgroundColor: TRAFFIC_ESTADO_COLORS[key] }}
-                        />
-                        {label}
-                      </dt>
-                      <dd className="font-medium">{trafficStats[key] ?? 0}</dd>
-                    </div>
-                  ))}
-                  <p className="text-xs text-slate-400">
-                    Datos oficiales Ayuntamiento · mueve fecha/hora para ver predicción
-                  </p>
-                </dl>
-              ) : (
-                <p className="text-sm text-slate-400">Cargando tráfico en vivo…</p>
-              )
-            ) : stats ? (
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Zonas modelo</dt>
-                  <dd className="font-medium">{stats.total}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Media veh/h</dt>
-                  <dd className="font-medium">{stats.avg}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-slate-500">Presión alta</dt>
-                  <dd className="font-medium text-red-600">{stats.alta}</dd>
-                </div>
-                <p className="text-xs text-slate-400">
-                  {activeEvents.length} eventos activos a las {hora}:00
-                </p>
-              </dl>
-            ) : (
-              <p className="text-sm text-slate-400">
-                {loading ? "Calculando predicción…" : "Sin predicción cargada."}
-              </p>
-            )}
-          </Card>
+        <Tabs
+          active={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { id: "resumen", label: "Resumen" },
+            { id: "eventos", label: "Eventos", badge: activeEvents.length },
+            { id: "evaluacion", label: "Evaluación" },
+            { id: "monitorizacion", label: "Monitorización", badge: reviewBadge },
+            { id: "sistema", label: "Sistema" },
+          ]}
+        />
 
-          <Card title="Eventos del día" className="xl:sticky xl:top-4">
-            <p className="mb-3 text-xs text-slate-500">
-              {dayEvents.length} eventos · {activeEvents.length} activos a las {hora}:00
-              {mapEvents.length > 0 && affectedTramoIds.length > 0
-                ? ` · ${affectedTramoIds.length} tramos en zona`
-                : ""}
-            </p>
-            <ul className="scroll-thin max-h-[380px] space-y-2 overflow-y-auto pr-1">
-              {dayEvents.length === 0 && (
-                <li className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
-                  Sin eventos este día.
-                </li>
-              )}
-              {dayEvents.map((ev) => {
-                const isActive = activeEvents.some((a) => a.id === ev.id);
-                const isSelected = selectedEventId === ev.id;
-                return (
-                  <li key={ev.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEventId(isSelected ? null : ev.id)}
-                      className={`flex w-full rounded-xl border p-2.5 text-left transition ${
-                        isSelected
-                          ? "border-violet-400 bg-violet-50 ring-2 ring-violet-200"
-                          : isActive
-                            ? "border-violet-200 bg-violet-50/60"
-                            : "border-slate-100 bg-white hover:border-slate-200"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-800">{ev.nombre}</p>
-                        <p className="text-xs capitalize text-violet-600">{ev.tipo}</p>
-                        <p className="text-xs text-slate-500">
-                          {formatTime(ev.inicio)} – {formatTime(ev.fin)}
-                        </p>
-                        {ev.direccion && (
-                          <p className="truncate text-[11px] text-slate-400">{ev.direccion}</p>
-                        )}
-                        {isActive && (
-                          <span className="mt-1 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                            Activo ahora
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        </div>
+        {activeTab === "resumen" && (
+          <ResumenPanel
+            viewingNow={viewingNow}
+            traffic={traffic}
+            trafficError={trafficError}
+            trafficStats={trafficStats}
+            stats={stats}
+            loading={loading}
+            activeEventsCount={activeEvents.length}
+            hora={hora}
+          />
+        )}
+        {activeTab === "eventos" && (
+          <EventosPanel
+            dayEvents={dayEvents}
+            activeEvents={activeEvents}
+            selectedEventId={selectedEventId}
+            onSelectEvent={setSelectedEventId}
+            hora={hora}
+            affectedCount={affectedTramoIds.length}
+          />
+        )}
+        {activeTab === "evaluacion" && (
+          <EvaluacionPanel
+            hora={hora}
+            global={evalGlobal}
+            hourMetrics={evalHour}
+            zoneErrors={evalZoneErrors}
+            highPressureZones={highPressureZones}
+            loading={evalLoading}
+          />
+        )}
+        {activeTab === "monitorizacion" && (
+          <MonitorizacionPanel
+            hora={hora}
+            monitoring={monitoring}
+            zoneReview={zoneReview}
+            loading={monitorLoading}
+          />
+        )}
+        {activeTab === "sistema" && <SistemaPanel system={systemMetrics} />}
       </div>
 
-      <Callout tone="brand" title="Fuentes de datos oficiales">
+      <Callout tone="brand" title="EDM · Evaluación y monitorización integradas">
         <ul className="list-inside list-disc space-y-1 text-sm">
           <li>
-            <strong>En vivo:</strong> colores oficiales del Ayuntamiento; al pasar el ratón, veh/h
-            (capa 188 opendata).
+            <strong>Resumen / Eventos / Evaluación / Monitorización / Sistema</strong> en pestañas
+            (no ocupan espacio hasta que las abres).
           </li>
           <li>
-            <strong>Eventos:</strong> icono en el lugar y corredor violeta siguiendo las vías reales
-            afectadas (geometría Ayuntamiento), no un círculo artificial.
+            <strong>Evaluación:</strong> métricas globales y de la hora seleccionada; cada zona
+            muestra la calle del sensor.
           </li>
           <li>
-            <strong>Predicción:</strong> color CatBoost por zona en cada vía cuando cambias
-            fecha/hora.
+            <strong>Monitorización:</strong> zonas a revisar ahora (presión alta + baja fiabilidad
+            histórica).
           </li>
         </ul>
         <Link
