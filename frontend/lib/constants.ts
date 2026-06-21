@@ -36,6 +36,7 @@ export const TRAFFIC_ESTADO_LABELS: Record<string, string> = {
 
 export const NAV_LINKS = [
   { href: "/", label: "Inicio" },
+  { href: "/mapa", label: "Mapa" },
   { href: "/optimizacion", label: "Optimización" },
   { href: "/datos", label: "Datos" },
   { href: "/prediccion", label: "Demanda" },
@@ -51,7 +52,7 @@ export const WORKSPACE_LINKS = [
 ];
 
 export const DOC_LINKS = [
-  { href: "/metodologia", label: "Metodología" },
+  { href: "/metodologia", label: "Documentación" },
   { href: "/datos", label: "Datos" },
   { href: "/evaluacion", label: "Evaluación" },
 ];

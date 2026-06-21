@@ -189,6 +189,13 @@ function popupHtml(layer: LayerKey, feature: GeoFeature): string {
     return `<div class="map-popup"><strong>${p.name ?? "Vía"}</strong>
       <span class="muted">${p.highway ?? "segmento"} · ${Math.round(Number(p.length ?? 0))} m</span></div>`;
   }
+  if (layer === "valenbisi") {
+    const zone = p.zona != null ? `Zona ${p.zona}` : "Estación existente";
+    return `<div class="map-popup"><strong>Valenbisi actual</strong>
+      <div class="metric"><span>Referencia</span><b>${zone}</b></div>
+      <div class="metric"><span>Estado</span><b>Inventariada</b></div>
+      <span class="muted">La capa muestra ubicación; no disponibilidad de bicis en vivo.</span></div>`;
+  }
   const label = (p.name as string) ?? (p.zona != null ? `Estación zona ${p.zona}` : LAYER_META[layer].label);
   return `<div class="map-popup"><strong>${label}</strong><span class="muted">${LAYER_META[layer].label}</span></div>`;
 }
@@ -254,15 +261,20 @@ function LayerToggle({
       onClick={() => onToggle(layer)}
       className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition ${
         active
-          ? "bg-cyan-500/10 text-cyan-100 ring-1 ring-cyan-500/25"
-          : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+          ? "bg-slate-950 text-white shadow-sm"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
       }`}
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/20"
         style={{ backgroundColor: meta.color }}
       />
-      <span className="flex-1 font-medium">{meta.label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">{meta.label}</span>
+        <span className="mt-0.5 block whitespace-normal text-[11px] leading-4 opacity-60">
+          {meta.description}
+        </span>
+      </span>
       {loading && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
     </button>
   );
@@ -346,7 +358,16 @@ export default function CityMap({
   }, [fitToProposed, proposedMarkers]);
 
   const map = BASEMAPS[basemap];
-  const activeLayers = (Object.keys(layerState) as LayerKey[]).filter((k) => layerState[k]);
+  const visibleLayerKeys = useMemo(
+    () =>
+      (Object.keys(layerState) as LayerKey[]).filter((key) => {
+        if (key === "proposed") return proposedMarkers.length > 0;
+        if (key === "covered") return Boolean(coveredGeo?.features.length);
+        return true;
+      }),
+    [coveredGeo?.features.length, layerState, proposedMarkers.length],
+  );
+  const activeLayers = visibleLayerKeys.filter((k) => layerState[k]);
 
   const renderGeoLayer = (key: LayerKey, collection: GeoFeatureCollection) => {
     const filtered = filterCollection(collection, key);
@@ -406,15 +427,15 @@ export default function CityMap({
       {(showLayerControl || showLegend) && (
         <div className="pointer-events-none absolute inset-0 z-[500]">
           {showLayerControl && (
-            <div className="pointer-events-auto absolute left-4 top-4 w-[210px] console-panel shadow-2xl">
-              <div className="console-panel-header flex items-center gap-2">
-                <Layers className="h-3.5 w-3.5 text-cyan-400" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">
+            <div className="pointer-events-auto absolute left-4 top-4 w-[min(22rem,calc(100%-2rem))] rounded-2xl bg-white/95 text-slate-900 shadow-card backdrop-blur-xl">
+              <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2.5">
+                <Layers className="h-3.5 w-3.5 text-slate-500" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                   Capas
                 </span>
               </div>
-              <div className="max-h-[320px] space-y-0.5 overflow-y-auto scroll-thin p-2">
-                {(Object.keys(LAYER_META) as LayerKey[]).map((key) => (
+              <div className="max-h-[440px] space-y-1 overflow-y-auto scroll-thin p-2.5">
+                {visibleLayerKeys.map((key) => (
                   <LayerToggle
                     key={key}
                     layer={key}
@@ -428,13 +449,13 @@ export default function CityMap({
           )}
 
           {showLegend && activeLayers.length > 0 && (
-            <div className="pointer-events-auto absolute bottom-4 left-4 console-panel px-3 py-2.5">
+            <div className="pointer-events-auto absolute bottom-4 left-4 rounded-2xl bg-white/95 px-3 py-2.5 text-slate-900 shadow-card backdrop-blur-xl">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 Leyenda
               </p>
               <div className="space-y-1.5">
                 {activeLayers.slice(0, 6).map((key) => (
-                  <div key={key} className="flex items-center gap-2 text-[11px] text-slate-300">
+                  <div key={key} className="flex items-center gap-2 text-[11px] text-slate-600">
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
                       style={{ backgroundColor: LAYER_META[key].color }}
@@ -444,7 +465,7 @@ export default function CityMap({
                 ))}
               </div>
               {(layerState.demand || layerState.covered) && (
-                <div className="mt-2.5 border-t border-white/[0.06] pt-2">
+                <div className="mt-2.5 border-t border-slate-100 pt-2">
                   <p className="mb-1 text-[10px] text-slate-500">Intensidad demanda</p>
                   <div
                     className="h-1.5 w-full rounded-full"
@@ -457,7 +478,7 @@ export default function CityMap({
             </div>
           )}
 
-          <div className="absolute bottom-4 right-4 flex items-center gap-2 text-[10px] text-slate-500">
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-semibold text-slate-500 shadow-card backdrop-blur">
             <Maximize2 className="h-3 w-3" />
             Valencia · oct-2023
           </div>

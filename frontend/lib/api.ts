@@ -22,50 +22,72 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-async function getJSON<T>(path: string, fallback: T): Promise<T> {
+type ApiOptions = { signal?: AbortSignal };
+
+function isAbortError(e: unknown): boolean {
+  return (
+    e instanceof DOMException && e.name === "AbortError"
+  ) || (
+    e instanceof Error && e.name === "AbortError"
+  );
+}
+
+async function getJSON<T>(path: string, fallback: T, options?: ApiOptions): Promise<T> {
   try {
-    const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}${path}`, {
+      cache: "no-store",
+      signal: options?.signal,
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
-  } catch {
+  } catch (e) {
+    if (isAbortError(e)) throw e;
     return fallback;
   }
 }
 
-async function tryGet<T>(path: string): Promise<ApiResult<T>> {
-  try {
-    const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-    return { ok: true, data: (await res.json()) as T };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Error de red" };
-  }
-}
-
-async function tryPost<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+async function tryGet<T>(path: string, options?: ApiOptions): Promise<ApiResult<T>> {
   try {
     const res = await fetch(`${API_URL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: options?.signal,
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     return { ok: true, data: (await res.json()) as T };
   } catch (e) {
+    if (isAbortError(e)) throw e;
     return { ok: false, error: e instanceof Error ? e.message : "Error de red" };
   }
 }
 
-async function postJSON<T>(path: string, body: unknown, fallback: T): Promise<T> {
+async function tryPost<T>(path: string, body: unknown, options?: ApiOptions): Promise<ApiResult<T>> {
   try {
     const res = await fetch(`${API_URL}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: options?.signal,
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true, data: (await res.json()) as T };
+  } catch (e) {
+    if (isAbortError(e)) throw e;
+    return { ok: false, error: e instanceof Error ? e.message : "Error de red" };
+  }
+}
+
+async function postJSON<T>(path: string, body: unknown, fallback: T, options?: ApiOptions): Promise<T> {
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: options?.signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
-  } catch {
+  } catch (e) {
+    if (isAbortError(e)) throw e;
     return fallback;
   }
 }
@@ -93,17 +115,17 @@ export const api = {
       validation: "holdout temporal días 25-31 oct (DEMO)",
     }),
   metricsByHour: () => getJSON<HourMetric[]>("/metrics/by-hour", []),
-  errorsByZone: (top = 15, hora?: number) => {
+  errorsByZone: (top = 15, hora?: number, options?: ApiOptions) => {
     const q = new URLSearchParams({ top: String(top) });
     if (hora != null) q.set("hora", String(hora));
-    return getJSON<ZoneError[]>(`/metrics/errors-by-zone?${q}`, []);
+    return getJSON<ZoneError[]>(`/metrics/errors-by-zone?${q}`, [], options);
   },
-  metricsHourEval: (hora: number) =>
+  metricsHourEval: (hora: number, options?: ApiOptions) =>
     getJSON<HourEvaluationResponse>(`/metrics/hour/${hora}`, {
       hora,
       hour: null,
       global: { MAE: 0, RMSE: 0, R2: 0, sMAPE: 0 },
-    }),
+    }, options),
   scatter: (n = 500) =>
     getJSON<{ y_real: number; y_pred: number }[]>(`/evaluation/scatter?n=${n}`, []),
   predict: (req: PredictRequest) =>
@@ -123,7 +145,7 @@ export const api = {
     dia_semana?: number;
     use_live_weather?: boolean;
     apply_events?: boolean;
-  }) => {
+  }, options?: ApiOptions) => {
     const q = new URLSearchParams();
     q.set("hora", String(params.hora));
     if (params.fecha) q.set("fecha", params.fecha);
@@ -139,9 +161,9 @@ export const api = {
       points: [],
       events_active: 0,
       model_loaded: false,
-    });
+    }, options);
   },
-  weatherCurrent: () =>
+  weatherCurrent: (options?: ApiOptions) =>
     getJSON<WeatherCurrent>("/weather/current", {
       temp_c: 20,
       hum_rel: 60,
@@ -149,9 +171,9 @@ export const api = {
       vel_viento_ms: 2,
       precip_lm2: 0,
       source: "default",
-    }),
-  trafficLive: () => tryGet<TrafficLiveResponse>("/traffic/live"),
-  events: (from?: string, to?: string) => {
+    }, options),
+  trafficLive: (options?: ApiOptions) => tryGet<TrafficLiveResponse>("/traffic/live", options),
+  events: (from?: string, to?: string, options?: ApiOptions) => {
     const q = new URLSearchParams();
     if (from) q.set("from", from);
     if (to) q.set("to", to);
@@ -159,7 +181,7 @@ export const api = {
     return getJSON<{ count: number; events: CityEvent[] }>(`/events${suffix}`, {
       count: 0,
       events: [],
-    });
+    }, options);
   },
   mapZones: () =>
     getJSON<GeoFeatureCollection>("/map/zones", emptyGeo),
@@ -243,7 +265,7 @@ export const api = {
     getJSON<GeoFeatureCollection>("/map/traffic-segments", emptyGeo),
   currentValenbisi: () =>
     getJSON<GeoFeatureCollection>("/map/current-valenbisi", emptyGeo),
-  monitoring: () =>
+  monitoring: (options?: ApiOptions) =>
     getJSON<Monitoring>("/monitoring/alerts", {
       model_active: "CatBoost por hora",
       data_date: "2023-10",
@@ -252,8 +274,8 @@ export const api = {
       alerts: [],
       mae_by_hour: [],
       top_error_zones: [],
-    }),
-  zonesToReview: (hora: number, fecha?: string, applyEvents = true) => {
+    }, options),
+  zonesToReview: (hora: number, fecha?: string, applyEvents = true, options?: ApiOptions) => {
     const q = new URLSearchParams({
       hora: String(hora),
       apply_events: String(applyEvents),
@@ -268,8 +290,8 @@ export const api = {
       zones_high_pressure: [],
       zones_low_confidence: [],
       events_active: 0,
-    });
+    }, options);
   },
-  systemMetrics: () =>
-    getJSON<SystemMetrics>("/monitoring/system", { available: false }),
+  systemMetrics: (options?: ApiOptions) =>
+    getJSON<SystemMetrics>("/monitoring/system", { available: false }, options),
 };

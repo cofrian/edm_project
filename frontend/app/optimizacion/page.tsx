@@ -195,6 +195,15 @@ export default function OptimizacionPage() {
   }, []);
 
   useEffect(() => {
+    const sector = new URLSearchParams(window.location.search).get("sector");
+    const next = parseFacilityMode(sector);
+    if (!next) return;
+    setFacility(next);
+    setShowValenbisi(next === "valenbisi");
+    if (next === "valenbisi") setConstraint("count");
+  }, []);
+
+  useEffect(() => {
     if (facility === "valenbisi") setShowValenbisi(true);
   }, [facility]);
 
@@ -359,6 +368,8 @@ export default function OptimizacionPage() {
         />
       </div>
 
+      <DecisionFlow facility={facility} constraint={constraint} resultReady={Boolean(result?.n_selected)} />
+
       {activeTab === "tool" ? (
         <>
           <section className="grid gap-7 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -418,8 +429,9 @@ export default function OptimizacionPage() {
                         Modo de planificación Valenbisi
                       </p>
                       <p className="mt-0.5 text-xs leading-5 text-slate-500">
-                        Elige si quieres fijar cuántas estaciones se proponen o
-                        limitar la solución por coste disponible.
+                        Primero decide el tipo de plan. Si el número de nuevas
+                        estaciones ya está cerrado, usa N estaciones. Si lo que
+                        manda es el coste máximo, usa presupuesto.
                       </p>
                     </div>
                   </div>
@@ -429,14 +441,14 @@ export default function OptimizacionPage() {
                       onClick={() => selectConstraint("count")}
                       icon={<Target className="h-5 w-5" />}
                       title="Elegir N estaciones"
-                      subtitle="Para un plan cerrado: 5, 10, 20... puntos nuevos."
+                      subtitle="Plan cerrado: el solver elige exactamente esa cantidad de puntos."
                     />
                     <ModeButton
                       active={constraint === "budget"}
                       onClick={() => selectConstraint("budget")}
                       icon={<Coins className="h-5 w-5" />}
                       title="Usar presupuesto máximo"
-                      subtitle="Para que el solver decida cuántas caben en el coste."
+                      subtitle="Plan flexible: el solver decide cuántas actuaciones caben."
                     />
                   </div>
                 </div>
@@ -546,6 +558,20 @@ export default function OptimizacionPage() {
                       Score actual: tráfico {wTraf.toFixed(1)} · población{" "}
                       {wPob.toFixed(1)} · déficit {wDef.toFixed(1)}.
                     </p>
+                    <div className="mt-3 grid gap-2 text-xs leading-5 text-slate-500">
+                      <p>
+                        <strong className="text-slate-700">Tráfico</strong>: acerca
+                        estaciones a zonas con más presión de movilidad.
+                      </p>
+                      <p>
+                        <strong className="text-slate-700">Población</strong>: prioriza
+                        puntos con más personas alcanzables.
+                      </p>
+                      <p>
+                        <strong className="text-slate-700">Déficit</strong>: empuja la
+                        solución hacia zonas peor cubiertas por la red actual.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -977,6 +1003,60 @@ function MethodFormula({
           </>
         )}
       </p>
+    </div>
+  );
+}
+
+function DecisionFlow({
+  facility,
+  constraint,
+  resultReady,
+}: {
+  facility: FacilityMode;
+  constraint: ConstraintMode;
+  resultReady: boolean;
+}) {
+  const steps = [
+    {
+      label: "Escenario",
+      text: FACILITY_LABELS[facility],
+      active: true,
+    },
+    {
+      label: "Restricción",
+      text:
+        facility === "valenbisi" && constraint === "count"
+          ? "N estaciones"
+          : "Presupuesto",
+      active: true,
+    },
+    {
+      label: "Mapa",
+      text: "Capas GIS",
+      active: true,
+    },
+    {
+      label: "Resultado",
+      text: resultReady ? "Solución lista" : "Pendiente",
+      active: resultReady,
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 rounded-[1.75rem] bg-white p-3 shadow-card sm:grid-cols-4">
+      {steps.map((step, i) => (
+        <div
+          key={step.label}
+          className={`rounded-2xl px-4 py-3 transition ${
+            step.active ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-500"
+          }`}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-60">
+            {String(i + 1).padStart(2, "0")} · {step.label}
+          </p>
+          <p className="mt-1 truncate text-sm font-semibold">{step.text}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1426,4 +1506,11 @@ function traceStatusColor(status: string): "green" | "amber" | "blue" {
 function clamp(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+function parseFacilityMode(value: string | null): FacilityMode | null {
+  if (value === "sports" || value === "health" || value === "multi" || value === "valenbisi") {
+    return value;
+  }
+  return null;
 }

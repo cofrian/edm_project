@@ -27,6 +27,8 @@ const config: Config = {
           DEFAULT: "#ffffff",
           muted: "#fafafa",
           app: "#f8f9fa",
+          900: "#0f172a",
+          950: "#020617",
         },
         // Acento técnico para mapas, métricas positivas y estados activos.
         teal: {
@@ -50,6 +52,7 @@ const config: Config = {
         card: "0 10px 40px -10px rgb(15 23 42 / 0.06), 0 2px 10px -6px rgb(15 23 42 / 0.06)",
         "card-hover": "0 20px 60px -20px rgb(15 23 42 / 0.14), 0 8px 24px -18px rgb(15 23 42 / 0.12)",
         map: "0 24px 70px -24px rgb(15 23 42 / 0.22)",
+        "glow-cyan": "0 16px 36px -18px rgb(34 211 238 / 0.8)",
       },
       keyframes: {
         "fade-in-up": {
