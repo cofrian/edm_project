@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowRight, Building2, Bike, HeartPulse, Route, Users } from "lucide-react";
 import { CityMap } from "@/components/DynamicMap";
 import { ApiStatusBanner } from "@/components/ApiStatusBanner";
+import { Badge, Card } from "@/components/Card";
+import { PageHeader, Stat } from "@/components/ui";
 import { DEFAULT_LAYERS } from "@/lib/mapLayers";
 import { api } from "@/lib/api";
 import type { LayerKey } from "@/lib/types";
@@ -95,6 +97,7 @@ function MapaContent() {
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [preset, setPreset] = useState("all");
   const [demandType, setDemandType] = useState<"sports" | "health">("sports");
+  const [valenbisiCount, setValenbisiCount] = useState<number | null>(null);
   const [summary, setSummary] = useState<{
     n_candidates: number;
     n_hexes: number;
@@ -103,7 +106,15 @@ function MapaContent() {
   } | null>(null);
 
   useEffect(() => {
-    api.coverageSummary().then((r) => setSummary(r.ok ? r.data : null));
+    let active = true;
+    Promise.all([api.coverageSummary(), api.mapValenbisi()]).then(([coverage, valenbisi]) => {
+      if (!active) return;
+      setSummary(coverage.ok ? coverage.data : null);
+      setValenbisiCount(valenbisi.ok ? valenbisi.data.features.length : null);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   function applyPreset(id: string) {
@@ -117,75 +128,107 @@ function MapaContent() {
   const activePreset = PRESETS.find((p) => p.id === preset);
 
   return (
-    <div className="flex h-[100dvh] min-h-0 flex-col">
-      <header className="console-panel z-10 shrink-0 rounded-none border-x-0 border-t-0">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-400/80">
-              Explorador urbano
+    <div className="space-y-7">
+      <PageHeader
+        eyebrow="Explorador urbano"
+        title="Mapa de Valencia"
+        description="Vista GIS para revisar capas de movilidad, equipamientos, demanda y candidatos antes de lanzar una optimización."
+      >
+        <Badge color="blue">GIS</Badge>
+        {activePreset && <Badge color="green">{activePreset.label}</Badge>}
+      </PageHeader>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          label="Valenbisi"
+          value={valenbisiCount ?? "—"}
+          hint="Estaciones actuales inventariadas"
+          tone="amber"
+          icon={<Bike className="h-4 w-4" />}
+        />
+        <Stat
+          label="Candidatos"
+          value={summary?.n_candidates ?? "—"}
+          hint="Ubicaciones evaluables"
+          tone="brand"
+          icon={<Building2 className="h-4 w-4" />}
+        />
+        <Stat
+          label="Demanda deporte"
+          value={summary?.hexes_need_sports ?? "—"}
+          hint="Hexágonos sin cobertura"
+          tone="teal"
+          icon={<HeartPulse className="h-4 w-4" />}
+        />
+        <Stat
+          label="Demanda salud"
+          value={summary?.hexes_need_health ?? "—"}
+          hint="Hexágonos sin cobertura"
+          icon={<Users className="h-4 w-4" />}
+        />
+      </div>
+
+      <Card className="p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="eyebrow">Vista de capas</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">
+              Observatorio GIS operativo
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Cambia de preset para activar capas relacionadas. Valenbisi muestra
+              ubicación de estaciones actuales; la disponibilidad de bicis en vivo
+              no está conectada todavía.
             </p>
-            <h1 className="text-lg font-semibold tracking-tight text-white">
-              Mapa de Valencia
-            </h1>
           </div>
 
-          {summary && (
-            <div className="hidden items-center gap-2 lg:flex">
-              <div className="console-stat text-center">
-                <p className="text-[10px] text-slate-500">Candidatos</p>
-                <p className="text-sm font-bold text-white">{summary.n_candidates}</p>
-              </div>
-              <div className="console-stat text-center">
-                <p className="text-[10px] text-slate-500">Demanda deporte</p>
-                <p className="text-sm font-bold text-white">{summary.hexes_need_sports}</p>
-              </div>
-              <div className="console-stat text-center">
-                <p className="text-[10px] text-slate-500">Demanda salud</p>
-                <p className="text-sm font-bold text-white">{summary.hexes_need_health}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             {PRESETS.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => applyPreset(p.id)}
-                className={`console-chip ${preset === p.id ? "console-chip-active" : ""}`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  preset === p.id
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-card"
+                }`}
               >
                 {p.icon}
                 {p.label}
               </button>
             ))}
+            {activePreset && (
+              <Link
+                href={`/optimizacion?sector=${activePreset.sector}`}
+                className="btn-primary px-4 py-2 text-xs"
+              >
+                Optimizar <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
           </div>
-
-          {activePreset && (
-            <Link
-              href={`/optimizacion?sector=${activePreset.sector}`}
-              className="console-btn-primary shrink-0 text-xs"
-            >
-              Optimizar <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
         </div>
-        <div className="border-t border-white/[0.06] px-4 py-2">
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <ApiStatusBanner compact />
+          <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
+            Valenbisi: inventario de estaciones, no disponibilidad en vivo
+          </span>
         </div>
-      </header>
 
-      <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 overflow-hidden rounded-[1.75rem] shadow-map">
         <CityMap
-          height="100%"
-          fullBleed
+          height={720}
           layers={layers}
           demandType={demandType}
           proposedMarkers={[]}
           showLayerControl
           showLegend
+          basemap="light"
           fitToProposed={false}
         />
-      </div>
+        </div>
+      </Card>
     </div>
   );
 }

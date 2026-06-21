@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {!collapsed && (
             <div className="border-t border-white/[0.06] px-4 py-3 text-[10px] text-slate-500">
               <p>Datos oct-2023 · PuLP/CBC</p>
-              <p className="mt-0.5 text-slate-600">Pipeline notebooks 04–07</p>
+              <p className="mt-0.5 text-slate-600">Pipeline urbano validado</p>
             </div>
           )}
 

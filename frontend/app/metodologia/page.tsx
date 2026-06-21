@@ -16,6 +16,7 @@ export const metadata = { title: "Documentación" };
 
 const TOC = [
   ["resumen", "Resumen del proyecto"],
+  ["uso", "Guía rápida de uso"],
   ["crisp", "Metodología CRISP-DM"],
   ["arquitectura", "Arquitectura de la solución"],
   ["despliegue", "Arquitectura de despliegue"],
@@ -81,6 +82,36 @@ export default function DocumentacionPage() {
               <Badge color="green">Machine Learning (demanda)</Badge>
               <Badge color="amber">Datos reales de Valencia</Badge>
             </div>
+          </Section>
+
+          <Section id="uso" icon={<BookOpen className="h-5 w-5" />} title="Guía rápida de uso">
+            <p>
+              La interfaz está pensada como herramienta de trabajo: primero se
+              explora la ciudad, después se configura el escenario y finalmente
+              se interpreta el resultado con mapa, métricas y ranking.
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <MiniCard
+                icon={<Database className="h-5 w-5" />}
+                title="1. Explorar el territorio"
+                text="Usa el mapa urbano para activar capas: estaciones actuales, candidatos, demanda, tráfico y cobertura."
+              />
+              <MiniCard
+                icon={<Target className="h-5 w-5" />}
+                title="2. Definir escenario"
+                text="Elige servicio, presupuesto, número de puntos o pesos de movilidad según el tipo de decisión."
+              />
+              <MiniCard
+                icon={<ShieldCheck className="h-5 w-5" />}
+                title="3. Validar la decisión"
+                text="Contrasta resultado, coste, población/score y zonas recomendadas antes de aceptar la propuesta."
+              />
+            </div>
+            <Callout tone="brand" title="Criterio de producto">
+              La app no pretende enseñar el desarrollo interno paso a paso.
+              Resume el método y expone solo las decisiones necesarias para que
+              un usuario pueda operar la herramienta sin conocer la implementación.
+            </Callout>
           </Section>
 
           {/* CRISP */}
@@ -363,7 +394,7 @@ function Section({
 
 function Diagram({ children }: { children: React.ReactNode }) {
   return (
-    <pre className="mt-3 overflow-x-auto scroll-thin rounded-lg bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
+    <pre className="mt-3 overflow-x-auto scroll-thin rounded-2xl bg-slate-950 p-5 text-xs leading-relaxed text-slate-100 shadow-card">
       {children}
     </pre>
   );
@@ -371,8 +402,8 @@ function Diagram({ children }: { children: React.ReactNode }) {
 
 function MiniCard({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 p-4">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-600">{icon}</span>
+    <div className="rounded-2xl bg-white p-5 shadow-card">
+      <span className="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700">{icon}</span>
       <p className="mt-2 font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-sm text-slate-600">{text}</p>
     </div>
@@ -381,7 +412,7 @@ function MiniCard({ icon, title, text }: { icon: React.ReactNode; title: string;
 
 function Metric({ k, v }: { k: string; v: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 text-center">
+    <div className="rounded-2xl bg-white p-4 text-center shadow-card">
       <p className="text-xs text-slate-500">{k}</p>
       <p className="mt-1 text-lg font-bold text-slate-900">{v}</p>
     </div>

@@ -23,6 +23,12 @@ export const dynamic = "force-dynamic";
 
 const MODULES = [
   {
+    href: "/mapa",
+    title: "Mapa urbano",
+    text: "Explora Valencia con capas GIS, estaciones actuales, demanda y red viaria.",
+    icon: <Layers className="h-5 w-5" />,
+  },
+  {
     href: "/optimizacion",
     title: "Optimizador GIS",
     text: "Selecciona equipamientos, presupuesto o N puntos y revisa la solución sobre mapa.",
@@ -90,7 +96,7 @@ export default async function Home() {
             <Link href="/optimizacion" className="btn-primary">
               Abrir optimizador <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/documentacion" className="btn-secondary">
+            <Link href="/metodologia" className="btn-secondary">
               Ver documentación <BookOpen className="h-4 w-4" />
             </Link>
           </div>
@@ -140,11 +146,11 @@ export default async function Home() {
               Flujo completo de decisión
             </h2>
           </div>
-          <Link href="/documentacion" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-950">
+          <Link href="/metodologia" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-950">
             Ver detalle técnico <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {MODULES.map((module) => (
             <Link key={module.href} href={module.href} className="card card-interactive block">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-700">

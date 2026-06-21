@@ -20,7 +20,7 @@ export function Footer() {
             <li><Link href="/optimizacion" className="hover:text-brand-700">Optimización</Link></li>
             <li><Link href="/datos" className="hover:text-brand-700">Datos</Link></li>
             <li><Link href="/evaluacion" className="hover:text-brand-700">Evaluación del modelo</Link></li>
-            <li><Link href="/documentacion" className="hover:text-brand-700">Documentación</Link></li>
+            <li><Link href="/metodologia" className="hover:text-brand-700">Documentación</Link></li>
           </ul>
         </div>
         <div>

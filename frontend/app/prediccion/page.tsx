@@ -91,6 +91,18 @@ function weatherSourceLabel(source?: string): string {
   return "Por defecto";
 }
 
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof DOMException && error.name === "AbortError"
+  ) || (
+    error instanceof Error && error.name === "AbortError"
+  );
+}
+
+function pageIsVisible(): boolean {
+  return typeof document === "undefined" || document.visibilityState === "visible";
+}
+
 export default function PrediccionPage() {
   const [fecha, setFecha] = useState(() => syncToNow().fecha);
   const [hora, setHora] = useState(() => syncToNow().hora);
@@ -114,52 +126,81 @@ export default function PrediccionPage() {
   const [zoneReview, setZoneReview] = useState<ZoneReviewResponse | null>(null);
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
+  const [isPageVisible, setIsPageVisible] = useState(true);
 
-  const loadTraffic = useCallback(async () => {
+  useEffect(() => {
+    const updateVisibility = () => setIsPageVisible(pageIsVisible());
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
+
+  const loadTraffic = useCallback(async (signal?: AbortSignal) => {
+    if (!pageIsVisible()) return;
     setTrafficLoading(true);
-    const res = await api.trafficLive();
-    if (res.ok) {
-      setTraffic(res.data);
-      setTrafficError(
-        res.data.source === "unavailable" || res.data.n_tramos === 0
-          ? "El Ayuntamiento no devolvió tramos"
-          : null,
-      );
-    } else {
+    try {
+      const res = await api.trafficLive({ signal });
+      if (signal?.aborted) return;
+      if (res.ok) {
+        setTraffic(res.data);
+        setTrafficError(
+          res.data.source === "unavailable" || res.data.n_tramos === 0
+            ? "El Ayuntamiento no devolvió tramos"
+            : null,
+        );
+      } else {
+        setTraffic(null);
+        setTrafficError(res.error);
+      }
+    } catch (error) {
+      if (isAbortError(error)) return;
       setTraffic(null);
-      setTrafficError(res.error);
+      setTrafficError(error instanceof Error ? error.message : "Error de red");
+    } finally {
+      if (!signal?.aborted) setTrafficLoading(false);
     }
-    setTrafficLoading(false);
   }, []);
 
   const viewingNow = useMemo(() => isViewingNow(fecha, hora), [fecha, hora]);
 
-  const loadModelData = useCallback(async () => {
+  const loadModelData = useCallback(async (signal?: AbortSignal) => {
+    if (!pageIsVisible()) return;
     setLoading(true);
-    const now = isViewingNow(fecha, hora);
-    const [w, ev] = await Promise.all([
-      api.weatherCurrent(),
-      api.events(fecha, addDaysIso(fecha, 31)),
-    ]);
-    let hm: HeatmapResponse | null = null;
-    if (!now) {
-      hm = await api.predictHeatmap({
-        fecha,
-        hora,
-        dia_semana: diaSemana,
-        use_live_weather: true,
-        apply_events: applyEvents,
-      });
+    try {
+      const now = isViewingNow(fecha, hora);
+      const [w, ev] = await Promise.all([
+        api.weatherCurrent({ signal }),
+        api.events(fecha, addDaysIso(fecha, 31), { signal }),
+      ]);
+      let hm: HeatmapResponse | null = null;
+      if (!now) {
+        hm = await api.predictHeatmap({
+          fecha,
+          hora,
+          dia_semana: diaSemana,
+          use_live_weather: true,
+          apply_events: applyEvents,
+        }, { signal });
+      }
+      if (signal?.aborted) return;
+      setWeather(w);
+      setHeatmap(hm);
+      setEvents(ev.events);
+    } catch (error) {
+      if (!isAbortError(error)) {
+        setHeatmap(null);
+      }
+    } finally {
+      if (!signal?.aborted) setLoading(false);
     }
-    setWeather(w);
-    setHeatmap(hm);
-    setEvents(ev.events);
-    setLoading(false);
   }, [fecha, hora, diaSemana, applyEvents]);
 
   useEffect(() => {
-    loadModelData();
-  }, [loadModelData]);
+    if (!isPageVisible) return;
+    const controller = new AbortController();
+    void loadModelData(controller.signal);
+    return () => controller.abort();
+  }, [loadModelData, isPageVisible]);
 
   useEffect(() => {
     const now = syncToNow();
@@ -171,10 +212,20 @@ export default function PrediccionPage() {
   }, []);
 
   useEffect(() => {
-    loadTraffic();
-    const id = setInterval(loadTraffic, TRAFFIC_REFRESH_MS);
-    return () => clearInterval(id);
-  }, [loadTraffic]);
+    if (!isPageVisible) return;
+    let current: AbortController | null = null;
+    const run = () => {
+      current?.abort();
+      current = new AbortController();
+      void loadTraffic(current.signal);
+    };
+    run();
+    const id = setInterval(run, TRAFFIC_REFRESH_MS);
+    return () => {
+      clearInterval(id);
+      current?.abort();
+    };
+  }, [loadTraffic, isPageVisible]);
 
   useEffect(() => {
     setDiaSemana(weekdayIndex(fecha));
@@ -185,54 +236,87 @@ export default function PrediccionPage() {
   }, [viewingNow]);
 
   useEffect(() => {
-    api.zonesToReview(hora, fecha, applyEvents).then(setZoneReview);
-  }, [hora, fecha, applyEvents]);
+    if (!isPageVisible) return;
+    const controller = new AbortController();
+    api
+      .zonesToReview(hora, fecha, applyEvents, { signal: controller.signal })
+      .then(setZoneReview)
+      .catch((error) => {
+        if (!isAbortError(error)) setZoneReview(null);
+      });
+    return () => controller.abort();
+  }, [hora, fecha, applyEvents, isPageVisible]);
 
   useEffect(() => {
-    if (activeTab !== "evaluacion") return;
+    if (activeTab !== "evaluacion" || !isPageVisible) return;
     let cancelled = false;
+    const controller = new AbortController();
     const load = async () => {
       if (activeTab === "evaluacion") {
         setEvalLoading(true);
-        const [ev, errs] = await Promise.all([
-          api.metricsHourEval(hora),
-          api.errorsByZone(12, hora),
-        ]);
-        if (!cancelled) {
-          setEvalGlobal(ev.global);
-          setEvalHour(ev.hour);
-          setEvalZoneErrors(errs);
-          setEvalLoading(false);
+        try {
+          const [ev, errs] = await Promise.all([
+            api.metricsHourEval(hora, { signal: controller.signal }),
+            api.errorsByZone(12, hora, { signal: controller.signal }),
+          ]);
+          if (!cancelled && !controller.signal.aborted) {
+            setEvalGlobal(ev.global);
+            setEvalHour(ev.hour);
+            setEvalZoneErrors(errs);
+          }
+        } catch (error) {
+          if (!isAbortError(error)) setEvalZoneErrors([]);
+        } finally {
+          if (!cancelled && !controller.signal.aborted) {
+            setEvalLoading(false);
+          }
         }
       }
     };
     load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [activeTab, hora]);
+  }, [activeTab, hora, isPageVisible]);
 
   useEffect(() => {
-    if (activeTab !== "monitorizacion") return;
+    if (activeTab !== "monitorizacion" || !isPageVisible) return;
     let cancelled = false;
+    const controller = new AbortController();
     const load = async () => {
       setMonitorLoading(true);
-      const mon = await api.monitoring();
-      if (!cancelled) {
-        setMonitoring(mon);
-        setMonitorLoading(false);
+      try {
+        const mon = await api.monitoring({ signal: controller.signal });
+        if (!cancelled && !controller.signal.aborted) {
+          setMonitoring(mon);
+        }
+      } catch (error) {
+        if (!isAbortError(error)) setMonitoring(null);
+      } finally {
+        if (!cancelled && !controller.signal.aborted) {
+          setMonitorLoading(false);
+        }
       }
     };
     load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [activeTab]);
+  }, [activeTab, isPageVisible]);
 
   useEffect(() => {
-    if (activeTab !== "sistema") return;
-    api.systemMetrics().then(setSystemMetrics);
-  }, [activeTab]);
+    if (activeTab !== "sistema" || !isPageVisible) return;
+    const controller = new AbortController();
+    api
+      .systemMetrics({ signal: controller.signal })
+      .then(setSystemMetrics)
+      .catch((error) => {
+        if (!isAbortError(error)) setSystemMetrics({ available: false });
+      });
+    return () => controller.abort();
+  }, [activeTab, isPageVisible]);
 
   const highPressureZones = useMemo(
     () => (heatmap?.points ?? []).filter((p) => p.nivel === "alta").sort((a, b) => b.intensidad - a.intensidad),
@@ -295,6 +379,7 @@ export default function PrediccionPage() {
       >
         <Badge color="green">Tráfico Ayto. en vivo</Badge>
         {viewingNow ? <Badge color="green">Ahora — datos reales</Badge> : null}
+        {!isPageVisible ? <Badge color="amber">Pausado en segundo plano</Badge> : null}
         {traffic?.n_tramos ? (
           <Badge color="blue">{traffic.n_tramos} tramos</Badge>
         ) : null}
