@@ -222,3 +222,31 @@ def test_estimate_bus_position_on_route_and_missing_route():
     assert estimate["method"] == "route_shape_interpolation"
     assert 0.009 < estimate["estimatedLon"] < 0.013
     assert missing is None
+
+
+def test_estimate_bus_position_uses_target_coordinates_when_stop_not_in_gtfs():
+    route = {
+        "id": "line-32",
+        "line": "32",
+        "source": "gtfs",
+        "stops": [],
+        "shape": [
+            {"lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+    }
+
+    estimate = mobility.estimate_bus_position_on_route({
+        "route": route,
+        "targetStopId": 136,
+        "targetLat": 0.0,
+        "targetLon": 0.02,
+        "minutesToTargetStop": 1,
+        "now": datetime(2026, 6, 22, 12, tzinfo=TZ),
+        "averageSpeedKmh": 60,
+    })
+
+    assert estimate is not None
+    assert estimate["confidence"] == "high"
+    assert estimate["method"] == "route_shape_interpolation"
+    assert 0.009 < estimate["estimatedLon"] < 0.013

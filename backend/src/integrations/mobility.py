@@ -1219,6 +1219,13 @@ def estimate_bus_position_on_route(params: dict[str, Any]) -> dict[str, Any] | N
     if target_stop is not None:
         nearest = find_nearest_point_on_route(target_stop["lat"], target_stop["lon"], {**route, "shape": measured})
         target_distance = float(nearest.get("distanceFromStartMeters", 0)) if nearest else 0.0
+    elif params.get("targetLat") is not None and params.get("targetLon") is not None:
+        nearest = find_nearest_point_on_route(
+            float(params["targetLat"]),
+            float(params["targetLon"]),
+            {**route, "shape": measured},
+        )
+        target_distance = float(nearest.get("distanceFromStartMeters", 0)) if nearest else 0.0
     else:
         target_distance = float(measured[-1].get("distanceFromStartMeters", 0))
 
@@ -1279,7 +1286,8 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
 
     at = now_madrid()
     stop_lookup = {int(stop["stopId"]): stop for stop in fetch_emt_stops().get("stops", [])}
-    stop_name = stop_lookup.get(stop_id, {}).get("name", f"Parada {stop_id}")
+    selected_stop = stop_lookup.get(stop_id, {})
+    stop_name = selected_stop.get("name", f"Parada {stop_id}")
     params = {"sec": "getSAE", "parada": str(stop_id), "adaptados": "false"}
     if line_id:
         params["linea"] = line_id
@@ -1302,6 +1310,8 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
             estimate = estimate_bus_position_on_route({
                 "route": route,
                 "targetStopId": stop_id,
+                "targetLat": selected_stop.get("lat"),
+                "targetLon": selected_stop.get("lon"),
                 "minutesToTargetStop": arrival["minutes"],
                 "now": at,
             })
