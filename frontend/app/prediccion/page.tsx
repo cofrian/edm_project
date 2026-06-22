@@ -301,7 +301,11 @@ export default function PrediccionPage() {
       const res = await api.mobilityEmtArrivals(stop.stopId, undefined, { signal });
       if (signal?.aborted) return;
       setEmtArrivalsRealtime(res);
-      setEmtArrivalsError(res.error ?? (res.source === "unavailable" ? "No se han podido cargar proximas llegadas" : null));
+      setEmtArrivalsError(
+        res.arrivals.length === 0 && res.source === "unavailable"
+          ? "No se han podido cargar proximas llegadas"
+          : null,
+      );
     } catch (error) {
       if (isAbortError(error)) return;
       setEmtArrivalsRealtime(null);
@@ -671,7 +675,9 @@ export default function PrediccionPage() {
       : [];
   const visibleEstimatedBuses =
     mobilityRealtime && mobilityLayers.estimatedBuses
-      ? emtArrivalsRealtime?.estimatedPositions ?? []
+      ? (emtArrivalsRealtime?.estimatedPositions ?? []).filter(
+          (b) => b.minutesToTargetStop <= 30,
+        )
       : [];
 
   return (
@@ -1022,15 +1028,6 @@ export default function PrediccionPage() {
                       <p className="text-sm text-slate-500">
                         Parada {selectedEmtStop.stopId} · lineas {selectedEmtStop.lines.join(", ") || "sin datos"}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {emtArrivalsRealtime?.stale && <Badge color="amber">EMT fallback</Badge>}
-                        {emtArrivalsRealtime?.source === "gtfs_schedule" && (
-                          <Badge color="green">Horario GTFS</Badge>
-                        )}
-                        {emtArrivalsRealtime?.source === "estimated_route" && (
-                          <Badge color="blue">Estimacion por ruta</Badge>
-                        )}
-                      </div>
                     </div>
                     <button
                       type="button"
@@ -1042,11 +1039,7 @@ export default function PrediccionPage() {
                       Actualizar llegadas
                     </button>
                   </div>
-                  {emtArrivalsError && (
-                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                      {emtArrivalsError}
-                    </p>
-                  )}
+
                   {mobilityLayers.emtRoutes && (
                     <p className={`rounded-lg px-3 py-2 text-sm ${
                       emtRoutesError && !emtRoutesLoading && emtRoutesStopId === selectedEmtStop?.stopId
@@ -1088,7 +1081,7 @@ export default function PrediccionPage() {
                       <ul className="mt-2 space-y-1">
                         {visibleEstimatedBuses.slice(0, 4).map((bus) => (
                           <li key={bus.id}>
-                            Linea {bus.line}: {bus.minutesToTargetStop} min · confianza {bus.confidence}
+                            Linea {bus.line}: {bus.minutesToTargetStop} min
                             {bus.delayed ? " · posible retraso" : ""}
                           </li>
                         ))}
