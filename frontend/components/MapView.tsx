@@ -15,6 +15,12 @@ import {
 import L from "leaflet";
 import type { Layer, PathOptions } from "leaflet";
 import { NIVEL_COLORS, TRAFFIC_ESTADO_COLORS, VALENCIA_CENTER } from "@/lib/constants";
+import type {
+  EmtRoute,
+  EmtStop,
+  EstimatedBusPosition,
+  ValenbisiStation,
+} from "@/lib/types";
 
 export interface MapPolygon {
   positions: [number, number][];
@@ -77,6 +83,37 @@ function eventMarkerIcon(selected: boolean): L.DivIcon {
   });
 }
 
+function busEstimateIcon(bus: EstimatedBusPosition): L.DivIcon {
+  const delayed = bus.delayed ? "border:#dc2626;background:#fee2e2;color:#991b1b;" : "border:#2563eb;background:#dbeafe;color:#1e3a8a;";
+  return L.divIcon({
+    className: "estimated-bus-marker",
+    html: `<div style="display:flex;align-items:center;gap:4px;border:2px solid;${delayed}border-radius:999px;padding:2px 7px;font-size:11px;font-weight:800;box-shadow:0 8px 24px rgba(15,23,42,.18);white-space:nowrap;">BUS ${bus.line}</div>`,
+    iconSize: [74, 26],
+    iconAnchor: [37, 13],
+  });
+}
+
+function valenbisiColor(status: ValenbisiStation["status"], alerts: ValenbisiStation["alerts"]): string {
+  if (alerts.some((alert) => alert.severity === "critical")) return "#dc2626";
+  if (status === "closed") return "#64748b";
+  if (status === "empty") return "#ef4444";
+  if (status === "full") return "#f97316";
+  if (status === "watch_event_area") return "#7c3aed";
+  return "#16a34a";
+}
+
+function routePositions(route: EmtRoute): [number, number][] {
+  const source = route.shape?.length ? route.shape : route.stops;
+  return source.map((point) => [point.lat, point.lon]);
+}
+
+function formatShortTime(value?: string | number | null): string {
+  if (!value) return "Sin fecha";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+}
+
 function formatEventTime(iso?: string): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
@@ -114,6 +151,13 @@ export default function MapView({
   eventMarkers = [],
   eventImpactZones = [],
   selectedEventId = null,
+  valenbisiStations = [],
+  emtStops = [],
+  emtRoutes = [],
+  estimatedBusPositions = [],
+  selectedEmtStopId = null,
+  onSelectEmtStop,
+  showOnlyMobilityAlerts = false,
   center = VALENCIA_CENTER,
   zoom = 12,
   height = 460,
@@ -135,6 +179,13 @@ export default function MapView({
     geojson: { type: string; properties: Record<string, unknown>; geometry: object };
   }>;
   selectedEventId?: string | null;
+  valenbisiStations?: ValenbisiStation[];
+  emtStops?: EmtStop[];
+  emtRoutes?: EmtRoute[];
+  estimatedBusPositions?: EstimatedBusPosition[];
+  selectedEmtStopId?: number | null;
+  onSelectEmtStop?: (stop: EmtStop) => void;
+  showOnlyMobilityAlerts?: boolean;
   center?: [number, number];
   zoom?: number;
   height?: number;
@@ -142,6 +193,24 @@ export default function MapView({
   useCircleMarker?: boolean;
 }) {
   const affectedSet = useMemo(() => new Set(affectedTramoIds), [affectedTramoIds]);
+  const visibleValenbisi = useMemo(
+    () =>
+      showOnlyMobilityAlerts
+        ? valenbisiStations.filter((station) => station.alerts.length > 0)
+        : valenbisiStations,
+    [showOnlyMobilityAlerts, valenbisiStations],
+  );
+  const visibleEmtStops = useMemo(
+    () => (showOnlyMobilityAlerts ? [] : emtStops),
+    [showOnlyMobilityAlerts, emtStops],
+  );
+  const visibleBusPositions = useMemo(
+    () =>
+      showOnlyMobilityAlerts
+        ? estimatedBusPositions.filter((bus) => bus.delayed)
+        : estimatedBusPositions,
+    [showOnlyMobilityAlerts, estimatedBusPositions],
+  );
 
   const maxIntensity = useMemo(
     () => Math.max(...heatmapPoints.map((p) => p.intensidad), 1),
@@ -283,6 +352,30 @@ export default function MapView({
             onEachFeature={onEachTrafficFeature as never}
           />
         )}
+        {emtRoutes.map((route) => {
+          const positions = routePositions(route);
+          if (positions.length < 2) return null;
+          const approximate = route.source === "derived_from_stops";
+          return (
+            <Polyline
+              key={`emt-route-${route.id}`}
+              positions={positions}
+              pathOptions={{
+                color: route.color ?? "#2563eb",
+                opacity: approximate ? 0.45 : 0.72,
+                weight: approximate ? 3 : 4,
+                dashArray: approximate ? "8 6" : undefined,
+              }}
+            >
+              <Popup>
+                <strong>Linea {route.line}</strong>
+                <p className="text-xs">
+                  {approximate ? "Ruta aproximada derivada de paradas." : "Ruta oficial."}
+                </p>
+              </Popup>
+            </Polyline>
+          );
+        })}
         {eventMarkers.map((ev) => {
           const selected = selectedEventId === ev.id;
           return (
@@ -308,6 +401,100 @@ export default function MapView({
             </Marker>
           );
         })}
+        {visibleValenbisi.map((station) => {
+          const color = valenbisiColor(station.status, station.alerts);
+          return (
+            <CircleMarker
+              key={`valenbisi-live-${station.id}`}
+              center={[station.lat, station.lon]}
+              radius={station.alerts.length ? 8 : 6}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.92,
+              }}
+            >
+              <Popup>
+                <strong>{station.name}</strong>
+                <p className="text-xs text-slate-500">{station.address ?? "Estacion Valenbisi"}</p>
+                <div className="mt-2 space-y-1 text-xs">
+                  <p>Bicis disponibles: <b>{station.bikesAvailable}</b></p>
+                  <p>Huecos libres: <b>{station.docksFree}</b> / {station.docksTotal}</p>
+                  <p>Estado: <b>{station.status}</b></p>
+                  <p>Actualizado: {formatShortTime(station.updatedAt)}</p>
+                </div>
+                {station.alerts.length > 0 && (
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {station.alerts.map((alert) => (
+                      <li key={alert.id} className="rounded-md bg-amber-50 px-2 py-1 text-amber-800">
+                        {alert.title}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
+        {visibleEmtStops.map((stop) => {
+          const selected = selectedEmtStopId === stop.stopId;
+          return (
+            <CircleMarker
+              key={`emt-stop-${stop.stopId}`}
+              center={[stop.lat, stop.lon]}
+              radius={selected ? 7 : 4}
+              pathOptions={{
+                color: selected ? "#0f172a" : "#ffffff",
+                weight: selected ? 2.5 : 1.5,
+                fillColor: selected ? "#0f172a" : "#0284c7",
+                fillOpacity: selected ? 0.95 : 0.72,
+              }}
+              eventHandlers={{
+                click: () => onSelectEmtStop?.(stop),
+              }}
+            >
+              <Popup>
+                <strong>{stop.name}</strong>
+                <p className="text-xs text-slate-500">Parada {stop.stopId}</p>
+                <p className="text-xs">Lineas: {stop.lines.length ? stop.lines.join(", ") : "Sin lineas"}</p>
+                {onSelectEmtStop && (
+                  <button
+                    type="button"
+                    className="mt-2 rounded-md bg-slate-900 px-2 py-1 text-xs font-semibold text-white"
+                    onClick={() => onSelectEmtStop(stop)}
+                  >
+                    Ver llegadas
+                  </button>
+                )}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
+        {visibleBusPositions.map((bus) => (
+          <Marker
+            key={`bus-est-${bus.id}`}
+            position={[bus.estimatedLat, bus.estimatedLon]}
+            icon={busEstimateIcon(bus)}
+            zIndexOffset={900}
+          >
+            <Popup>
+              <strong>Linea {bus.line}</strong>
+              <p className="text-xs">
+                Posicion estimada, no GPS real. Llega en {bus.minutesToTargetStop} min.
+              </p>
+              {bus.destination && <p className="text-xs">Destino: {bus.destination}</p>}
+              <p className="text-xs">Confianza: {bus.confidence}</p>
+              <p className="text-xs">Metodo: {bus.method}</p>
+              {bus.delayed && (
+                <p className="mt-1 rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                  Posible retraso
+                </p>
+              )}
+              <p className="text-xs text-slate-500">{bus.message}</p>
+            </Popup>
+          </Marker>
+        ))}
         {lines.map((line, i) => (
           <Polyline
             key={`line-${i}`}

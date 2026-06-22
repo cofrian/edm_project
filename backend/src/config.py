@@ -14,7 +14,7 @@ class Settings:
         self.model_dir: str = os.getenv("MODEL_DIR", os.path.join(base, "models"))
         origins = os.getenv(
             "ALLOW_ORIGINS",
-            "http://localhost:3000,http://127.0.0.1:3000,https://urbanflow-valencia.vercel.app",
+            "http://localhost:3000,http://127.0.0.1:3000,https://edm-project.vercel.app",
         )
         self.allow_origins: list[str] = [o.strip() for o in origins.split(",") if o.strip()]
         self.project_name: str = "UrbanFlow Valencia API"
