@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from src.integrations import mobility
-from src.ttl_cache import clear_cache
+from src.ttl_cache import clear_cache, set_cached
 
 TZ = ZoneInfo("Europe/Madrid")
 
@@ -250,3 +250,147 @@ def test_estimate_bus_position_uses_target_coordinates_when_stop_not_in_gtfs():
     assert estimate["confidence"] == "high"
     assert estimate["method"] == "route_shape_interpolation"
     assert 0.009 < estimate["estimatedLon"] < 0.013
+
+
+def test_fetch_emt_arrivals_uses_last_good_on_timeout(monkeypatch):
+    clear_cache()
+    at = datetime(2026, 6, 22, 12, 0, tzinfo=TZ)
+    stale_at = at + timedelta(minutes=2)
+    stop = {
+        "id": "739",
+        "stopId": 739,
+        "name": "Parada 739",
+        "lines": ["10"],
+        "lat": 0.0,
+        "lon": 0.02,
+    }
+    route = {
+        "id": "line-10",
+        "line": "10",
+        "source": "gtfs",
+        "stops": [
+            {"stopId": 1, "name": "A", "lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"stopId": 739, "name": "B", "lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+        "shape": [
+            {"lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+    }
+    last_good = {
+        "stopId": 739,
+        "stopName": "Parada 739",
+        "arrivals": [{
+            "stopId": 739,
+            "line": "10",
+            "destination": "Centro",
+            "minutes": 5,
+            "expectedArrivalTime": (at + timedelta(minutes=5)).isoformat(),
+        }],
+        "snapshots": [],
+        "alerts": [],
+        "estimatedPositions": [],
+        "routes": [],
+        "source": "emt_sae",
+        "sourceLabel": "EMT Valencia SAE",
+        "sourceUrl": "",
+        "fetchedAt": at.isoformat(),
+        "updatedTtlSeconds": 45,
+        "stale": False,
+    }
+    set_cached("mobility:emt:arrivals:739:all:last_good", last_good, 900)
+
+    monkeypatch.setattr(mobility, "now_madrid", lambda: stale_at)
+    monkeypatch.setattr(mobility, "fetch_emt_stops", lambda: {"stops": [stop]})
+    monkeypatch.setattr(mobility, "_fetch_text", lambda *args, **kwargs: (_ for _ in ()).throw(TimeoutError("timed out")))
+    monkeypatch.setattr(mobility, "get_route_for_line", lambda *args, **kwargs: route)
+
+    response = mobility.fetch_emt_arrivals(739)
+
+    assert response["source"] == "emt_sae_stale"
+    assert response["stale"] is True
+    assert response["arrivals"][0]["minutes"] == 3
+    assert response["estimatedPositions"][0]["confidence"] == "low"
+    assert response["routes"][0]["id"] == "line-10"
+    assert "SAE EMT no responde" in response["error"]
+
+
+def test_fetch_emt_arrivals_estimates_from_route_when_sae_has_no_history(monkeypatch):
+    clear_cache()
+    at = datetime(2026, 6, 22, 12, 9, tzinfo=TZ)
+    stop = {
+        "id": "739",
+        "stopId": 739,
+        "name": "Parada 739",
+        "lines": ["10"],
+        "lat": 0.0,
+        "lon": 0.02,
+    }
+    route = {
+        "id": "line-10",
+        "line": "10",
+        "name": "Linea 10",
+        "source": "gtfs",
+        "stops": [
+            {"stopId": 1, "name": "A", "lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"stopId": 739, "name": "B", "lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+        "shape": [
+            {"lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+    }
+
+    monkeypatch.setattr(mobility, "now_madrid", lambda: at)
+    monkeypatch.setattr(mobility, "fetch_emt_stops", lambda: {"stops": [stop]})
+    monkeypatch.setattr(mobility, "_fetch_text", lambda *args, **kwargs: (_ for _ in ()).throw(TimeoutError("timed out")))
+    monkeypatch.setattr(mobility, "get_route_for_line", lambda *args, **kwargs: route)
+
+    response = mobility.fetch_emt_arrivals(739)
+
+    assert response["source"] == "estimated_route"
+    assert response["stale"] is True
+    assert response["arrivals"][0]["line"] == "10"
+    assert response["arrivals"][0]["raw"]["fallback"] == "route_headway_estimate"
+    assert response["estimatedPositions"][0]["method"] == "average_speed_backtracking"
+    assert response["estimatedPositions"][0]["confidence"] == "low"
+
+
+def test_fetch_emt_arrivals_estimates_from_route_when_sae_returns_empty(monkeypatch):
+    clear_cache()
+    at = datetime(2026, 6, 22, 12, 9, tzinfo=TZ)
+    stop = {
+        "id": "1951",
+        "stopId": 1951,
+        "name": "Pere II El Cerimonios",
+        "lines": ["35"],
+        "lat": 0.0,
+        "lon": 0.02,
+    }
+    route = {
+        "id": "line-35",
+        "line": "35",
+        "name": "Linea 35",
+        "source": "gtfs",
+        "stops": [
+            {"stopId": 1, "name": "A", "lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"stopId": 1951, "name": "B", "lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+        "shape": [
+            {"lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+    }
+
+    monkeypatch.setattr(mobility, "now_madrid", lambda: at)
+    monkeypatch.setattr(mobility, "fetch_emt_stops", lambda: {"stops": [stop]})
+    monkeypatch.setattr(mobility, "_fetch_text", lambda *args, **kwargs: "")
+    monkeypatch.setattr(mobility, "get_route_for_line", lambda *args, **kwargs: route)
+
+    response = mobility.fetch_emt_arrivals(1951)
+
+    assert response["source"] == "estimated_route"
+    assert response["stale"] is True
+    assert response["arrivals"][0]["line"] == "35"
+    assert response["routes"][0]["id"] == "line-35"
+    assert "no ha devuelto llegadas" in response["error"]

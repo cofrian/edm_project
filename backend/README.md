@@ -58,6 +58,8 @@ docker run -p 8000:8000 urbanflow-api
 - `VALENCIA_VALENBISI_TTL_SECONDS`, `VALENCIA_EMT_STOPS_TTL_SECONDS`,
   `VALENCIA_EMT_ARRIVALS_TTL_SECONDS`, `VALENCIA_EMT_ROUTES_TTL_SECONDS`: TTL de cache.
 - `VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS`: timeout de consulta SAE EMT.
+- `VALENCIA_EMT_ARRIVALS_LAST_GOOD_TTL_SECONDS`: ventana para reutilizar la ultima respuesta SAE valida.
+- `VALENCIA_EMT_FALLBACK_HEADWAY_MINUTES`, `VALENCIA_EMT_FALLBACK_MAX_LINES`: frecuencia media y numero maximo de lineas usadas cuando SAE no responde.
 - `VALENCIA_EMT_ROUTES_URL`: fuente GeoJSON opcional de shapes/rutas EMT.
 - `VALENCIA_EMT_GTFS_RESOURCE_ID`: recurso CKAN Open Data Valencia para resolver el ZIP GTFS oficial de EMT.
 - `VALENCIA_EMT_GTFS_URL`: URL ZIP GTFS manual si no se usa CKAN.
