@@ -14,45 +14,45 @@ import {
 export const metadata = { title: "Datos" };
 
 const OPT_DATA = [
-  ["Candidatos", "128 ubicaciones evaluables con coordenadas, coste e isócrona."],
-  ["Cobertura actual", "Equipamientos existentes y su área alcanzable para medir déficit."],
-  ["Población", "Cuadrícula/hexágonos de población para cuantificar habitantes cubiertos."],
-  ["Capas GIS", "Tráfico, estaciones Valenbisi y cobertura existente servidos como GeoJSON."],
+  ["Candidatos", "128 ubicaciones posibles con coordenadas, coste y área de alcance."],
+  ["Cobertura actual", "Equipamientos existentes y zonas a las que ya dan servicio."],
+  ["Población", "Zonas de población para calcular cuántas personas quedarían cubiertas."],
+  ["Capas del mapa", "Tráfico, estaciones Valenbisi y cobertura existente en formato GeoJSON."],
 ];
 
 const CONCEPTS = [
   {
     title: "Isócrona",
-    text: "Área alcanzable a pie desde un punto en un tiempo dado. Define la zona de influencia.",
+    text: "Zona a la que se puede llegar andando desde un punto en un tiempo concreto.",
     icon: <Route className="h-4 w-4" />,
   },
   {
     title: "Cobertura",
-    text: "Habitantes cuyo centroide cae dentro de una isócrona de servicio.",
+    text: "Personas que tienen un equipamiento suficientemente cerca.",
     icon: <Users className="h-4 w-4" />,
   },
   {
     title: "Déficit",
-    text: "Población no cubierta por la red existente y, por tanto, prioritaria.",
+    text: "Población que no tiene buena cobertura y debería tener más prioridad.",
     icon: <Radar className="h-4 w-4" />,
   },
 ];
 
 const TRAFFIC_VARS = [
-  ["Zona", "Identificador de zona/sensor de tráfico (~1.158 zonas)"],
-  ["Intensidad", "Vehículos/hora; objetivo del modelo de demanda"],
+  ["Zona", "Identificador de cada zona o sensor de tráfico (~1.158 zonas)"],
+  ["Intensidad", "Vehículos por hora que el modelo intenta predecir"],
   ["Velocidad / Ocupación", "Estado del tráfico por zona"],
   ["Meteorología", "Temperatura, humedad, presión, viento, precipitación y radiación"],
   ["Calendario", "Año, mes, día, hora y día de la semana"],
 ];
 
 const PREP_STEPS = [
-  "Imputación de huecos por contexto horario de la misma zona.",
-  "Unificación del tipo de Zona para evitar errores de merge.",
-  "Baseline suavizado por zona, día y hora como patrón estructural.",
-  "Parseo de isócronas, cálculo de áreas y detección de solape.",
-  "Features de calendario y variables meteorológicas preparadas para CatBoost.",
-  "Validación temporal: entrenamiento días 1-24 y holdout 25-31 de octubre.",
+  "Relleno de datos que faltan usando horas parecidas de la misma zona.",
+  "Unificación del campo de zona para cruzar bien los datos.",
+  "Cálculo de un patrón base por zona, día y hora.",
+  "Lectura de isócronas, cálculo de áreas y detección de solapes.",
+  "Preparación de calendario y meteorología para el modelo CatBoost.",
+  "Validación temporal: entrenamiento con los días 1-24 y prueba con los días 25-31 de octubre.",
 ];
 
 export default function DatosPage() {
@@ -60,8 +60,8 @@ export default function DatosPage() {
     <div className="space-y-8">
       <PageHeader
         eyebrow="Datos urbanos"
-        title="Base de datos de la decisión"
-        description="La app separa datos de optimización, demanda y monitorización para que cada resultado pueda explicarse desde su fuente."
+        title="Datos que usa la app"
+        description="La app separa los datos de ubicaciones, demanda y monitorización para que cada resultado se pueda entender y comprobar."
       />
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -73,14 +73,14 @@ export default function DatosPage() {
 
       <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
         <Card>
-          <p className="eyebrow">Geometría de la optimización</p>
+          <p className="eyebrow">Datos de ubicaciones</p>
           <h3 className="mt-1 text-xl font-semibold text-slate-950">
-            Qué datos usa el solver
+            Qué datos usa el optimizador
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Cada candidato se evalúa por coste, población que puede cubrir y
-            solape con la cobertura existente. Esa combinación permite comparar
-            ubicaciones de forma homogénea.
+            Cada ubicación se compara por coste, población que puede cubrir y
+            cobertura que ya existe cerca. Así se pueden comparar opciones de
+            forma justa.
           </p>
           <div className="mt-5 grid gap-3">
             {OPT_DATA.map(([name, detail]) => (
@@ -100,7 +100,7 @@ export default function DatosPage() {
         <Card>
           <p className="eyebrow">Conceptos clave</p>
           <h3 className="mt-1 text-xl font-semibold text-slate-950">
-            Cómo se interpreta la cobertura
+            Cómo entender la cobertura
           </h3>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {CONCEPTS.map((concept) => (
@@ -114,23 +114,23 @@ export default function DatosPage() {
             ))}
           </div>
           <div className="mt-4 rounded-2xl bg-cyan-50 p-5 text-sm leading-6 text-slate-700">
-            La cobertura se calcula cruzando centroides de población con
-            isócronas. Así la app distingue entre habitantes ya cubiertos y
-            nueva cobertura potencial.
+            La cobertura se calcula cruzando zonas de población con áreas de
+            alcance. Así la app distingue entre población ya cubierta y
+            población que podría quedar cubierta con una nueva ubicación.
           </div>
         </Card>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
         <Card>
-          <p className="eyebrow">Señal de demanda</p>
+          <p className="eyebrow">Demanda</p>
           <h3 className="mt-1 text-xl font-semibold text-slate-950">
             Variables de tráfico y contexto
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            El tráfico actúa como indicador de actividad urbana. El modelo
-            CatBoost lo predice por zona y hora a partir de variables de
-            calendario, meteorología y estado del tráfico.
+            El tráfico sirve como señal de actividad urbana. El modelo CatBoost
+            estima el tráfico por zona y hora usando calendario, meteorología y
+            estado del tráfico.
           </p>
           <div className="mt-4 overflow-x-auto scroll-thin">
             <table className="w-full text-sm">
@@ -149,7 +149,7 @@ export default function DatosPage() {
         <Card>
           <p className="eyebrow">Preparación</p>
           <h3 className="mt-1 text-xl font-semibold text-slate-950">
-            Limpieza antes de desplegar
+            Limpieza antes de usar los datos
           </h3>
           <div className="mt-4 space-y-2">
             {PREP_STEPS.map((step, index) => (
@@ -163,7 +163,7 @@ export default function DatosPage() {
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge color="green">Sin datos inventados</Badge>
-            <Badge color="slate">Artefactos validados</Badge>
+            <Badge color="slate">Archivos validados</Badge>
           </div>
         </Card>
       </section>
@@ -173,12 +173,11 @@ export default function DatosPage() {
           <div>
             <p className="eyebrow">Trazabilidad</p>
             <h3 className="mt-1 text-xl font-semibold text-slate-950">
-              De preparación a aplicación
+              De los datos a la app
             </h3>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Los datos preparados alimentan tres salidas de la app: predicción
-              de demanda, optimización de ubicaciones y monitorización de
-              fiabilidad.
+              Los datos preparados se usan en tres partes de la app: predicción
+              de demanda, elección de ubicaciones y revisión de fiabilidad.
             </p>
           </div>
           <GitBranch className="h-6 w-6 text-slate-400" />

@@ -1,18 +1,21 @@
-# backend/models
+# Modelos del backend
 
-Modelos CatBoost por hora (uno por cada hora del día):
+Esta carpeta contiene los modelos que usa la API para predecir tráfico. Hay un
+modelo CatBoost por cada hora del día:
 
 ```
 catboost_hour_00.cbm … catboost_hour_23.cbm
 ```
 
-Artefactos de apoyo del pipeline:
+Archivos de apoyo usados por el modelo:
 
-- `baseline_oct2023_SMOO.csv` — baseline suavizado por Zona×DíaSemana×Hora.
-- `zone_embeddings.csv` — embeddings PCA de zona.
-- `ratio_prior.csv` — prior de ratios.
-- `shrink_cfg.json` — parámetros de shrink (`tau`, `s`).
+- `baseline_oct2023_SMOO.csv`: patrón base de tráfico por zona, día de la semana y hora.
+- `zone_embeddings.csv`: representación numérica de cada zona.
+- `ratio_prior.csv`: valores de referencia para ajustar la predicción.
+- `shrink_cfg.json`: parámetros usados para suavizar ajustes extremos.
 
-Los `.cbm` se versionan con **Git LFS** (160 MB). Se copian desde
-`samsung/proyecto_samsung/models_oct2023_catboost/` mediante `scripts/export_models.py`.
-No se reentrena en producción.
+Los modelos `.cbm` pesan unos 160 MB y se versionan con **Git LFS**. Se copian
+desde `samsung/proyecto_samsung/models_oct2023_catboost/` mediante
+`scripts/export_models.py`.
+
+La API carga estos modelos ya entrenados. No entrena modelos en producción.

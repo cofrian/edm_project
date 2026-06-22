@@ -1,8 +1,12 @@
-# backend/data
+# Datos del backend
 
-- `processed/`: artefactos derivados de datos reales (versionados). Generados por `scripts/` y `notebooks/`.
-- `raw/`: datos crudos locales (NO versionados; ver `.gitignore`).
+Esta carpeta contiene los datos que usa la API.
 
-Todos los artefactos de `processed/` provienen de las carpetas fuente
-(`samsung/proyecto_samsung`, `CURSO SMARTCITIES`). Ver `docs/informe_inspeccion.md`
-para la trazabilidad (archivo → origen → generador → columnas → filas).
+- `processed/`: archivos preparados a partir de datos reales. Están versionados y los usa la app.
+- `raw/`: datos originales usados en local. No se versionan; están ignorados en `.gitignore`.
+
+Los archivos de `processed/` se generan con `scripts/` y `notebooks/`. Proceden de
+las carpetas fuente `samsung/proyecto_samsung` y `CURSO SMARTCITIES`.
+
+Para ver de dónde sale cada archivo, qué script lo genera y qué columnas contiene,
+consulta [`docs/informe_inspeccion.md`](../../docs/informe_inspeccion.md).

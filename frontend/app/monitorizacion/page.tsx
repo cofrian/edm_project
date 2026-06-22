@@ -14,9 +14,9 @@ export default async function MonitorizacionPage() {
   return (
     <div className="space-y-10">
       <PageHeader
-        eyebrow="EDM · Monitoring & ModelOps"
+        eyebrow="Monitorización"
         title="Monitorización y fiabilidad"
-        description="Seguimiento del error del modelo por hora y zona, con alertas cuando el MAE supera el umbral. Garantiza que la señal de demanda sigue siendo válida en el tiempo."
+        description="Seguimiento del error del modelo por hora y zona. La app avisa cuando el error es alto para saber si las predicciones siguen siendo fiables."
       >
         <Badge color={hasAlerts ? "amber" : "green"}>
           {hasAlerts ? "Con avisos" : "Estable"}
@@ -33,7 +33,7 @@ export default async function MonitorizacionPage() {
       <Card title="Alertas de fiabilidad">
         <div className="space-y-2">
           {m.alerts.length === 0 && (
-            <p className="text-sm text-slate-400">Sin alertas registradas.</p>
+            <p className="text-sm text-slate-400">No hay alertas registradas.</p>
           )}
           {m.alerts.map((a, i) => (
             <div
@@ -58,7 +58,7 @@ export default async function MonitorizacionPage() {
       </Card>
 
       <div className="grid gap-7 lg:grid-cols-2">
-        <Card title="MAE por hora" description="Franjas con mayor error → menor confianza.">
+        <Card title="MAE por hora" description="Horas en las que el modelo se equivoca más. Si el error sube, la confianza baja.">
           {m.mae_by_hour.length ? (
             <BarMetric
               data={m.mae_by_hour as unknown as Record<string, number>[]}
@@ -70,7 +70,7 @@ export default async function MonitorizacionPage() {
             <p className="text-sm text-slate-400">Sin datos de métricas por hora.</p>
           )}
         </Card>
-        <Card title="Top zonas con más error">
+        <Card title="Zonas con más error">
           {m.top_error_zones.length ? (
             <div className="overflow-x-auto scroll-thin">
               <table className="w-full text-sm">
@@ -95,19 +95,19 @@ export default async function MonitorizacionPage() {
               </table>
             </div>
           ) : (
-            <p className="text-sm text-slate-400">Genera validation_predictions.csv para ver errores por zona.</p>
+            <p className="text-sm text-slate-400">Falta generar validation_predictions.csv para ver errores por zona.</p>
           )}
         </Card>
       </div>
 
-      <Card title="Drift y limitaciones">
+      <Card title="Limitaciones a tener en cuenta">
         <ul className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-          <li className="rounded-2xl bg-slate-50 p-4">Datos de octubre 2023; un cambio estacional o de sensores puede degradar el modelo (drift).</li>
-          <li className="rounded-2xl bg-slate-50 p-4">Horas valle y zonas periféricas tienen mayor sMAPE: interpretar con cautela.</li>
-          <li className="rounded-2xl bg-slate-50 p-4">En producción se reentrenaría periódicamente comparando el error vivo contra este baseline.</li>
-          <li className="rounded-2xl bg-slate-50 p-4">La cobertura se calcula con población hexagonal e isócronas; debe validarse con criterio urbanístico antes de una decisión real.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">El modelo usa datos de octubre de 2023. Si cambian los sensores o la movilidad de la ciudad, puede perder precisión.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">En horas con poco tráfico y zonas periféricas el error puede ser mayor. Conviene interpretar esos casos con cuidado.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">En un uso real habría que reentrenar el modelo cada cierto tiempo y comparar si el error mejora o empeora.</li>
+          <li className="rounded-2xl bg-slate-50 p-4">La cobertura se calcula con zonas de población e isócronas. Antes de decidir de verdad, habría que revisarlo con criterio urbanístico.</li>
         </ul>
-        <div className="mt-3"><Badge color="blue">EDM: Monitoring / ModelOps</Badge></div>
+        <div className="mt-3"><Badge color="blue">Seguimiento del modelo</Badge></div>
       </Card>
     </div>
   );
