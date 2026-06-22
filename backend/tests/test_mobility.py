@@ -345,6 +345,7 @@ def test_fetch_emt_arrivals_estimates_from_route_when_sae_has_no_history(monkeyp
     monkeypatch.setattr(mobility, "fetch_emt_stops", lambda: {"stops": [stop]})
     monkeypatch.setattr(mobility, "_fetch_text", lambda *args, **kwargs: (_ for _ in ()).throw(TimeoutError("timed out")))
     monkeypatch.setattr(mobility, "get_route_for_line", lambda *args, **kwargs: route)
+    monkeypatch.setattr(mobility, "_gtfs_next_arrivals", lambda *args, **kwargs: [])
 
     response = mobility.fetch_emt_arrivals(739)
 
@@ -386,6 +387,7 @@ def test_fetch_emt_arrivals_estimates_from_route_when_sae_returns_empty(monkeypa
     monkeypatch.setattr(mobility, "fetch_emt_stops", lambda: {"stops": [stop]})
     monkeypatch.setattr(mobility, "_fetch_text", lambda *args, **kwargs: "")
     monkeypatch.setattr(mobility, "get_route_for_line", lambda *args, **kwargs: route)
+    monkeypatch.setattr(mobility, "_gtfs_next_arrivals", lambda *args, **kwargs: [])
 
     response = mobility.fetch_emt_arrivals(1951)
 
@@ -394,3 +396,80 @@ def test_fetch_emt_arrivals_estimates_from_route_when_sae_returns_empty(monkeypa
     assert response["arrivals"][0]["line"] == "35"
     assert response["routes"][0]["id"] == "line-35"
     assert "no ha devuelto llegadas" in response["error"]
+
+
+def test_gtfs_stop_arrivals_uses_active_calendar_services():
+    content = _gtfs_zip({
+        "calendar.txt": (
+            "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n"
+            "WK,1,1,1,1,1,0,0,20260101,20261231\n"
+            "WE,0,0,0,0,0,1,1,20260101,20261231\n"
+        ),
+        "calendar_dates.txt": "service_id,date,exception_type\n",
+        "routes.txt": "route_id,route_short_name\nR32,32\n",
+        "trips.txt": (
+            "route_id,service_id,trip_id,trip_headsign,direction_id,shape_id\n"
+            "R32,WK,T32A,Ateneu,0,SH32\n"
+            "R32,WE,T32B,Weekend,0,SH32\n"
+        ),
+        "stop_times.txt": (
+            "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+            "T32A,12:15:00,12:15:00,1951,1\n"
+            "T32B,12:20:00,12:20:00,1951,1\n"
+        ),
+    })
+
+    index = mobility._build_gtfs_stop_arrivals(content, "2026-06-22")
+
+    assert index[1951] == [{
+        "line": "32",
+        "destination": "Ateneu",
+        "arrival_seconds": 12 * 3600 + 15 * 60,
+    }]
+
+
+def test_fetch_emt_arrivals_prefers_gtfs_schedule_when_sae_empty(monkeypatch):
+    clear_cache()
+    at = datetime(2026, 6, 22, 12, 9, tzinfo=TZ)
+    stop = {
+        "id": "1951",
+        "stopId": 1951,
+        "name": "Pere II El Cerimonios",
+        "lines": ["32"],
+        "lat": 0.0,
+        "lon": 0.02,
+    }
+    route = {
+        "id": "line-32",
+        "line": "32",
+        "source": "gtfs",
+        "stops": [
+            {"stopId": 1, "name": "A", "lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"stopId": 1951, "name": "B", "lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+        "shape": [
+            {"lat": 0.0, "lon": 0.0, "sequence": 0},
+            {"lat": 0.0, "lon": 0.02, "sequence": 1},
+        ],
+    }
+    gtfs_arrivals = [{
+        "stopId": 1951,
+        "line": "32",
+        "destination": "Ateneu",
+        "minutes": 6,
+        "expectedArrivalTime": (at + timedelta(minutes=6)).isoformat(),
+    }]
+
+    monkeypatch.setattr(mobility, "now_madrid", lambda: at)
+    monkeypatch.setattr(mobility, "fetch_emt_stops", lambda: {"stops": [stop]})
+    monkeypatch.setattr(mobility, "_fetch_text", lambda *args, **kwargs: "")
+    monkeypatch.setattr(mobility, "_gtfs_next_arrivals", lambda *args, **kwargs: gtfs_arrivals)
+    monkeypatch.setattr(mobility, "get_route_for_line", lambda *args, **kwargs: route)
+
+    response = mobility.fetch_emt_arrivals(1951)
+
+    assert response["source"] == "gtfs_schedule"
+    assert response["arrivals"][0]["line"] == "32"
+    assert response["arrivals"][0]["minutes"] == 6
+    assert response["estimatedPositions"][0]["method"] == "average_speed_backtracking"
+    assert "horario programado GTFS" in response["error"]
