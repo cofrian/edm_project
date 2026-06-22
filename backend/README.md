@@ -27,6 +27,11 @@ movilidad sostenible (PuLP). Forma parte de la entrega EDM.
 | POST | `/optimize/valenbisi` | Selección de N ubicaciones (PuLP) |
 | POST | `/optimize/coverage` | Cobertura bajo presupuesto (PuLP) |
 | GET | `/map/traffic-segments` | GeoJSON ligero |
+| GET | `/api/mobility/valenbisi/stations` | Valenbisi en tiempo real + alertas |
+| GET | `/api/mobility/emt/stops` | Paradas EMT |
+| GET | `/api/mobility/emt/stops/{stop_id}/arrivals` | Llegadas EMT por parada seleccionada |
+| GET | `/api/mobility/emt/routes` | Rutas EMT configuradas o aproximadas |
+| GET | `/api/mobility/alerts` | Alertas operativas de movilidad |
 | GET | `/candidates/valenbisi` | Candidatos disponibles |
 | GET | `/monitoring/alerts` | Alertas de fiabilidad |
 
@@ -50,6 +55,9 @@ docker run -p 8000:8000 urbanflow-api
 
 - `ALLOW_ORIGINS`: orígenes CORS permitidos (incluir la URL de Vercel).
 - `DATA_DIR`, `MODEL_DIR`: rutas a datos procesados y modelos.
+- `VALENCIA_VALENBISI_TTL_SECONDS`, `VALENCIA_EMT_STOPS_TTL_SECONDS`,
+  `VALENCIA_EMT_ARRIVALS_TTL_SECONDS`, `VALENCIA_EMT_ROUTES_TTL_SECONDS`: TTL de cache.
+- `VALENCIA_EMT_ROUTES_URL`: fuente opcional de shapes/rutas EMT; si no existe se derivan rutas aproximadas desde paradas.
 
 ## Modelo
 

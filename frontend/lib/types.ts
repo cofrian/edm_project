@@ -256,3 +256,181 @@ export interface TrafficTramoProperties {
   lectura_source?: string | null;
   idtramo_188?: string | null;
 }
+
+export type MobilityAlertType =
+  | "VALENBISI_EMPTY"
+  | "VALENBISI_FULL"
+  | "VALENBISI_CLOSED"
+  | "VALENBISI_NEAR_EVENT"
+  | "EMT_DELAY";
+
+export interface MobilityAlert {
+  id: string;
+  type: MobilityAlertType;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  entityType: "valenbisi_station" | "emt_stop" | "emt_line";
+  entityId: string;
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ValenbisiStation {
+  id: string;
+  number: number;
+  name: string;
+  address?: string | null;
+  isOpen: boolean;
+  bikesAvailable: number;
+  docksFree: number;
+  docksTotal: number;
+  updatedAt?: string | number | null;
+  lat: number;
+  lon: number;
+  status: "ok" | "empty" | "full" | "closed" | "watch_event_area";
+  alerts: MobilityAlert[];
+}
+
+export interface ValenbisiStationsResponse {
+  stations: ValenbisiStation[];
+  alerts: MobilityAlert[];
+  source: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  updatedTtlSeconds: number;
+  stale: boolean;
+  error?: string;
+}
+
+export interface EmtStop {
+  id: string;
+  stopId: number;
+  name: string;
+  lines: string[];
+  nextArrivalsUrl?: string | null;
+  lat: number;
+  lon: number;
+}
+
+export interface EmtStopsResponse {
+  stops: EmtStop[];
+  source: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  updatedTtlSeconds: number;
+  stale: boolean;
+  error?: string;
+}
+
+export interface EmtArrival {
+  stopId: number;
+  line: string;
+  destination?: string | null;
+  minutes: number;
+  expectedArrivalTime?: string | null;
+  raw?: unknown;
+}
+
+export interface EmtArrivalSnapshot {
+  id: string;
+  stopId: number;
+  line: string;
+  destination?: string | null;
+  firstSeenAt: string;
+  predictedArrivalAt: string;
+  predictedMinutesAtFirstSeen: number;
+  lastSeenAt: string;
+  currentMinutes?: number;
+  status: "pending" | "arrived" | "delayed" | "unknown";
+}
+
+export interface EmtRouteStop {
+  stopId: number;
+  name?: string;
+  lat: number;
+  lon: number;
+  sequence: number;
+  plannedArrivalOffsetMinutes?: number;
+}
+
+export interface RoutePoint {
+  lat: number;
+  lon: number;
+  sequence: number;
+  distanceFromStartMeters?: number;
+}
+
+export interface EmtRoute {
+  id: string;
+  line: string;
+  name?: string;
+  direction?: string | null;
+  color?: string;
+  stops: EmtRouteStop[];
+  shape?: RoutePoint[];
+  source: "geoportal" | "gtfs" | "derived_from_stops" | "mock";
+}
+
+export interface EstimatedBusPosition {
+  id: string;
+  line: string;
+  targetStopId: number;
+  estimatedLat: number;
+  estimatedLon: number;
+  confidence: "low" | "medium" | "high";
+  method:
+    | "route_shape_interpolation"
+    | "previous_stop_interpolation"
+    | "average_speed_backtracking"
+    | "fallback_nearest_previous_stop";
+  minutesToTargetStop: number;
+  estimatedDistanceToTargetMeters?: number;
+  previousStopId?: number | null;
+  nextStopId?: number | null;
+  message: string;
+  updatedAt: string;
+  destination?: string | null;
+  delayed?: boolean;
+  sourceNote?: string;
+}
+
+export interface EmtArrivalsResponse {
+  stopId: number;
+  stopName: string;
+  arrivals: EmtArrival[];
+  snapshots: EmtArrivalSnapshot[];
+  alerts: MobilityAlert[];
+  estimatedPositions: EstimatedBusPosition[];
+  routes: EmtRoute[];
+  source: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  updatedTtlSeconds: number;
+  stale: boolean;
+  error?: string;
+}
+
+export interface EmtRoutesResponse {
+  routes: EmtRoute[];
+  source: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  updatedTtlSeconds: number;
+  stale: boolean;
+  error?: string;
+}
+
+export interface MobilityAlertsResponse {
+  alerts: MobilityAlert[];
+  counts: {
+    critical: number;
+    warning: number;
+    info: number;
+  };
+  fetchedAt: string;
+}

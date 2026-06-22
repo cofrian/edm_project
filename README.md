@@ -138,6 +138,11 @@ API REST que **carga artefactos precomputados** (no entrena en producción). Sir
 | `GET` | `/weather/current` | Meteo actual (AEMET o defaults) |
 | `GET` | `/weather/forecast` | Serie horaria del día |
 | `GET` | `/traffic/live` | Tráfico real Ayuntamiento (ArcGIS) |
+| `GET` | `/api/mobility/valenbisi/stations` | Valenbisi en tiempo real + alertas |
+| `GET` | `/api/mobility/emt/stops` | Paradas EMT desde Geoportal |
+| `GET` | `/api/mobility/emt/stops/{stop_id}/arrivals` | Llegadas SAE EMT por parada seleccionada |
+| `GET` | `/api/mobility/emt/routes` | Rutas EMT configuradas o aproximadas por paradas |
+| `GET` | `/api/mobility/alerts` | Alertas operativas de movilidad |
 | `GET` | `/events` | Eventos urbanos (`?from=&to=`) |
 | `GET` | `/map/zones` | GeoJSON ~1.158 puntos zona |
 | `POST` | `/optimize/sports` | Polideportivo bajo presupuesto (ILP, población real) |
@@ -193,6 +198,8 @@ El solver **CBC** (`coinor-cbc`) se instala en el contenedor Docker y en CI.
 ```env
 ENV=production
 ALLOW_ORIGINS=http://localhost:3000,https://edm-project.vercel.app
+VALENCIA_VALENBISI_TTL_SECONDS=180
+VALENCIA_EMT_ARRIVALS_TTL_SECONDS=45
 ```
 
 | Secret / variable | Obligatorio | Descripción |
@@ -484,6 +491,14 @@ python scripts/validate_artifacts.py
 | `ALLOW_ORIGINS` | Orígenes CORS (coma, una línea) | `http://localhost:3000,https://edm-project.vercel.app` |
 | `AEMET_API_KEY` | API key opendata.aemet.es (meteo en vivo) | *(opcional)* |
 | `MAE_ALERT_THRESHOLD` | Umbral de alerta MAE (opcional) | `60` |
+| `VALENCIA_VALENBISI_TTL_SECONDS` | Cache Valenbisi en tiempo real | `180` |
+| `VALENCIA_EMT_STOPS_TTL_SECONDS` | Cache de paradas EMT | `21600` |
+| `VALENCIA_EMT_ARRIVALS_TTL_SECONDS` | Cache de llegadas SAE por parada | `45` |
+| `VALENCIA_EMT_ROUTES_TTL_SECONDS` | Cache de rutas EMT | `21600` |
+| `VALENCIA_EVENT_VALENBISI_RADIUS_METERS` | Radio para alertas Valenbisi cerca de eventos | `1000` |
+| `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES` | Umbral de retraso EMT | `3` |
+| `VALENCIA_EMT_AVG_SPEED_KMH` | Velocidad media para posicion estimada | `14` |
+| `VALENCIA_EMT_ROUTES_URL` | Fuente opcional de rutas/shapes EMT | *(opcional)* |
 
 ### Frontend (`frontend/.env.local` o Vercel)
 
