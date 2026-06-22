@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+import zipfile
 from datetime import datetime, timedelta
 from html import unescape
 from typing import Any
@@ -38,10 +41,22 @@ EMT_ARRIVALS_URL = os.getenv(
     "https://www.emtvalencia.es/EMT/mapfunctions/MapUtilsPetitions.php",
 )
 EMT_ROUTES_URL = os.getenv("VALENCIA_EMT_ROUTES_URL", "")
+EMT_GTFS_RESOURCE_ID = os.getenv(
+    "VALENCIA_EMT_GTFS_RESOURCE_ID",
+    "c81b69e6-c082-44dc-acc6-66fc417b4e66",
+)
+EMT_GTFS_RESOURCE_API_URL = os.getenv(
+    "VALENCIA_EMT_GTFS_RESOURCE_API_URL",
+    "https://opendata.vlci.valencia.es/api/3/action/resource_show",
+)
+EMT_GTFS_URL = os.getenv("VALENCIA_EMT_GTFS_URL", "").strip()
+EMT_GTFS_NAP_FILE_ID = os.getenv("VALENCIA_EMT_GTFS_NAP_FILE_ID", "").strip()
+EMT_GTFS_API_KEY = os.getenv("VALENCIA_EMT_GTFS_API_KEY", "").strip()
 
 VALENBISI_TTL_SECONDS = int(os.getenv("VALENCIA_VALENBISI_TTL_SECONDS", "180"))
 EMT_STOPS_TTL_SECONDS = int(os.getenv("VALENCIA_EMT_STOPS_TTL_SECONDS", str(6 * 3600)))
 EMT_ARRIVALS_TTL_SECONDS = int(os.getenv("VALENCIA_EMT_ARRIVALS_TTL_SECONDS", "45"))
+EMT_ARRIVALS_TIMEOUT_SECONDS = float(os.getenv("VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS", "12"))
 EMT_ROUTES_TTL_SECONDS = int(os.getenv("VALENCIA_EMT_ROUTES_TTL_SECONDS", str(6 * 3600)))
 EVENT_RADIUS_METERS = int(os.getenv("VALENCIA_EVENT_VALENBISI_RADIUS_METERS", "1000"))
 DELAY_THRESHOLD_MINUTES = int(os.getenv("VALENCIA_EMT_DELAY_THRESHOLD_MINUTES", "3"))
@@ -49,6 +64,8 @@ DEFAULT_BUS_SPEED_KMH = float(os.getenv("VALENCIA_EMT_AVG_SPEED_KMH", "14"))
 
 SOURCE_LABEL = "Ayuntamiento de Valencia · geoportal.valencia.es"
 SAE_SOURCE_LABEL = "EMT Valencia SAE · servicio operativo no documentado"
+
+GTFS_SOURCE_LABEL = "Ajuntament de Valencia Open Data - Google Transit EMT"
 
 _arrival_snapshots: dict[str, dict[str, Any]] = {}
 _delay_alerts: dict[str, dict[str, Any]] = {}
@@ -487,22 +504,35 @@ def fetch_emt_stops() -> dict[str, Any]:
         }
 
 
-def _fetch_text(url: str, timeout: float = 30) -> str:
+def _browser_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/125.0 Safari/537.36"
+        ),
+        "Accept": "application/json,text/xml,text/html,text/plain,*/*",
+        "Accept-Language": "es-ES,es;q=0.9,ca;q=0.8",
+    }
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def _fetch_text(url: str, timeout: float = 30, headers: dict[str, str] | None = None) -> str:
     req = urllib.request.Request(
         url,
-        headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/125.0 Safari/537.36"
-            ),
-            "Accept": "application/json,text/xml,text/html,text/plain,*/*",
-            "Accept-Language": "es-ES,es;q=0.9,ca;q=0.8",
-        },
+        headers=_browser_headers(headers),
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         content_type = resp.headers.get_content_charset() or "utf-8"
         return resp.read().decode(content_type, errors="replace")
+
+
+def _fetch_binary(url: str, timeout: float = 60, headers: dict[str, str] | None = None) -> bytes:
+    req = urllib.request.Request(url, headers=_browser_headers(headers))
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read()
 
 
 def _arrival_from_mapping(data: dict[str, Any], stop_id: int) -> dict[str, Any] | None:
@@ -802,6 +832,233 @@ def find_nearest_point_on_route(lat: float, lon: float, route: dict[str, Any]) -
     return best
 
 
+def _gtfs_headers() -> dict[str, str]:
+    return {"ApiKey": EMT_GTFS_API_KEY} if EMT_GTFS_API_KEY else {}
+
+
+def _read_gtfs_table(zf: zipfile.ZipFile, filename: str) -> list[dict[str, str]]:
+    try:
+        with zf.open(filename) as raw:
+            text = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
+            return [dict(row) for row in csv.DictReader(text)]
+    except KeyError:
+        return []
+
+
+def _first_text(row: dict[str, Any], *fields: str) -> str:
+    for field in fields:
+        value = row.get(field)
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def _gtfs_stop_id_to_int(stop_id: Any) -> int | None:
+    if stop_id in (None, ""):
+        return None
+    match = re.search(r"\d+", str(stop_id))
+    return int(match.group(0)) if match else None
+
+
+def _parse_gtfs_time_to_seconds(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    parts = str(value).strip().split(":")
+    if len(parts) != 3:
+        return None
+    try:
+        hours, minutes, seconds = (int(part) for part in parts)
+    except ValueError:
+        return None
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _normalize_gtfs_line(route: dict[str, Any]) -> str:
+    line = _first_text(route, "route_short_name", "route_id", "route_long_name")
+    return line.upper()
+
+
+def _gtfs_route_color(route: dict[str, Any]) -> str:
+    raw = _first_text(route, "route_color").lstrip("#")
+    if re.fullmatch(r"[0-9a-fA-F]{6}", raw):
+        return f"#{raw.upper()}"
+    return "#2563eb"
+
+
+def _route_id_fragment(value: str) -> str:
+    fragment = re.sub(r"[^0-9a-zA-Z_-]+", "-", value.strip())
+    return fragment.strip("-") or "route"
+
+
+def parse_emt_gtfs_routes(content: bytes) -> list[dict[str, Any]]:
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        routes_txt = _read_gtfs_table(zf, "routes.txt")
+        trips_txt = _read_gtfs_table(zf, "trips.txt")
+        shapes_txt = _read_gtfs_table(zf, "shapes.txt")
+        stops_txt = _read_gtfs_table(zf, "stops.txt")
+        stop_times_txt = _read_gtfs_table(zf, "stop_times.txt")
+
+    routes_by_id = {_first_text(route, "route_id"): route for route in routes_txt if route.get("route_id")}
+    stops_by_id = {_first_text(stop, "stop_id"): stop for stop in stops_txt if stop.get("stop_id")}
+
+    shape_points: dict[str, list[dict[str, Any]]] = {}
+    for row in shapes_txt:
+        shape_id = _first_text(row, "shape_id")
+        if not shape_id:
+            continue
+        lat = _to_float(row.get("shape_pt_lat"), None)
+        lon = _to_float(row.get("shape_pt_lon"), None)
+        if lat is None or lon is None:
+            continue
+        shape_points.setdefault(shape_id, []).append({
+            "lat": lat,
+            "lon": lon,
+            "sequence": _to_int(row.get("shape_pt_sequence"), 0),
+        })
+    for points in shape_points.values():
+        points.sort(key=lambda point: int(point.get("sequence", 0)))
+
+    stop_times_by_trip: dict[str, list[dict[str, str]]] = {}
+    for row in stop_times_txt:
+        trip_id = _first_text(row, "trip_id")
+        if trip_id:
+            stop_times_by_trip.setdefault(trip_id, []).append(row)
+    for rows in stop_times_by_trip.values():
+        rows.sort(key=lambda row: _to_int(row.get("stop_sequence"), 0))
+
+    candidates: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for trip in trips_txt:
+        route_id = _first_text(trip, "route_id")
+        shape_id = _first_text(trip, "shape_id")
+        trip_id = _first_text(trip, "trip_id")
+        route_meta = routes_by_id.get(route_id)
+        shape = shape_points.get(shape_id)
+        if not route_meta or not shape or len(shape) < 2:
+            continue
+
+        stop_times = stop_times_by_trip.get(trip_id, [])
+        first_seconds = next(
+            (
+                parsed
+                for parsed in (_parse_gtfs_time_to_seconds(row.get("arrival_time")) for row in stop_times)
+                if parsed is not None
+            ),
+            None,
+        )
+        route_stops = []
+        for idx, row in enumerate(stop_times):
+            stop_id_raw = _first_text(row, "stop_id")
+            stop = stops_by_id.get(stop_id_raw)
+            stop_id = _gtfs_stop_id_to_int(stop_id_raw)
+            if not stop or stop_id is None:
+                continue
+            seconds = _parse_gtfs_time_to_seconds(row.get("arrival_time"))
+            offset = idx * 3
+            if first_seconds is not None and seconds is not None:
+                offset = max(0, int(round((seconds - first_seconds) / 60)))
+            route_stops.append({
+                "stopId": stop_id,
+                "name": _first_text(stop, "stop_name", "stop_desc") or f"Parada {stop_id}",
+                "lat": _to_float(stop.get("stop_lat"), 0.0),
+                "lon": _to_float(stop.get("stop_lon"), 0.0),
+                "sequence": _to_int(row.get("stop_sequence"), idx),
+                "plannedArrivalOffsetMinutes": offset,
+            })
+
+        measured_shape = calculate_polyline_distances(shape)
+        line = _normalize_gtfs_line(route_meta)
+        direction = _first_text(trip, "direction_id") or None
+        headsign = _first_text(trip, "trip_headsign")
+        long_name = _first_text(route_meta, "route_long_name", "route_desc")
+        name = long_name or f"Linea {line}"
+        if headsign and headsign.lower() not in name.lower():
+            name = f"{name} - {headsign}"
+
+        candidate = {
+            "id": (
+                f"emt-{_route_id_fragment(line)}-gtfs-"
+                f"{_route_id_fragment(direction or 'all')}-{_route_id_fragment(shape_id)}"
+            ),
+            "line": line,
+            "name": name,
+            "direction": direction,
+            "color": _gtfs_route_color(route_meta),
+            "stops": route_stops,
+            "shape": measured_shape,
+            "source": "gtfs",
+            "metadata": {
+                "routeId": route_id,
+                "tripId": trip_id,
+                "shapeId": shape_id,
+                "headsign": headsign or None,
+            },
+        }
+        key = (route_id, direction or "", shape_id)
+        score = (
+            len(route_stops),
+            len(measured_shape),
+            float(measured_shape[-1].get("distanceFromStartMeters") or 0),
+        )
+        previous = candidates.get(key)
+        if previous is None or score > previous["_score"]:
+            candidates[key] = {**candidate, "_score": score}
+
+    routes = []
+    for candidate in candidates.values():
+        candidate.pop("_score", None)
+        routes.append(candidate)
+    return sorted(routes, key=lambda route: (str(route.get("line")), str(route.get("direction")), route["id"]))
+
+
+def _download_url_from_payload(payload: Any) -> str:
+    if isinstance(payload, str):
+        return payload
+    if not isinstance(payload, dict):
+        return ""
+    containers = [payload]
+    result = payload.get("result")
+    if isinstance(result, dict):
+        containers.append(result)
+    elif isinstance(result, str):
+        return result
+    for container in containers:
+        for key in ("url", "downloadUrl", "download_url", "href", "link"):
+            value = container.get(key)
+            if isinstance(value, str) and value.startswith("http"):
+                return value
+    return ""
+
+
+def _resolve_gtfs_download_url() -> str:
+    if EMT_GTFS_NAP_FILE_ID and EMT_GTFS_API_KEY:
+        payload = get_json(
+            f"https://nap.transportes.gob.es/api/Fichero/downloadLink/{EMT_GTFS_NAP_FILE_ID}",
+            headers=_browser_headers({"Accept": "application/json,*/*", **_gtfs_headers()}),
+            timeout=30,
+        )
+        url = _download_url_from_payload(payload)
+        if url:
+            return url
+    if EMT_GTFS_URL:
+        return EMT_GTFS_URL
+
+    payload = get_json(
+        f"{EMT_GTFS_RESOURCE_API_URL}?{urllib.parse.urlencode({'id': EMT_GTFS_RESOURCE_ID})}",
+        headers=_browser_headers({"Accept": "application/json,*/*"}),
+        timeout=20,
+    )
+    url = _download_url_from_payload(payload)
+    if not url:
+        raise RuntimeError("No se ha podido resolver el ZIP GTFS de EMT Valencia")
+    return url
+
+
+def _fetch_gtfs_routes() -> tuple[list[dict[str, Any]], str]:
+    url = _resolve_gtfs_download_url()
+    content = _fetch_binary(url, timeout=60, headers=_gtfs_headers())
+    return parse_emt_gtfs_routes(content), url
+
+
 def _derive_routes_from_stops(stops: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for stop in stops:
@@ -877,19 +1134,30 @@ def fetch_emt_routes(line: str | None = None, direction: str | None = None) -> d
     if cached is None:
         at = now_madrid()
         source = "geoportal"
+        source_label = SOURCE_LABEL
+        source_url = EMT_ROUTES_URL
         try:
             routes = _fetch_official_routes()
         except Exception:
             routes = []
         if not routes:
+            try:
+                routes, source_url = _fetch_gtfs_routes()
+                source = "gtfs"
+                source_label = GTFS_SOURCE_LABEL
+            except Exception:
+                routes = []
+        if not routes:
             stops_response = fetch_emt_stops()
             routes = _derive_routes_from_stops(stops_response.get("stops", []))
             source = "derived_from_stops"
+            source_label = "Paradas EMT Geoportal - rutas aproximadas"
+            source_url = EMT_STOPS_URL
         cached = {
             "routes": routes,
             "source": source,
-            "sourceLabel": SOURCE_LABEL if source == "geoportal" else "Paradas EMT Geoportal · rutas aproximadas",
-            "sourceUrl": EMT_ROUTES_URL or EMT_STOPS_URL,
+            "sourceLabel": source_label,
+            "sourceUrl": source_url,
             "fetchedAt": at.isoformat(),
             "updatedTtlSeconds": EMT_ROUTES_TTL_SECONDS,
             "stale": False,
@@ -905,8 +1173,20 @@ def fetch_emt_routes(line: str | None = None, direction: str | None = None) -> d
     return {**cached, "routes": routes}
 
 
-def get_route_for_line(line: str, direction: str | None = None) -> dict[str, Any] | None:
+def _route_contains_stop(route: dict[str, Any], stop_id: int) -> bool:
+    return any(int(stop.get("stopId", -1)) == stop_id for stop in route.get("stops", []))
+
+
+def get_route_for_line(
+    line: str,
+    direction: str | None = None,
+    target_stop_id: int | None = None,
+) -> dict[str, Any] | None:
     routes = fetch_emt_routes(line=line, direction=direction).get("routes", [])
+    if target_stop_id is not None:
+        matching = [route for route in routes if _route_contains_stop(route, target_stop_id)]
+        if matching:
+            return matching[0]
     return routes[0] if routes else None
 
 
@@ -1006,7 +1286,7 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
     url = f"{EMT_ARRIVALS_URL}?{urllib.parse.urlencode(params)}"
 
     try:
-        text = _fetch_text(url, timeout=30)
+        text = _fetch_text(url, timeout=EMT_ARRIVALS_TIMEOUT_SECONDS)
         arrivals = parse_emt_arrivals_text(text, stop_id)
         if line_id:
             arrivals = [a for a in arrivals if str(a["line"]).upper() == line_id.upper()]
@@ -1016,7 +1296,7 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
         estimated_positions = []
         routes_used = []
         for arrival in arrivals[:6]:
-            route = get_route_for_line(arrival["line"])
+            route = get_route_for_line(arrival["line"], target_stop_id=stop_id)
             if not route:
                 continue
             estimate = estimate_bus_position_on_route({

@@ -57,7 +57,12 @@ docker run -p 8000:8000 urbanflow-api
 - `DATA_DIR`, `MODEL_DIR`: rutas a datos procesados y modelos.
 - `VALENCIA_VALENBISI_TTL_SECONDS`, `VALENCIA_EMT_STOPS_TTL_SECONDS`,
   `VALENCIA_EMT_ARRIVALS_TTL_SECONDS`, `VALENCIA_EMT_ROUTES_TTL_SECONDS`: TTL de cache.
-- `VALENCIA_EMT_ROUTES_URL`: fuente opcional de shapes/rutas EMT; si no existe se derivan rutas aproximadas desde paradas.
+- `VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS`: timeout de consulta SAE EMT.
+- `VALENCIA_EMT_ROUTES_URL`: fuente GeoJSON opcional de shapes/rutas EMT.
+- `VALENCIA_EMT_GTFS_RESOURCE_ID`: recurso CKAN Open Data Valencia para resolver el ZIP GTFS oficial de EMT.
+- `VALENCIA_EMT_GTFS_URL`: URL ZIP GTFS manual si no se usa CKAN.
+- `VALENCIA_EMT_GTFS_NAP_FILE_ID`, `VALENCIA_EMT_GTFS_API_KEY`: alternativa NAP con ApiKey.
+- Si no hay GeoJSON ni GTFS disponible, se derivan rutas aproximadas desde paradas como fallback.
 
 ## Modelo
 
