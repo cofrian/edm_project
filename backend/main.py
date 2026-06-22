@@ -153,10 +153,27 @@ def predict_heatmap_get(
     dia_semana: int | None = Query(None, ge=0, le=6),
     use_live_weather: bool = True,
     apply_events: bool = True,
+    temp_c: float | None = None,
+    hum_rel: float | None = None,
+    pres_mb: float | None = None,
+    vel_viento_ms: float | None = None,
+    precip_lm2: float | None = None,
 ) -> dict:
     d = fecha or date.today()
     dow = dia_semana if dia_semana is not None else d.weekday()
-    return predict_heatmap(d, hora, dow, use_live_weather=use_live_weather, apply_events=apply_events)
+    weather_override = {k: v for k, v in {
+        "temp_c": temp_c,
+        "hum_rel": hum_rel,
+        "pres_mb": pres_mb,
+        "vel_viento_ms": vel_viento_ms,
+        "precip_lm2": precip_lm2,
+    }.items() if v is not None}
+    return predict_heatmap(
+        d, hora, dow,
+        use_live_weather=use_live_weather,
+        apply_events=apply_events,
+        weather_override=weather_override,
+    )
 
 
 @app.get("/weather/current")
