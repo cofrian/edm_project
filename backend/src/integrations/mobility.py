@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import os
 import re
 import urllib.parse
@@ -57,6 +58,11 @@ VALENBISI_TTL_SECONDS = int(os.getenv("VALENCIA_VALENBISI_TTL_SECONDS", "180"))
 EMT_STOPS_TTL_SECONDS = int(os.getenv("VALENCIA_EMT_STOPS_TTL_SECONDS", str(6 * 3600)))
 EMT_ARRIVALS_TTL_SECONDS = int(os.getenv("VALENCIA_EMT_ARRIVALS_TTL_SECONDS", "45"))
 EMT_ARRIVALS_TIMEOUT_SECONDS = float(os.getenv("VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS", "12"))
+EMT_ARRIVALS_LAST_GOOD_TTL_SECONDS = int(
+    os.getenv("VALENCIA_EMT_ARRIVALS_LAST_GOOD_TTL_SECONDS", "900")
+)
+EMT_FALLBACK_HEADWAY_MINUTES = int(os.getenv("VALENCIA_EMT_FALLBACK_HEADWAY_MINUTES", "12"))
+EMT_FALLBACK_MAX_LINES = int(os.getenv("VALENCIA_EMT_FALLBACK_MAX_LINES", "3"))
 EMT_ROUTES_TTL_SECONDS = int(os.getenv("VALENCIA_EMT_ROUTES_TTL_SECONDS", str(6 * 3600)))
 EVENT_RADIUS_METERS = int(os.getenv("VALENCIA_EVENT_VALENBISI_RADIUS_METERS", "1000"))
 DELAY_THRESHOLD_MINUTES = int(os.getenv("VALENCIA_EMT_DELAY_THRESHOLD_MINUTES", "3"))
@@ -1278,8 +1284,244 @@ def estimate_bus_position_on_route(params: dict[str, Any]) -> dict[str, Any] | N
     }
 
 
+def _parse_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=TZ)
+    return parsed.astimezone(TZ)
+
+
+def _freshen_last_good_arrivals(
+    last_good: dict[str, Any],
+    *,
+    now: datetime,
+) -> list[dict[str, Any]]:
+    arrivals = []
+    fetched_at = _parse_datetime(last_good.get("fetchedAt"))
+    for arrival in last_good.get("arrivals", []):
+        expected_at = _parse_datetime(arrival.get("expectedArrivalTime"))
+        if expected_at is not None:
+            remaining_seconds = (expected_at - now).total_seconds()
+            if remaining_seconds < -(DELAY_THRESHOLD_MINUTES * 60):
+                continue
+            minutes = max(0, int(math.ceil(remaining_seconds / 60)))
+        elif fetched_at is not None:
+            age_minutes = max(0, int(math.floor((now - fetched_at).total_seconds() / 60)))
+            minutes = max(0, int(arrival.get("minutes", 0)) - age_minutes)
+        else:
+            minutes = max(0, int(arrival.get("minutes", 0)))
+
+        refreshed = dict(arrival)
+        refreshed["minutes"] = minutes
+        refreshed["expectedArrivalTime"] = (now + timedelta(minutes=minutes)).isoformat()
+        arrivals.append(refreshed)
+    return arrivals
+
+
+def _route_target_offset_minutes(
+    route: dict[str, Any],
+    *,
+    target_stop_id: int,
+    target_lat: Any = None,
+    target_lon: Any = None,
+    speed_kmh: float = DEFAULT_BUS_SPEED_KMH,
+) -> float | None:
+    speed_m_per_min = max(1.0, speed_kmh * 1000 / 60)
+    stops = route.get("stops", [])
+    target_stop = next((stop for stop in stops if int(stop["stopId"]) == target_stop_id), None)
+    if target_stop and target_stop.get("plannedArrivalOffsetMinutes") is not None:
+        return float(target_stop["plannedArrivalOffsetMinutes"])
+
+    shape = route.get("shape") or [
+        {"lat": stop["lat"], "lon": stop["lon"], "sequence": stop["sequence"]}
+        for stop in stops
+    ]
+    if len(shape) < 2:
+        return None
+    measured = calculate_polyline_distances(shape)
+
+    nearest = None
+    if target_stop is not None:
+        nearest = find_nearest_point_on_route(target_stop["lat"], target_stop["lon"], {**route, "shape": measured})
+    elif target_lat is not None and target_lon is not None:
+        nearest = find_nearest_point_on_route(float(target_lat), float(target_lon), {**route, "shape": measured})
+    if nearest is None:
+        nearest = measured[-1]
+
+    target_distance = float(nearest.get("distanceFromStartMeters", 0))
+    return target_distance / speed_m_per_min
+
+
+def _fallback_lines_for_stop(
+    selected_stop: dict[str, Any],
+    line_id: str | None,
+) -> list[str]:
+    if line_id:
+        return [line_id.upper()]
+    lines = []
+    for line in selected_stop.get("lines", []):
+        normalized = str(line).strip().upper()
+        if normalized and normalized not in lines:
+            lines.append(normalized)
+    return lines[:EMT_FALLBACK_MAX_LINES]
+
+
+def _fallback_arrivals_from_routes(
+    *,
+    stop_id: int,
+    selected_stop: dict[str, Any],
+    line_id: str | None,
+    now: datetime,
+) -> list[dict[str, Any]]:
+    arrivals = []
+    headway = max(5, EMT_FALLBACK_HEADWAY_MINUTES)
+    minutes_since_midnight = now.hour * 60 + now.minute + (now.second / 60)
+    for line in _fallback_lines_for_stop(selected_stop, line_id):
+        try:
+            route = get_route_for_line(line, target_stop_id=stop_id)
+        except Exception:
+            route = None
+        if not route:
+            continue
+
+        offset = _route_target_offset_minutes(
+            route,
+            target_stop_id=stop_id,
+            target_lat=selected_stop.get("lat"),
+            target_lon=selected_stop.get("lon"),
+        )
+        if offset is None:
+            continue
+        remaining = (offset - minutes_since_midnight) % headway
+        minutes = int(round(remaining))
+        if minutes >= headway:
+            minutes = 0
+        metadata = route.get("metadata") or {}
+        destination = metadata.get("headsign") or route.get("name")
+        arrivals.append({
+            "stopId": stop_id,
+            "line": line,
+            "destination": destination,
+            "minutes": max(0, minutes),
+            "expectedArrivalTime": (now + timedelta(minutes=max(0, minutes))).isoformat(),
+            "raw": {
+                "fallback": "route_headway_estimate",
+                "headwayMinutes": headway,
+                "routeSource": route.get("source"),
+            },
+        })
+    return arrivals
+
+
+def _build_estimated_positions(
+    *,
+    stop_id: int,
+    selected_stop: dict[str, Any],
+    arrivals: list[dict[str, Any]],
+    alerts: list[dict[str, Any]],
+    now: datetime,
+    fallback_note: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    estimated_positions = []
+    routes_used = []
+    route_ids_used: set[str] = set()
+    for arrival in arrivals[:6]:
+        try:
+            route = get_route_for_line(arrival["line"], target_stop_id=stop_id)
+        except Exception:
+            route = None
+        if not route:
+            continue
+        estimate = estimate_bus_position_on_route({
+            "route": route,
+            "targetStopId": stop_id,
+            "targetLat": selected_stop.get("lat"),
+            "targetLon": selected_stop.get("lon"),
+            "minutesToTargetStop": arrival["minutes"],
+            "now": now,
+        })
+        if estimate is None:
+            continue
+        if fallback_note:
+            estimate["confidence"] = "low"
+            estimate["method"] = "average_speed_backtracking"
+            estimate["message"] = fallback_note
+        matching_alert = next(
+            (
+                alert
+                for alert in alerts
+                if (alert.get("metadata") or {}).get("line") == arrival["line"]
+                and (alert.get("metadata") or {}).get("destination") == arrival.get("destination")
+            ),
+            None,
+        )
+        if matching_alert:
+            estimate["delayed"] = True
+            matching_alert.setdefault("metadata", {})["estimatedPosition"] = estimate
+        estimated_positions.append({
+            **estimate,
+            "destination": arrival.get("destination"),
+            "sourceNote": fallback_note or "Posicion estimada, no GPS real.",
+        })
+        route_id = str(route.get("id"))
+        if route_id not in route_ids_used:
+            routes_used.append(route)
+            route_ids_used.add(route_id)
+    return estimated_positions, routes_used
+
+
+def _emt_arrivals_response(
+    *,
+    stop_id: int,
+    stop_name: str,
+    selected_stop: dict[str, Any],
+    arrivals: list[dict[str, Any]],
+    snapshots: list[dict[str, Any]],
+    alerts: list[dict[str, Any]],
+    source: str,
+    source_label: str,
+    source_url: str,
+    fetched_at: datetime,
+    stale: bool,
+    error: str | None = None,
+    fallback_note: str | None = None,
+) -> dict[str, Any]:
+    estimated_positions, routes_used = _build_estimated_positions(
+        stop_id=stop_id,
+        selected_stop=selected_stop,
+        arrivals=arrivals,
+        alerts=alerts,
+        now=fetched_at,
+        fallback_note=fallback_note,
+    )
+    out = {
+        "stopId": stop_id,
+        "stopName": stop_name,
+        "arrivals": arrivals,
+        "snapshots": snapshots,
+        "alerts": _dedupe_alerts(alerts),
+        "estimatedPositions": estimated_positions,
+        "routes": routes_used,
+        "source": source,
+        "sourceLabel": source_label,
+        "sourceUrl": source_url,
+        "fetchedAt": fetched_at.isoformat(),
+        "updatedTtlSeconds": EMT_ARRIVALS_TTL_SECONDS,
+        "stale": stale,
+    }
+    if error:
+        out["error"] = error
+    return out
+
+
 def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, Any]:
     cache_key = f"mobility:emt:arrivals:{stop_id}:{line_id or 'all'}"
+    last_good_cache_key = f"{cache_key}:last_good"
     cached = get_cached(cache_key)
     if cached is not None:
         return cached
@@ -1301,60 +1543,104 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
         for arrival in arrivals:
             arrival["expectedArrivalTime"] = (at + timedelta(minutes=arrival["minutes"])).isoformat()
         snapshots, alerts = update_arrival_snapshots(stop_id, stop_name, arrivals, now=at)
-        estimated_positions = []
-        routes_used = []
-        for arrival in arrivals[:6]:
-            route = get_route_for_line(arrival["line"], target_stop_id=stop_id)
-            if not route:
-                continue
-            estimate = estimate_bus_position_on_route({
-                "route": route,
-                "targetStopId": stop_id,
-                "targetLat": selected_stop.get("lat"),
-                "targetLon": selected_stop.get("lon"),
-                "minutesToTargetStop": arrival["minutes"],
-                "now": at,
-            })
-            if estimate is None:
-                continue
-            matching_alert = next(
-                (
-                    alert
-                    for alert in alerts
-                    if alert["metadata"].get("line") == arrival["line"]
-                    and alert["metadata"].get("destination") == arrival.get("destination")
-                ),
-                None,
+        if not arrivals:
+            fallback_arrivals = _fallback_arrivals_from_routes(
+                stop_id=stop_id,
+                selected_stop=selected_stop,
+                line_id=line_id,
+                now=at,
             )
-            if matching_alert:
-                estimate["delayed"] = True
-                matching_alert["metadata"]["estimatedPosition"] = estimate
-            estimated_positions.append({
-                **estimate,
-                "destination": arrival.get("destination"),
-                "sourceNote": "Posicion estimada, no GPS real.",
-            })
-            if route["id"] not in {r["id"] for r in routes_used}:
-                routes_used.append(route)
-
-        out = {
-            "stopId": stop_id,
-            "stopName": stop_name,
-            "arrivals": arrivals,
-            "snapshots": snapshots,
-            "alerts": _dedupe_alerts(alerts),
-            "estimatedPositions": estimated_positions,
-            "routes": routes_used,
-            "source": "emt_sae",
-            "sourceLabel": SAE_SOURCE_LABEL,
-            "sourceUrl": url,
-            "fetchedAt": at.isoformat(),
-            "updatedTtlSeconds": EMT_ARRIVALS_TTL_SECONDS,
-            "stale": False,
-        }
+            if fallback_arrivals:
+                out = _emt_arrivals_response(
+                    stop_id=stop_id,
+                    stop_name=stop_name,
+                    selected_stop=selected_stop,
+                    arrivals=fallback_arrivals,
+                    snapshots=snapshots,
+                    alerts=alerts,
+                    source="estimated_route",
+                    source_label="Estimacion local por ruta EMT",
+                    source_url=url,
+                    fetched_at=at,
+                    stale=True,
+                    error="SAE EMT no ha devuelto llegadas. Mostrando estimacion por ruta.",
+                    fallback_note=(
+                        "Estimacion sin llegadas SAE: ETA aproximada por ruta, velocidad media "
+                        "y frecuencia media."
+                    ),
+                )
+                set_cached(cache_key, out, min(15, EMT_ARRIVALS_TTL_SECONDS))
+                return out
+        out = _emt_arrivals_response(
+            stop_id=stop_id,
+            stop_name=stop_name,
+            selected_stop=selected_stop,
+            arrivals=arrivals,
+            snapshots=snapshots,
+            alerts=alerts,
+            source="emt_sae",
+            source_label=SAE_SOURCE_LABEL,
+            source_url=url,
+            fetched_at=at,
+            stale=False,
+        )
         set_cached(cache_key, out, EMT_ARRIVALS_TTL_SECONDS)
+        set_cached(last_good_cache_key, out, EMT_ARRIVALS_LAST_GOOD_TTL_SECONDS)
         return out
     except Exception as exc:
+        error = f"SAE EMT no responde ({exc}). Mostrando estimacion disponible."
+        last_good = get_cached(last_good_cache_key)
+        if last_good is not None:
+            stale_arrivals = _freshen_last_good_arrivals(last_good, now=at)
+            if stale_arrivals:
+                out = _emt_arrivals_response(
+                    stop_id=stop_id,
+                    stop_name=stop_name,
+                    selected_stop=selected_stop,
+                    arrivals=stale_arrivals,
+                    snapshots=last_good.get("snapshots", []),
+                    alerts=last_good.get("alerts", []),
+                    source="emt_sae_stale",
+                    source_label=SAE_SOURCE_LABEL,
+                    source_url=url,
+                    fetched_at=at,
+                    stale=True,
+                    error=error,
+                    fallback_note=(
+                        "Estimacion recalculada desde la ultima respuesta SAE disponible; "
+                        "no es GPS real."
+                    ),
+                )
+                set_cached(cache_key, out, min(15, EMT_ARRIVALS_TTL_SECONDS))
+                return out
+
+        fallback_arrivals = _fallback_arrivals_from_routes(
+            stop_id=stop_id,
+            selected_stop=selected_stop,
+            line_id=line_id,
+            now=at,
+        )
+        if fallback_arrivals:
+            out = _emt_arrivals_response(
+                stop_id=stop_id,
+                stop_name=stop_name,
+                selected_stop=selected_stop,
+                arrivals=fallback_arrivals,
+                snapshots=[],
+                alerts=[],
+                source="estimated_route",
+                source_label="Estimacion local por ruta EMT",
+                source_url=url,
+                fetched_at=at,
+                stale=True,
+                error=error,
+                fallback_note=(
+                    "Estimacion sin SAE: ETA aproximada por ruta, velocidad media y frecuencia media."
+                ),
+            )
+            set_cached(cache_key, out, min(15, EMT_ARRIVALS_TTL_SECONDS))
+            return out
+
         return {
             "stopId": stop_id,
             "stopName": stop_name,
@@ -1369,7 +1655,7 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
             "fetchedAt": at.isoformat(),
             "updatedTtlSeconds": EMT_ARRIVALS_TTL_SECONDS,
             "stale": True,
-            "error": str(exc),
+            "error": error,
         }
 
 
