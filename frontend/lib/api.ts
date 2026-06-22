@@ -1,6 +1,9 @@
 import { API_URL } from "./constants";
 import type {
   CityEvent,
+  EmtArrivalsResponse,
+  EmtRoutesResponse,
+  EmtStopsResponse,
   GeoFeatureCollection,
   GlobalMetrics,
   HeatmapResponse,
@@ -8,11 +11,13 @@ import type {
   Metadata,
   HourEvaluationResponse,
   Monitoring,
+  MobilityAlertsResponse,
   OptimizeResponse,
   PredictRequest,
   PredictResponse,
   SystemMetrics,
   TrafficLiveResponse,
+  ValenbisiStationsResponse,
   WeatherCurrent,
   ZoneError,
   ZoneReviewResponse,
@@ -93,6 +98,49 @@ async function postJSON<T>(path: string, body: unknown, fallback: T, options?: A
 }
 
 const emptyGeo: GeoFeatureCollection = { type: "FeatureCollection", features: [] };
+const emptyValenbisiRealtime: ValenbisiStationsResponse = {
+  stations: [],
+  alerts: [],
+  source: "unavailable",
+  sourceLabel: "Ayuntamiento de Valencia · geoportal.valencia.es",
+  sourceUrl: "",
+  fetchedAt: "",
+  updatedTtlSeconds: 180,
+  stale: true,
+};
+const emptyEmtStops: EmtStopsResponse = {
+  stops: [],
+  source: "unavailable",
+  sourceLabel: "Ayuntamiento de Valencia · geoportal.valencia.es",
+  sourceUrl: "",
+  fetchedAt: "",
+  updatedTtlSeconds: 21600,
+  stale: true,
+};
+const emptyEmtArrivals = (stopId: number): EmtArrivalsResponse => ({
+  stopId,
+  stopName: `Parada ${stopId}`,
+  arrivals: [],
+  snapshots: [],
+  alerts: [],
+  estimatedPositions: [],
+  routes: [],
+  source: "unavailable",
+  sourceLabel: "EMT Valencia SAE",
+  sourceUrl: "",
+  fetchedAt: "",
+  updatedTtlSeconds: 45,
+  stale: true,
+});
+const emptyEmtRoutes: EmtRoutesResponse = {
+  routes: [],
+  source: "unavailable",
+  sourceLabel: "Paradas EMT Geoportal",
+  sourceUrl: "",
+  fetchedAt: "",
+  updatedTtlSeconds: 21600,
+  stale: true,
+};
 
 export const api = {
   health: () => getJSON<{ status: string }>("/health", { status: "down" }),
@@ -173,6 +221,36 @@ export const api = {
       source: "default",
     }, options),
   trafficLive: (options?: ApiOptions) => tryGet<TrafficLiveResponse>("/traffic/live", options),
+  mobilityValenbisiStations: (options?: ApiOptions) =>
+    getJSON<ValenbisiStationsResponse>(
+      "/api/mobility/valenbisi/stations",
+      emptyValenbisiRealtime,
+      options,
+    ),
+  mobilityEmtStops: (options?: ApiOptions) =>
+    getJSON<EmtStopsResponse>("/api/mobility/emt/stops", emptyEmtStops, options),
+  mobilityEmtArrivals: (stopId: number, lineId?: string, options?: ApiOptions) => {
+    const q = new URLSearchParams();
+    if (lineId) q.set("lineId", lineId);
+    const suffix = q.toString() ? `?${q}` : "";
+    return getJSON<EmtArrivalsResponse>(
+      `/api/mobility/emt/stops/${stopId}/arrivals${suffix}`,
+      emptyEmtArrivals(stopId),
+      options,
+    );
+  },
+  mobilityEmtRoutes: (line?: string, options?: ApiOptions) => {
+    const q = new URLSearchParams();
+    if (line) q.set("line", line);
+    const suffix = q.toString() ? `?${q}` : "";
+    return getJSON<EmtRoutesResponse>(`/api/mobility/emt/routes${suffix}`, emptyEmtRoutes, options);
+  },
+  mobilityAlerts: (options?: ApiOptions) =>
+    getJSON<MobilityAlertsResponse>(
+      "/api/mobility/alerts",
+      { alerts: [], counts: { critical: 0, warning: 0, info: 0 }, fetchedAt: "" },
+      options,
+    ),
   events: (from?: string, to?: string, options?: ApiOptions) => {
     const q = new URLSearchParams();
     if (from) q.set("from", from);

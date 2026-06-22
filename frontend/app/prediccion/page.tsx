@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Gauge, Layers, RefreshCw, Radio } from "lucide-react";
+import { AlertTriangle, Bike, Bus, Clock, Gauge, Layers, Radio, RefreshCw, Route, Wifi } from "lucide-react";
 import Link from "next/link";
 import { DynamicMap } from "@/components/DynamicMap";
 import type { RoadColorMode } from "@/components/MapView";
@@ -21,18 +21,50 @@ import {
 import { PageHeader, Callout } from "@/components/ui";
 import type {
   CityEvent,
+  EmtArrivalsResponse,
+  EmtStop,
   GlobalMetrics,
   HeatmapResponse,
   HourMetric,
   Monitoring,
+  MobilityAlert,
   SystemMetrics,
   TrafficLiveResponse,
+  ValenbisiStationsResponse,
   WeatherCurrent,
   ZoneError,
   ZoneReviewResponse,
 } from "@/lib/types";
 
 const TRAFFIC_REFRESH_MS = 180_000;
+const VALENBISI_REFRESH_MS = 180_000;
+const EMT_ARRIVALS_REFRESH_MS = 45_000;
+
+type MobilityLayerKey =
+  | "valenbisi"
+  | "emt"
+  | "events"
+  | "emtRoutes"
+  | "estimatedBuses"
+  | "onlyAlerts";
+
+const DEFAULT_MOBILITY_LAYERS: Record<MobilityLayerKey, boolean> = {
+  valenbisi: true,
+  emt: true,
+  events: true,
+  emtRoutes: true,
+  estimatedBuses: true,
+  onlyAlerts: false,
+};
+
+const MOBILITY_LAYER_OPTIONS: Array<{ key: MobilityLayerKey; label: string; icon: JSX.Element }> = [
+  { key: "valenbisi", label: "Valenbisi", icon: <Bike className="h-4 w-4" /> },
+  { key: "emt", label: "EMT", icon: <Bus className="h-4 w-4" /> },
+  { key: "events", label: "Eventos", icon: <AlertTriangle className="h-4 w-4" /> },
+  { key: "emtRoutes", label: "Rutas EMT", icon: <Route className="h-4 w-4" /> },
+  { key: "estimatedBuses", label: "Buses estimados", icon: <Clock className="h-4 w-4" /> },
+  { key: "onlyAlerts", label: "Solo alertas", icon: <AlertTriangle className="h-4 w-4" /> },
+];
 
 function todayIso(): string {
   const d = new Date();
@@ -103,6 +135,44 @@ function pageIsVisible(): boolean {
   return typeof document === "undefined" || document.visibilityState === "visible";
 }
 
+function formatRealtimeTime(value?: string | null): string {
+  if (!value) return "Sin actualizar";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin actualizar";
+  return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+}
+
+function mobilityAlertRank(alert: MobilityAlert): number {
+  const severity = { critical: 0, warning: 1, info: 2 }[alert.severity] ?? 3;
+  return severity;
+}
+
+function mobilityAlertTone(alert: MobilityAlert): string {
+  if (alert.severity === "critical") return "border-red-200 bg-red-50 text-red-800";
+  if (alert.severity === "warning") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function groupMobilityAlerts(alerts: MobilityAlert[]) {
+  return [
+    {
+      id: "valenbisi",
+      label: "Valenbisi",
+      items: alerts.filter((alert) => alert.type.startsWith("VALENBISI") && alert.type !== "VALENBISI_NEAR_EVENT"),
+    },
+    {
+      id: "events",
+      label: "Eventos",
+      items: alerts.filter((alert) => alert.type === "VALENBISI_NEAR_EVENT"),
+    },
+    {
+      id: "emt",
+      label: "EMT",
+      items: alerts.filter((alert) => alert.type === "EMT_DELAY"),
+    },
+  ];
+}
+
 export default function PrediccionPage() {
   const [fecha, setFecha] = useState(() => syncToNow().fecha);
   const [hora, setHora] = useState(() => syncToNow().hora);
@@ -127,6 +197,19 @@ export default function PrediccionPage() {
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const [isPageVisible, setIsPageVisible] = useState(true);
+  const [mobilityRealtime, setMobilityRealtime] = useState(false);
+  const [mobilityLayers, setMobilityLayers] =
+    useState<Record<MobilityLayerKey, boolean>>(DEFAULT_MOBILITY_LAYERS);
+  const [valenbisiRealtime, setValenbisiRealtime] = useState<ValenbisiStationsResponse | null>(null);
+  const [valenbisiLoading, setValenbisiLoading] = useState(false);
+  const [valenbisiError, setValenbisiError] = useState<string | null>(null);
+  const [emtStopsRealtime, setEmtStopsRealtime] = useState<EmtStop[]>([]);
+  const [emtStopsLoading, setEmtStopsLoading] = useState(false);
+  const [emtStopsError, setEmtStopsError] = useState<string | null>(null);
+  const [selectedEmtStop, setSelectedEmtStop] = useState<EmtStop | null>(null);
+  const [emtArrivalsRealtime, setEmtArrivalsRealtime] = useState<EmtArrivalsResponse | null>(null);
+  const [emtArrivalsLoading, setEmtArrivalsLoading] = useState(false);
+  const [emtArrivalsError, setEmtArrivalsError] = useState<string | null>(null);
 
   useEffect(() => {
     const updateVisibility = () => setIsPageVisible(pageIsVisible());
@@ -159,6 +242,70 @@ export default function PrediccionPage() {
     } finally {
       if (!signal?.aborted) setTrafficLoading(false);
     }
+  }, []);
+
+  const loadValenbisiRealtime = useCallback(async (signal?: AbortSignal) => {
+    if (!pageIsVisible()) return;
+    setValenbisiLoading(true);
+    try {
+      const res = await api.mobilityValenbisiStations({ signal });
+      if (signal?.aborted) return;
+      setValenbisiRealtime(res);
+      setValenbisiError(res.error ?? (res.source === "unavailable" ? "Valenbisi no disponible" : null));
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setValenbisiError(error instanceof Error ? error.message : "Error de red");
+    } finally {
+      if (!signal?.aborted) setValenbisiLoading(false);
+    }
+  }, []);
+
+  const loadEmtStopsRealtime = useCallback(async (signal?: AbortSignal) => {
+    if (!pageIsVisible()) return;
+    setEmtStopsLoading(true);
+    try {
+      const res = await api.mobilityEmtStops({ signal });
+      if (signal?.aborted) return;
+      setEmtStopsRealtime(res.stops);
+      setEmtStopsError(res.error ?? (res.source === "unavailable" ? "Paradas EMT no disponibles" : null));
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setEmtStopsRealtime([]);
+      setEmtStopsError(error instanceof Error ? error.message : "Error de red");
+    } finally {
+      if (!signal?.aborted) setEmtStopsLoading(false);
+    }
+  }, []);
+
+  const loadEmtArrivalsRealtime = useCallback(async (stop: EmtStop, signal?: AbortSignal) => {
+    if (!pageIsVisible()) return;
+    setEmtArrivalsLoading(true);
+    try {
+      const res = await api.mobilityEmtArrivals(stop.stopId, undefined, { signal });
+      if (signal?.aborted) return;
+      setEmtArrivalsRealtime(res);
+      setEmtArrivalsError(res.error ?? (res.source === "unavailable" ? "No se han podido cargar proximas llegadas" : null));
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setEmtArrivalsRealtime(null);
+      setEmtArrivalsError(error instanceof Error ? error.message : "Error de red");
+    } finally {
+      if (!signal?.aborted) setEmtArrivalsLoading(false);
+    }
+  }, []);
+
+  const toggleMobilityLayer = useCallback((key: MobilityLayerKey) => {
+    setMobilityLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const handleSelectEmtStop = useCallback((stop: EmtStop) => {
+    setSelectedEmtStop(stop);
+    setMobilityLayers((prev) => ({
+      ...prev,
+      emt: true,
+      emtRoutes: true,
+      estimatedBuses: true,
+    }));
   }, []);
 
   const viewingNow = useMemo(() => isViewingNow(fecha, hora), [fecha, hora]);
@@ -226,6 +373,59 @@ export default function PrediccionPage() {
       current?.abort();
     };
   }, [loadTraffic, isPageVisible]);
+
+  useEffect(() => {
+    if (!mobilityRealtime || !isPageVisible) return;
+    let current: AbortController | null = null;
+    const run = () => {
+      current?.abort();
+      current = new AbortController();
+      void loadValenbisiRealtime(current.signal);
+    };
+    run();
+    const id = setInterval(run, VALENBISI_REFRESH_MS);
+    return () => {
+      clearInterval(id);
+      current?.abort();
+    };
+  }, [mobilityRealtime, isPageVisible, loadValenbisiRealtime]);
+
+  useEffect(() => {
+    if (!mobilityRealtime || !isPageVisible) return;
+    if (!mobilityLayers.emt && !mobilityLayers.emtRoutes) return;
+    const controller = new AbortController();
+    void loadEmtStopsRealtime(controller.signal);
+    return () => controller.abort();
+  }, [
+    mobilityRealtime,
+    isPageVisible,
+    mobilityLayers.emt,
+    mobilityLayers.emtRoutes,
+    loadEmtStopsRealtime,
+  ]);
+
+  useEffect(() => {
+    if (!mobilityRealtime || !selectedEmtStop || !isPageVisible) return;
+    let current: AbortController | null = null;
+    const run = () => {
+      current?.abort();
+      current = new AbortController();
+      void loadEmtArrivalsRealtime(selectedEmtStop, current.signal);
+    };
+    run();
+    const id = setInterval(run, EMT_ARRIVALS_REFRESH_MS);
+    return () => {
+      clearInterval(id);
+      current?.abort();
+    };
+  }, [mobilityRealtime, selectedEmtStop, isPageVisible, loadEmtArrivalsRealtime]);
+
+  useEffect(() => {
+    if (!mobilityRealtime) {
+      setEmtArrivalsLoading(false);
+      setValenbisiLoading(false);
+    }
+  }, [mobilityRealtime]);
 
   useEffect(() => {
     setDiaSemana(weekdayIndex(fecha));
@@ -369,6 +569,30 @@ export default function PrediccionPage() {
       ),
     );
   }, [traffic?.features, mapEvents]);
+
+  const mobilityAlerts = useMemo(() => {
+    const alerts = [
+      ...(valenbisiRealtime?.alerts ?? []),
+      ...(emtArrivalsRealtime?.alerts ?? []),
+    ];
+    return alerts
+      .filter((alert, index, all) => all.findIndex((candidate) => candidate.id === alert.id) === index)
+      .sort((a, b) => mobilityAlertRank(a) - mobilityAlertRank(b));
+  }, [valenbisiRealtime?.alerts, emtArrivalsRealtime?.alerts]);
+
+  const mobilityAlertGroups = useMemo(() => groupMobilityAlerts(mobilityAlerts), [mobilityAlerts]);
+  const mobilityCriticalCount = mobilityAlerts.filter((alert) => alert.severity === "critical").length;
+  const mobilityWarningCount = mobilityAlerts.filter((alert) => alert.severity === "warning").length;
+  const visibleValenbisiStations =
+    mobilityRealtime && mobilityLayers.valenbisi ? valenbisiRealtime?.stations ?? [] : [];
+  const visibleEmtStops =
+    mobilityRealtime && mobilityLayers.emt ? emtStopsRealtime : [];
+  const visibleEmtRoutes =
+    mobilityRealtime && mobilityLayers.emtRoutes ? emtArrivalsRealtime?.routes ?? [] : [];
+  const visibleEstimatedBuses =
+    mobilityRealtime && mobilityLayers.estimatedBuses
+      ? emtArrivalsRealtime?.estimatedPositions ?? []
+      : [];
 
   return (
     <div className="space-y-6">
@@ -547,6 +771,59 @@ export default function PrediccionPage() {
             <p className="text-sm text-slate-400">Cargando tráfico del Ayuntamiento…</p>
           )}
         </Card>
+
+        <Card title="Movilidad en tiempo real" className="lg:col-span-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <div className="space-y-3">
+              <button
+                type="button"
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                  mobilityRealtime
+                    ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                    : "bg-slate-900 text-white hover:bg-slate-800"
+                }`}
+                onClick={() => setMobilityRealtime((value) => !value)}
+              >
+                <Wifi className="h-4 w-4" />
+                {mobilityRealtime ? "Tiempo real activo" : "Activar tiempo real"}
+              </button>
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                <span className="rounded-lg bg-slate-50 px-3 py-2">
+                  Valenbisi: {valenbisiLoading ? "cargando" : formatRealtimeTime(valenbisiRealtime?.fetchedAt)}
+                </span>
+                <span className="rounded-lg bg-slate-50 px-3 py-2">
+                  EMT: {emtStopsLoading ? "cargando" : `${emtStopsRealtime.length} paradas`}
+                </span>
+              </div>
+              {(valenbisiError || emtStopsError) && (
+                <p className="text-xs text-amber-700">
+                  {[valenbisiError, emtStopsError].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {MOBILITY_LAYER_OPTIONS.map(({ key, label, icon }) => (
+                <label
+                  key={key}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm ${
+                    mobilityLayers[key]
+                      ? "border-brand-200 bg-brand-50 text-brand-800"
+                      : "border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={mobilityLayers[key]}
+                    onChange={() => toggleMobilityLayer(key)}
+                  />
+                  {icon}
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
 
       <div className="space-y-4">
@@ -591,6 +868,30 @@ export default function PrediccionPage() {
               )}
             </div>
           )}
+          {mobilityRealtime && (
+            <div className="mb-3 flex flex-wrap gap-3 text-xs">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                Valenbisi ok
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
+                Valenbisi alerta
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-sky-600" />
+                Parada EMT
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-8 rounded-full border border-blue-500 border-dashed" />
+                Ruta EMT aprox.
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-800">
+                BUS
+                <span className="font-normal">posicion estimada</span>
+              </span>
+            </div>
+          )}
           <DynamicMap
             height={560}
             heatmapPoints={roadColorMode === "prediction" ? (heatmap?.points ?? []) : []}
@@ -598,9 +899,16 @@ export default function PrediccionPage() {
             showTraffic
             roadColorMode={roadColorMode}
             affectedTramoIds={affectedTramoIds}
-            eventMarkers={mapEvents}
-            eventImpactZones={eventImpactZones}
+            eventMarkers={mobilityLayers.events ? mapEvents : []}
+            eventImpactZones={mobilityLayers.events ? eventImpactZones : []}
             selectedEventId={selectedEventId}
+            valenbisiStations={visibleValenbisiStations}
+            emtStops={visibleEmtStops}
+            emtRoutes={visibleEmtRoutes}
+            estimatedBusPositions={visibleEstimatedBuses}
+            selectedEmtStopId={selectedEmtStop?.stopId ?? null}
+            onSelectEmtStop={handleSelectEmtStop}
+            showOnlyMobilityAlerts={mobilityRealtime && mobilityLayers.onlyAlerts}
           />
           {traffic?.n_tramos === 0 && (
             <p className="mt-2 text-sm text-amber-700">
@@ -608,6 +916,115 @@ export default function PrediccionPage() {
             </p>
           )}
         </Card>
+
+        {mobilityRealtime && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="EMT seleccionado">
+              {selectedEmtStop ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{selectedEmtStop.name}</p>
+                      <p className="text-sm text-slate-500">
+                        Parada {selectedEmtStop.stopId} · lineas {selectedEmtStop.lines.join(", ") || "sin datos"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      onClick={() => loadEmtArrivalsRealtime(selectedEmtStop)}
+                      disabled={emtArrivalsLoading}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${emtArrivalsLoading ? "animate-spin" : ""}`} />
+                      Actualizar llegadas
+                    </button>
+                  </div>
+                  {emtArrivalsError && (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      {emtArrivalsError}
+                    </p>
+                  )}
+                  {emtArrivalsRealtime?.arrivals.length ? (
+                    <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+                      {emtArrivalsRealtime.arrivals.slice(0, 8).map((arrival, index) => (
+                        <div key={`${arrival.line}-${arrival.destination ?? "dest"}-${index}`} className="flex items-center justify-between gap-3 p-3 text-sm">
+                          <div>
+                            <p className="font-semibold text-slate-900">Linea {arrival.line}</p>
+                            <p className="text-xs text-slate-500">{arrival.destination ?? "Destino no informado"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-slate-900">{arrival.minutes} min</p>
+                            <p className="text-xs text-slate-400">
+                              {formatRealtimeTime(arrival.expectedArrivalTime)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      {emtArrivalsLoading ? "Cargando proximas llegadas..." : "Sin llegadas disponibles para la parada."}
+                    </p>
+                  )}
+                  {visibleEstimatedBuses.length > 0 && (
+                    <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-900">
+                      <p className="font-semibold">Buses estimados sobre ruta</p>
+                      <ul className="mt-2 space-y-1">
+                        {visibleEstimatedBuses.slice(0, 4).map((bus) => (
+                          <li key={bus.id}>
+                            Linea {bus.line}: {bus.minutesToTargetStop} min · confianza {bus.confidence}
+                            {bus.delayed ? " · posible retraso" : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Selecciona una parada EMT en el mapa para consultar llegadas y estimar buses.
+                </p>
+              )}
+            </Card>
+
+            <Card title="Alertas de movilidad">
+              <div className="mb-4 flex flex-wrap gap-2 text-sm">
+                <Badge color={mobilityCriticalCount ? "red" : "slate"}>
+                  {mobilityCriticalCount} criticas
+                </Badge>
+                <Badge color={mobilityWarningCount ? "amber" : "slate"}>
+                  {mobilityWarningCount} warnings
+                </Badge>
+                {valenbisiRealtime?.stale && <Badge color="amber">Valenbisi stale</Badge>}
+              </div>
+              {mobilityAlerts.length ? (
+                <div className="space-y-3">
+                  {mobilityAlertGroups.map((group) => (
+                    <div key={group.id}>
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {group.label} · {group.items.length}
+                      </p>
+                      <div className="space-y-2">
+                        {group.items.slice(0, 4).map((alert) => (
+                          <div key={alert.id} className={`rounded-lg border px-3 py-2 text-sm ${mobilityAlertTone(alert)}`}>
+                            <p className="font-semibold">{alert.title}</p>
+                            <p className="mt-0.5 text-xs">{alert.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Sin alertas activas con las capas actuales.</p>
+              )}
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                La posicion del bus es estimada a partir del tiempo de llegada y la ruta; no representa GPS real.
+                La precision depende de rutas disponibles, orden de paradas y respuesta SAE EMT.
+              </p>
+            </Card>
+          </div>
+        )}
 
         <Tabs
           active={activeTab}

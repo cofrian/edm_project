@@ -19,6 +19,13 @@ from src.data_loader import models_available
 from src.evaluation import errors_by_zone, scatter_sample
 from src.events import list_events
 from src.integrations.aemet import current_weather, forecast_day
+from src.integrations.mobility import (
+    fetch_emt_arrivals,
+    fetch_emt_routes,
+    fetch_emt_stops,
+    fetch_valenbisi_stations,
+    mobility_alerts,
+)
 from src.integrations.valencia_traffic import live_traffic
 from src.maps import (
     candidates_facilities_geojson,
@@ -166,6 +173,31 @@ def weather_forecast(fecha: date | None = None) -> dict:
 @app.get("/traffic/live")
 def traffic_live() -> dict:
     return live_traffic()
+
+
+@app.get("/api/mobility/valenbisi/stations")
+def mobility_valenbisi_stations() -> dict:
+    return fetch_valenbisi_stations()
+
+
+@app.get("/api/mobility/emt/stops")
+def mobility_emt_stops() -> dict:
+    return fetch_emt_stops()
+
+
+@app.get("/api/mobility/emt/stops/{stop_id}/arrivals")
+def mobility_emt_arrivals(stop_id: int, lineId: str | None = None) -> dict:
+    return fetch_emt_arrivals(stop_id, lineId)
+
+
+@app.get("/api/mobility/emt/routes")
+def mobility_emt_routes(line: str | None = None, direction: str | None = None) -> dict:
+    return fetch_emt_routes(line=line, direction=direction)
+
+
+@app.get("/api/mobility/alerts")
+def mobility_live_alerts() -> dict:
+    return mobility_alerts()
 
 
 @app.get("/events", response_model=EventsListResponse)
