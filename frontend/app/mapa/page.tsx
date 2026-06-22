@@ -80,7 +80,7 @@ const PRESETS: {
   },
   {
     id: "traffic",
-    label: "Red viaria",
+    label: "Tráfico",
     icon: <Route className="h-3.5 w-3.5" />,
     layers: {
       traffic: true,
@@ -130,9 +130,9 @@ function MapaContent() {
   return (
     <div className="space-y-7">
       <PageHeader
-        eyebrow="Explorador urbano"
+        eyebrow="Mapa urbano"
         title="Mapa de Valencia"
-        description="Vista GIS para revisar capas de movilidad, equipamientos, demanda y candidatos antes de lanzar una optimización."
+        description="Mapa para revisar movilidad, equipamientos, demanda y posibles ubicaciones antes de optimizar."
       >
         <Badge color="blue">GIS</Badge>
         {activePreset && <Badge color="green">{activePreset.label}</Badge>}
@@ -142,14 +142,14 @@ function MapaContent() {
         <Stat
           label="Valenbisi"
           value={valenbisiCount ?? "—"}
-          hint="Estaciones actuales inventariadas"
+          hint="Estaciones actuales registradas"
           tone="amber"
           icon={<Bike className="h-4 w-4" />}
         />
         <Stat
           label="Candidatos"
           value={summary?.n_candidates ?? "—"}
-          hint="Ubicaciones evaluables"
+          hint="Ubicaciones que se pueden elegir"
           tone="brand"
           icon={<Building2 className="h-4 w-4" />}
         />
@@ -173,12 +173,12 @@ function MapaContent() {
           <div>
             <p className="eyebrow">Vista de capas</p>
             <h2 className="mt-1 text-xl font-semibold text-slate-950">
-              Observatorio GIS operativo
+              Capas del mapa
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              Cambia de preset para activar capas relacionadas. Valenbisi muestra
-              ubicación de estaciones actuales; la disponibilidad de bicis en vivo
-              no está conectada todavía.
+              Cambia de vista para activar capas relacionadas. Valenbisi muestra
+              las estaciones actuales, pero todavía no incluye bicis disponibles
+              en tiempo real.
             </p>
           </div>
 
@@ -203,7 +203,7 @@ function MapaContent() {
                 href={`/optimizacion?sector=${activePreset.sector}`}
                 className="btn-primary px-4 py-2 text-xs"
               >
-                Optimizar <ArrowRight className="h-3.5 w-3.5" />
+                Buscar ubicaciones <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             )}
           </div>
@@ -212,7 +212,7 @@ function MapaContent() {
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <ApiStatusBanner compact />
           <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
-            Valenbisi: inventario de estaciones, no disponibilidad en vivo
+            Valenbisi: estaciones actuales, no bicis disponibles en vivo
           </span>
         </div>
 
@@ -238,7 +238,7 @@ export default function MapaPage() {
     <Suspense
       fallback={
         <div className="flex h-[100dvh] items-center justify-center text-slate-500">
-          Cargando mapa…
+          Cargando mapa...
         </div>
       }
     >

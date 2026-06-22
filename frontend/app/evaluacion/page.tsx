@@ -21,34 +21,34 @@ export default async function EvaluacionPage() {
       <PageHeader
         eyebrow="CRISP-DM · Evaluation"
         title="Evaluación del modelo de demanda"
-        description={`Métricas reales de CatBoost en validación temporal (holdout 25–31 octubre 2023).${g.validation ? ` ${g.validation}.` : ""}`}
+        description={`Resultados del modelo CatBoost al probarlo con datos que no usó para entrenar (25-31 octubre 2023).${g.validation ? ` ${g.validation}.` : ""}`}
       >
         <Badge color="blue">Validación temporal</Badge>
         <Badge color="green">CatBoost</Badge>
       </PageHeader>
 
-      <Callout tone="teal" title="Por qué evaluamos con rigor">
-        El optimizador es tan bueno como su señal de demanda. Una validación
-        temporal honesta (entrenar con el pasado, evaluar con el futuro) garantiza
-        que la presión de tráfico que entra en la optimización es fiable.
+      <Callout tone="teal" title="Por qué importa esta evaluación">
+        El optimizador usa la demanda prevista para tomar decisiones. Por eso
+        probamos el modelo con días posteriores a los de entrenamiento: así vemos
+        si funciona bien con datos nuevos.
       </Callout>
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="MAE" value={g.MAE} unit="veh/h" hint="Error absoluto medio" tone="brand" />
-        <Stat label="RMSE" value={g.RMSE} hint="Penaliza errores grandes" />
-        <Stat label="R²" value={g.R2} hint="Ajuste global (→1 mejor)" tone="teal" />
+        <Stat label="RMSE" value={g.RMSE} hint="Da más peso a errores grandes" />
+        <Stat label="R²" value={g.R2} hint="Calidad general del ajuste" tone="teal" />
         <Stat label="sMAPE" value={g.sMAPE} unit="%" hint="Error porcentual" />
       </section>
 
       <div className="grid gap-7 lg:grid-cols-2">
-        <Card title="MAE por hora" description="Error absoluto medio en cada franja horaria.">
+        <Card title="MAE por hora" description="Error medio del modelo en cada hora del día.">
           {byHour.length ? (
             <BarMetric data={byHour as unknown as Record<string, number>[]} xKey="Hora" yKey="MAE" />
           ) : (
             <Empty />
           )}
         </Card>
-        <Card title="R² por hora" description="Calidad de ajuste por hora (cuanto más cerca de 1, mejor).">
+        <Card title="R² por hora" description="Qué tal ajusta el modelo en cada hora. Cuanto más cerca de 1, mejor.">
           {byHour.length ? (
             <LineMetric data={byHour as unknown as Record<string, number>[]} xKey="Hora" yKey="R2" />
           ) : (
@@ -58,10 +58,10 @@ export default async function EvaluacionPage() {
       </div>
 
       <div className="grid gap-7 lg:grid-cols-2">
-        <Card title="Real vs Predicho" description="Dispersión sobre el holdout (muestra).">
-          {scatter.length ? <ScatterRealPred data={scatter} /> : <Empty note="Genera validation_predictions.csv" />}
+        <Card title="Real vs predicho" description="Comparación entre el tráfico real y el que predijo el modelo.">
+          {scatter.length ? <ScatterRealPred data={scatter} /> : <Empty note="Falta generar validation_predictions.csv" />}
         </Card>
-        <Card title="Zonas con más error" description="Top zonas por MAE en validación.">
+        <Card title="Zonas con más error" description="Zonas donde el modelo se equivoca más, según el MAE.">
           {zones.length ? (
             <div className="overflow-x-auto scroll-thin">
               <table className="w-full text-sm">
@@ -86,7 +86,7 @@ export default async function EvaluacionPage() {
               </table>
             </div>
           ) : (
-            <Empty note="Genera validation_predictions.csv" />
+            <Empty note="Falta generar validation_predictions.csv" />
           )}
         </Card>
       </div>
