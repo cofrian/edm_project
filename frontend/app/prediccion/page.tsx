@@ -52,7 +52,7 @@ const DEFAULT_MOBILITY_LAYERS: Record<MobilityLayerKey, boolean> = {
   valenbisi: true,
   emt: true,
   events: true,
-  emtRoutes: true,
+  emtRoutes: false,
   estimatedBuses: true,
   onlyAlerts: false,
 };
@@ -303,7 +303,6 @@ export default function PrediccionPage() {
     setMobilityLayers((prev) => ({
       ...prev,
       emt: true,
-      emtRoutes: true,
       estimatedBuses: true,
     }));
   }, []);
@@ -928,6 +927,12 @@ export default function PrediccionPage() {
                       <p className="text-sm text-slate-500">
                         Parada {selectedEmtStop.stopId} · lineas {selectedEmtStop.lines.join(", ") || "sin datos"}
                       </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {emtArrivalsRealtime?.stale && <Badge color="amber">EMT fallback</Badge>}
+                        {emtArrivalsRealtime?.source === "estimated_route" && (
+                          <Badge color="blue">Estimacion por ruta</Badge>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -996,6 +1001,7 @@ export default function PrediccionPage() {
                   {mobilityWarningCount} warnings
                 </Badge>
                 {valenbisiRealtime?.stale && <Badge color="amber">Valenbisi stale</Badge>}
+                {emtArrivalsRealtime?.stale && <Badge color="amber">EMT fallback</Badge>}
               </div>
               {mobilityAlerts.length ? (
                 <div className="space-y-3">
