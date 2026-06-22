@@ -10,7 +10,8 @@
 2. Subir el contenido de `backend/` (incluidos `models/` con Git LFS y `data/processed/`).
 3. Variables: `ENV=production`, `ALLOW_ORIGINS=https://edm-project.vercel.app`.
 4. Secret opcional: `AEMET_API_KEY` ([opendata.aemet.es](https://opendata.aemet.es)) para meteo en vivo; sin ella la API usa defaults.
-5. El `Dockerfile` instala CBC (PuLP) y arranca `uvicorn` en `$PORT` (7860 en HF).
+5. Variables opcionales de movilidad: `VALENCIA_VALENBISI_TTL_SECONDS`, `VALENCIA_EMT_ARRIVALS_TTL_SECONDS`, `VALENCIA_EMT_ROUTES_URL`.
+6. El `Dockerfile` instala CBC (PuLP) y arranca `uvicorn` en `$PORT` (7860 en HF).
 
 ### Local con Docker
 ```bash
@@ -20,6 +21,7 @@ docker compose up --build
 
 ## Variables de entorno
 - Backend: `ENV`, `DATA_DIR`, `MODEL_DIR`, `ALLOW_ORIGINS`, `MAE_ALERT_THRESHOLD`, `AEMET_API_KEY` (opcional, solo en HF).
+- Movilidad backend: `VALENCIA_VALENBISI_TTL_SECONDS=180`, `VALENCIA_EMT_STOPS_TTL_SECONDS=21600`, `VALENCIA_EMT_ARRIVALS_TTL_SECONDS=45`, `VALENCIA_EMT_ROUTES_TTL_SECONDS=21600`, `VALENCIA_EVENT_VALENBISI_RADIUS_METERS=1000`, `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES=3`, `VALENCIA_EMT_AVG_SPEED_KMH=14`, `VALENCIA_EMT_ROUTES_URL` (opcional).
 - Frontend: `NEXT_PUBLIC_API_URL`.
 - Plantillas en `.env.example` (raíz, `backend/`, `frontend/`).
 
