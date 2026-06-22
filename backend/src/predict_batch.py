@@ -130,6 +130,7 @@ def predict_heatmap(
     *,
     use_live_weather: bool = True,
     apply_events: bool = True,
+    weather_override: dict | None = None,
 ) -> dict[str, Any]:
     dow = dia_semana if dia_semana is not None else fecha.weekday()
     req = PredictHourRequest(
@@ -138,5 +139,6 @@ def predict_heatmap(
         dia_semana=dow,
         use_live_weather=use_live_weather,
         apply_events=apply_events,
+        **(weather_override or {}),
     )
     return predict_hour_batch(req)

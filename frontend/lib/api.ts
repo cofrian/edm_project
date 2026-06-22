@@ -193,6 +193,11 @@ export const api = {
     dia_semana?: number;
     use_live_weather?: boolean;
     apply_events?: boolean;
+    temp_c?: number;
+    hum_rel?: number;
+    pres_mb?: number;
+    vel_viento_ms?: number;
+    precip_lm2?: number;
   }, options?: ApiOptions) => {
     const q = new URLSearchParams();
     q.set("hora", String(params.hora));
@@ -202,6 +207,11 @@ export const api = {
       q.set("use_live_weather", String(params.use_live_weather));
     }
     if (params.apply_events != null) q.set("apply_events", String(params.apply_events));
+    if (params.temp_c != null) q.set("temp_c", String(params.temp_c));
+    if (params.hum_rel != null) q.set("hum_rel", String(params.hum_rel));
+    if (params.pres_mb != null) q.set("pres_mb", String(params.pres_mb));
+    if (params.vel_viento_ms != null) q.set("vel_viento_ms", String(params.vel_viento_ms));
+    if (params.precip_lm2 != null) q.set("precip_lm2", String(params.precip_lm2));
     return getJSON<HeatmapResponse>(`/predict/heatmap?${q}`, {
       fecha: params.fecha ?? "",
       hora: params.hora,
@@ -220,6 +230,9 @@ export const api = {
       precip_lm2: 0,
       source: "default",
     }, options),
+  weatherForecast: (fecha: string, options?: ApiOptions) =>
+    getJSON<WeatherCurrent[]>(`/weather/forecast?fecha=${fecha}`, [], options)
+      .then((res) => (Array.isArray(res) ? res : (res as { hours?: WeatherCurrent[] }).hours ?? [])),
   trafficLive: (options?: ApiOptions) => tryGet<TrafficLiveResponse>("/traffic/live", options),
   mobilityValenbisiStations: (options?: ApiOptions) =>
     getJSON<ValenbisiStationsResponse>(

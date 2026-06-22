@@ -371,22 +371,31 @@ export default function PrediccionPage() {
     setLoading(true);
     try {
       const now = isViewingNow(fecha, hora);
-      const [w, ev] = await Promise.all([
-        now ? api.weatherCurrent({ signal }) : Promise.resolve(null),
+      const [wCurrent, forecast, ev] = await Promise.all([
+        api.weatherCurrent({ signal }),
+        now ? Promise.resolve([] as WeatherCurrent[]) : api.weatherForecast(fecha, { signal }),
         api.events(fecha, addDaysIso(fecha, 31), { signal }),
       ]);
+      const wHour: WeatherCurrent = (!now && forecast.length > 0)
+        ? (forecast.find((h) => (h as WeatherCurrent & { hora?: number }).hora === hora) ?? wCurrent)
+        : wCurrent;
       let hm: HeatmapResponse | null = null;
       if (!now) {
         hm = await api.predictHeatmap({
           fecha,
           hora,
           dia_semana: diaSemana,
-          use_live_weather: true,
+          use_live_weather: false,
           apply_events: applyEvents,
+          temp_c: wHour.temp_c,
+          hum_rel: wHour.hum_rel,
+          pres_mb: wHour.pres_mb,
+          vel_viento_ms: wHour.vel_viento_ms,
+          precip_lm2: wHour.precip_lm2,
         }, { signal });
       }
       if (signal?.aborted) return;
-      if (w) setWeather(w);
+      setWeather(wHour);
       setHeatmap(hm);
       setEvents(ev.events);
     } catch (error) {
@@ -1028,15 +1037,6 @@ export default function PrediccionPage() {
                       <p className="text-sm text-slate-500">
                         Parada {selectedEmtStop.stopId} · líneas {selectedEmtStop.lines.join(", ") || "sin datos"}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {emtArrivalsRealtime?.stale && <Badge color="amber">Datos EMT alternativos</Badge>}
-                        {emtArrivalsRealtime?.source === "gtfs_schedule" && (
-                          <Badge color="green">Horario GTFS</Badge>
-                        )}
-                        {emtArrivalsRealtime?.source === "estimated_route" && (
-                          <Badge color="blue">Estimación por ruta</Badge>
-                        )}
-                      </div>
                     </div>
                     <button
                       type="button"
@@ -1114,7 +1114,6 @@ export default function PrediccionPage() {
                   {mobilityWarningCount} avisos
                 </Badge>
                 {valenbisiRealtime?.stale && <Badge color="amber">Valenbisi sin datos recientes</Badge>}
-                {emtArrivalsRealtime?.stale && <Badge color="amber">EMT con datos alternativos</Badge>}
               </div>
               {mobilityAlerts.length ? (
                 <div className="space-y-3">
