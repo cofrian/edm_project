@@ -11,8 +11,9 @@ license: mit
 
 # UrbanFlow Valencia — Backend (FastAPI)
 
-API de predicción de presión de tráfico urbano en Valencia (CatBoost) y optimización de
-movilidad sostenible (PuLP). Forma parte de la entrega EDM.
+API de UrbanFlow Valencia. Sirve predicciones de tráfico con CatBoost, datos para
+mapas, métricas de evaluación, movilidad en tiempo real y resultados de
+optimización con PuLP. Forma parte de la entrega de EDM.
 
 ## Endpoints principales
 
@@ -23,10 +24,10 @@ movilidad sostenible (PuLP). Forma parte de la entrega EDM.
 | GET | `/metrics/global` | MAE, RMSE, R², sMAPE (CatBoost) |
 | GET | `/metrics/by-hour` | Métricas por hora |
 | GET | `/metrics/errors-by-zone` | Zonas con más error |
-| POST | `/predict` | Intensidad y nivel de presión |
-| POST | `/optimize/valenbisi` | Selección de N ubicaciones (PuLP) |
+| POST | `/predict` | Intensidad de tráfico y nivel de presión |
+| POST | `/optimize/valenbisi` | Selección de un número fijo de ubicaciones (PuLP) |
 | POST | `/optimize/coverage` | Cobertura bajo presupuesto (PuLP) |
-| GET | `/map/traffic-segments` | GeoJSON ligero |
+| GET | `/map/traffic-segments` | Segmentos de tráfico en GeoJSON |
 | GET | `/api/mobility/valenbisi/stations` | Valenbisi en tiempo real + alertas |
 | GET | `/api/mobility/emt/stops` | Paradas EMT |
 | GET | `/api/mobility/emt/stops/{stop_id}/arrivals` | Llegadas EMT por parada seleccionada |
@@ -40,6 +41,8 @@ Documentación interactiva en `/docs`.
 ## Ejecución local
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
@@ -56,17 +59,18 @@ docker run -p 8000:8000 urbanflow-api
 - `ALLOW_ORIGINS`: orígenes CORS permitidos (incluir la URL de Vercel).
 - `DATA_DIR`, `MODEL_DIR`: rutas a datos procesados y modelos.
 - `VALENCIA_VALENBISI_TTL_SECONDS`, `VALENCIA_EMT_STOPS_TTL_SECONDS`,
-  `VALENCIA_EMT_ARRIVALS_TTL_SECONDS`, `VALENCIA_EMT_ROUTES_TTL_SECONDS`: TTL de cache.
-- `VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS`: timeout de consulta SAE EMT.
-- `VALENCIA_EMT_ARRIVALS_LAST_GOOD_TTL_SECONDS`: ventana para reutilizar la ultima respuesta SAE valida.
-- `VALENCIA_EMT_FALLBACK_HEADWAY_MINUTES`, `VALENCIA_EMT_FALLBACK_MAX_LINES`: frecuencia media y numero maximo de lineas usadas cuando SAE no responde.
-- `VALENCIA_EMT_ROUTES_URL`: fuente GeoJSON opcional de shapes/rutas EMT.
+  `VALENCIA_EMT_ARRIVALS_TTL_SECONDS`, `VALENCIA_EMT_ROUTES_TTL_SECONDS`: tiempos de caché.
+- `VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS`: tiempo máximo de consulta SAE EMT.
+- `VALENCIA_EMT_ARRIVALS_LAST_GOOD_TTL_SECONDS`: ventana para reutilizar la última respuesta SAE válida.
+- `VALENCIA_EMT_FALLBACK_HEADWAY_MINUTES`, `VALENCIA_EMT_FALLBACK_MAX_LINES`: frecuencia media y número máximo de líneas usadas cuando SAE no responde.
+- `VALENCIA_EMT_ROUTES_URL`: fuente GeoJSON opcional de rutas o trazados EMT.
 - `VALENCIA_EMT_GTFS_RESOURCE_ID`: recurso CKAN Open Data Valencia para resolver el ZIP GTFS oficial de EMT.
 - `VALENCIA_EMT_GTFS_URL`: URL ZIP GTFS manual si no se usa CKAN.
-- `VALENCIA_EMT_GTFS_NAP_FILE_ID`, `VALENCIA_EMT_GTFS_API_KEY`: alternativa NAP con ApiKey.
-- Si no hay GeoJSON ni GTFS disponible, se derivan rutas aproximadas desde paradas como fallback.
+- `VALENCIA_EMT_GTFS_NAP_FILE_ID`, `VALENCIA_EMT_GTFS_API_KEY`: alternativa NAP con API key.
+- Si no hay GeoJSON ni GTFS disponible, se crean rutas aproximadas a partir de las paradas.
 
 ## Modelo
 
-CatBoost por hora (baseline + residuo log-ratio + shrink + embeddings). Los 24 modelos
-`.cbm` (~160 MB) se versionan con Git LFS. No se entrena en producción.
+CatBoost por hora. El modelo combina un patrón base por zona y hora con variables
+de calendario, meteorología y tráfico. Los 24 modelos `.cbm` (~160 MB) se guardan
+con Git LFS. No se entrena en producción.
