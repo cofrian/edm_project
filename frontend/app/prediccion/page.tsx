@@ -354,6 +354,7 @@ export default function PrediccionPage() {
     setMobilityLayers((prev) => ({
       ...prev,
       emt: true,
+      emtRoutes: true,
       estimatedBuses: true,
     }));
   }, []);
@@ -1035,12 +1036,12 @@ export default function PrediccionPage() {
                   )}
                   {mobilityLayers.emtRoutes && (
                     <p className={`rounded-lg px-3 py-2 text-sm ${
-                      emtRoutesError
+                      emtRoutesError && !emtRoutesLoading && emtRoutesStopId === selectedEmtStop?.stopId
                         ? "bg-amber-50 text-amber-800"
                         : "bg-slate-50 text-slate-600"
                     }`}>
-                      {emtRoutesLoading
-                        ? "Cargando rutas EMT de esta parada..."
+                      {emtRoutesLoading || emtRoutesStopId !== selectedEmtStop?.stopId
+                        ? "Calculando ruta..."
                         : emtRoutesError
                           ? emtRoutesError
                           : `${visibleEmtRoutes.length} rutas EMT de esta parada visibles en el mapa.`}
