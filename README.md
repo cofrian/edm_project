@@ -494,11 +494,16 @@ python scripts/validate_artifacts.py
 | `VALENCIA_VALENBISI_TTL_SECONDS` | Cache Valenbisi en tiempo real | `180` |
 | `VALENCIA_EMT_STOPS_TTL_SECONDS` | Cache de paradas EMT | `21600` |
 | `VALENCIA_EMT_ARRIVALS_TTL_SECONDS` | Cache de llegadas SAE por parada | `45` |
+| `VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS` | Timeout de consulta SAE EMT | `12` |
 | `VALENCIA_EMT_ROUTES_TTL_SECONDS` | Cache de rutas EMT | `21600` |
 | `VALENCIA_EVENT_VALENBISI_RADIUS_METERS` | Radio para alertas Valenbisi cerca de eventos | `1000` |
 | `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES` | Umbral de retraso EMT | `3` |
 | `VALENCIA_EMT_AVG_SPEED_KMH` | Velocidad media para posicion estimada | `14` |
-| `VALENCIA_EMT_ROUTES_URL` | Fuente opcional de rutas/shapes EMT | *(opcional)* |
+| `VALENCIA_EMT_ROUTES_URL` | Fuente GeoJSON opcional de rutas/shapes EMT | *(opcional)* |
+| `VALENCIA_EMT_GTFS_RESOURCE_ID` | Recurso CKAN Open Data Valencia para GTFS EMT | `c81b69e6-c082-44dc-acc6-66fc417b4e66` |
+| `VALENCIA_EMT_GTFS_URL` | URL ZIP GTFS manual si no se usa CKAN | *(opcional)* |
+| `VALENCIA_EMT_GTFS_NAP_FILE_ID` | Fichero NAP GTFS alternativo | `1166` |
+| `VALENCIA_EMT_GTFS_API_KEY` | ApiKey NAP para descargar desde transportes.gob.es | *(opcional)* |
 
 ### Frontend (`frontend/.env.local` o Vercel)
 
