@@ -1371,6 +1371,144 @@ def _fallback_lines_for_stop(
     return lines[:EMT_FALLBACK_MAX_LINES]
 
 
+def _parse_gtfs_active_services(zf: zipfile.ZipFile, today_str: str) -> set[str]:
+    today = datetime.strptime(today_str, "%Y-%m-%d")
+    today_int = int(today.strftime("%Y%m%d"))
+    day_name = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")[
+        today.weekday()
+    ]
+    active: set[str] = set()
+    for row in _read_gtfs_table(zf, "calendar.txt"):
+        try:
+            start = int(_first_text(row, "start_date") or "0")
+            end = int(_first_text(row, "end_date") or "0")
+        except ValueError:
+            continue
+        if start <= today_int <= end and _first_text(row, day_name) == "1":
+            svc = _first_text(row, "service_id")
+            if svc:
+                active.add(svc)
+    today_date_str = today.strftime("%Y%m%d")
+    for row in _read_gtfs_table(zf, "calendar_dates.txt"):
+        if _first_text(row, "date") != today_date_str:
+            continue
+        svc = _first_text(row, "service_id")
+        exc = _first_text(row, "exception_type")
+        if exc == "1":
+            active.add(svc)
+        elif exc == "2":
+            active.discard(svc)
+    return active
+
+
+def _build_gtfs_stop_arrivals(content: bytes, today_str: str) -> dict[int, list[dict[str, Any]]]:
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        active_services = _parse_gtfs_active_services(zf, today_str)
+        routes_txt = _read_gtfs_table(zf, "routes.txt")
+        trips_txt = _read_gtfs_table(zf, "trips.txt")
+        stop_times_txt = _read_gtfs_table(zf, "stop_times.txt")
+
+    line_by_route: dict[str, str] = {
+        _first_text(r, "route_id"): _normalize_gtfs_line(r)
+        for r in routes_txt
+        if _first_text(r, "route_id")
+    }
+    trip_meta: dict[str, dict[str, str]] = {}
+    for trip in trips_txt:
+        svc = _first_text(trip, "service_id")
+        if svc not in active_services:
+            continue
+        tid = _first_text(trip, "trip_id")
+        if tid:
+            trip_meta[tid] = {
+                "line": line_by_route.get(_first_text(trip, "route_id"), "?"),
+                "destination": _first_text(trip, "trip_headsign"),
+            }
+    index: dict[int, list[dict[str, Any]]] = {}
+    for row in stop_times_txt:
+        tid = _first_text(row, "trip_id")
+        meta = trip_meta.get(tid)
+        if meta is None:
+            continue
+        stop_id = _gtfs_stop_id_to_int(_first_text(row, "stop_id"))
+        if stop_id is None:
+            continue
+        secs = _parse_gtfs_time_to_seconds(row.get("arrival_time"))
+        if secs is None:
+            continue
+        index.setdefault(stop_id, []).append({
+            "line": meta["line"],
+            "destination": meta["destination"] or None,
+            "arrival_seconds": secs,
+        })
+    for entries in index.values():
+        entries.sort(key=lambda e: e["arrival_seconds"])
+    return index
+
+
+_gtfs_arrivals_cache: dict[str, dict[int, list[dict[str, Any]]]] = {}
+
+
+def _get_gtfs_arrivals_index(today_str: str) -> dict[int, list[dict[str, Any]]]:
+    if today_str in _gtfs_arrivals_cache:
+        return _gtfs_arrivals_cache[today_str]
+    try:
+        url = _resolve_gtfs_download_url()
+        content = _fetch_binary(url, timeout=60, headers=_gtfs_headers())
+        index = _build_gtfs_stop_arrivals(content, today_str)
+        _gtfs_arrivals_cache.clear()
+        _gtfs_arrivals_cache[today_str] = index
+        return index
+    except Exception:
+        return {}
+
+
+def _gtfs_next_arrivals(
+    stop_id: int,
+    now: datetime,
+    line_id: str | None = None,
+    max_results: int = 6,
+    max_minutes_ahead: int = 90,
+) -> list[dict[str, Any]]:
+    today_str = now.strftime("%Y-%m-%d")
+    index = _get_gtfs_arrivals_index(today_str)
+    entries = index.get(stop_id, [])
+    now_secs = now.hour * 3600 + now.minute * 60 + now.second
+
+    def _collect(cutoff_secs: int, max_per_line: int) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        seen_lines: dict[str, int] = {}
+        for entry in entries:
+            arr_secs = entry["arrival_seconds"]
+            if arr_secs <= now_secs:
+                continue
+            if arr_secs > cutoff_secs:
+                break
+            line = str(entry["line"])
+            if line_id and line.upper() != str(line_id).upper():
+                continue
+            if seen_lines.get(line, 0) >= max_per_line:
+                continue
+            minutes = max(0, int(round((arr_secs - now_secs) / 60)))
+            results.append({
+                "stopId": stop_id,
+                "line": line,
+                "destination": entry.get("destination"),
+                "minutes": minutes,
+                "expectedArrivalTime": (now + timedelta(minutes=minutes)).isoformat(),
+            })
+            seen_lines[line] = seen_lines.get(line, 0) + 1
+            if len(results) >= max_results:
+                break
+        return results
+
+    results = _collect(now_secs + max_minutes_ahead * 60, 2)
+    if not results:
+        # Fuera de servicio o horario nocturno: mostrar próximo bus aunque esté lejos
+        results = _collect(now_secs + 8 * 3600, 1)
+    return results
+
+
 def _fallback_arrivals_from_routes(
     *,
     stop_id: int,
@@ -1544,6 +1682,25 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
             arrival["expectedArrivalTime"] = (at + timedelta(minutes=arrival["minutes"])).isoformat()
         snapshots, alerts = update_arrival_snapshots(stop_id, stop_name, arrivals, now=at)
         if not arrivals:
+            gtfs_arrivals = _gtfs_next_arrivals(stop_id, at, line_id=line_id)
+            if gtfs_arrivals:
+                out = _emt_arrivals_response(
+                    stop_id=stop_id,
+                    stop_name=stop_name,
+                    selected_stop=selected_stop,
+                    arrivals=gtfs_arrivals,
+                    snapshots=snapshots,
+                    alerts=alerts,
+                    source="gtfs_schedule",
+                    source_label="Horario GTFS EMT Valencia",
+                    source_url=url,
+                    fetched_at=at,
+                    stale=True,
+                    error="SAE EMT no ha devuelto llegadas. Mostrando horario programado GTFS.",
+                    fallback_note="Horario programado GTFS Valencia. Sin GPS real; puede no reflejar incidencias.",
+                )
+                set_cached(cache_key, out, min(30, EMT_ARRIVALS_TTL_SECONDS))
+                return out
             fallback_arrivals = _fallback_arrivals_from_routes(
                 stop_id=stop_id,
                 selected_stop=selected_stop,
@@ -1614,6 +1771,25 @@ def fetch_emt_arrivals(stop_id: int, line_id: str | None = None) -> dict[str, An
                 set_cached(cache_key, out, min(15, EMT_ARRIVALS_TTL_SECONDS))
                 return out
 
+        gtfs_arrivals = _gtfs_next_arrivals(stop_id, at, line_id=line_id)
+        if gtfs_arrivals:
+            out = _emt_arrivals_response(
+                stop_id=stop_id,
+                stop_name=stop_name,
+                selected_stop=selected_stop,
+                arrivals=gtfs_arrivals,
+                snapshots=[],
+                alerts=[],
+                source="gtfs_schedule",
+                source_label="Horario GTFS EMT Valencia",
+                source_url=url,
+                fetched_at=at,
+                stale=True,
+                error=error,
+                fallback_note="Horario programado GTFS Valencia. Sin GPS real; puede no reflejar incidencias.",
+            )
+            set_cached(cache_key, out, min(30, EMT_ARRIVALS_TTL_SECONDS))
+            return out
         fallback_arrivals = _fallback_arrivals_from_routes(
             stop_id=stop_id,
             selected_stop=selected_stop,

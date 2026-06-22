@@ -351,6 +351,7 @@ export default function PrediccionPage() {
     setEmtRoutesForStop([]);
     setEmtRoutesStopId(null);
     setEmtRoutesError(null);
+    setEmtArrivalsRealtime(null);
     setMobilityLayers((prev) => ({
       ...prev,
       emt: true,
@@ -367,7 +368,7 @@ export default function PrediccionPage() {
     try {
       const now = isViewingNow(fecha, hora);
       const [w, ev] = await Promise.all([
-        api.weatherCurrent({ signal }),
+        now ? api.weatherCurrent({ signal }) : Promise.resolve(null),
         api.events(fecha, addDaysIso(fecha, 31), { signal }),
       ]);
       let hm: HeatmapResponse | null = null;
@@ -381,7 +382,7 @@ export default function PrediccionPage() {
         }, { signal });
       }
       if (signal?.aborted) return;
-      setWeather(w);
+      if (w) setWeather(w);
       setHeatmap(hm);
       setEvents(ev.events);
     } catch (error) {
@@ -505,7 +506,11 @@ export default function PrediccionPage() {
   }, [fecha]);
 
   useEffect(() => {
-    if (viewingNow) setRoadColorMode("live");
+    if (viewingNow) {
+      setRoadColorMode("live");
+    } else {
+      setMobilityRealtime(false);
+    }
   }, [viewingNow]);
 
   useEffect(() => {
@@ -852,15 +857,19 @@ export default function PrediccionPage() {
             <div className="space-y-3">
               <button
                 type="button"
+                disabled={!viewingNow}
+                title={!viewingNow ? "Solo disponible en modo actual (hora = ahora)" : undefined}
                 className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
-                  mobilityRealtime
-                    ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
+                  !viewingNow
+                    ? "cursor-not-allowed bg-slate-200 text-slate-400"
+                    : mobilityRealtime
+                      ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                      : "bg-slate-900 text-white hover:bg-slate-800"
                 }`}
                 onClick={() => setMobilityRealtime((value) => !value)}
               >
                 <Wifi className="h-4 w-4" />
-                {mobilityRealtime ? "Tiempo real activo" : "Activar tiempo real"}
+                {!viewingNow ? "Tiempo real (solo en ahora)" : mobilityRealtime ? "Tiempo real activo" : "Activar tiempo real"}
               </button>
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
                 <span className="rounded-lg bg-slate-50 px-3 py-2">
@@ -993,6 +1002,7 @@ export default function PrediccionPage() {
             selectedEmtStopId={selectedEmtStop?.stopId ?? null}
             onSelectEmtStop={handleSelectEmtStop}
             showOnlyMobilityAlerts={mobilityRealtime && mobilityLayers.onlyAlerts}
+            flyTo={selectedEmtStop ? { lat: selectedEmtStop.lat, lon: selectedEmtStop.lon } : null}
           />
           {traffic?.n_tramos === 0 && (
             <p className="mt-2 text-sm text-amber-700">
@@ -1014,6 +1024,9 @@ export default function PrediccionPage() {
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {emtArrivalsRealtime?.stale && <Badge color="amber">EMT fallback</Badge>}
+                        {emtArrivalsRealtime?.source === "gtfs_schedule" && (
+                          <Badge color="green">Horario GTFS</Badge>
+                        )}
                         {emtArrivalsRealtime?.source === "estimated_route" && (
                           <Badge color="blue">Estimacion por ruta</Badge>
                         )}

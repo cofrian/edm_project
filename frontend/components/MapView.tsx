@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Circle,
   CircleMarker,
@@ -11,6 +11,7 @@ import {
   Polyline,
   Popup,
   TileLayer,
+  useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import type { Layer, PathOptions } from "leaflet";
@@ -81,6 +82,15 @@ function eventMarkerIcon(selected: boolean): L.DivIcon {
     iconSize: [48, 48],
     iconAnchor: [24, 24],
   });
+}
+
+function FlyToPoint({ target }: { target: { lat: number; lon: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!target) return;
+    map.flyTo([target.lat, target.lon], 15, { duration: 0.8 });
+  }, [map, target]);
+  return null;
 }
 
 function busEstimateIcon(bus: EstimatedBusPosition): L.DivIcon {
@@ -163,6 +173,7 @@ export default function MapView({
   height = 460,
   scrollWheelZoom = true,
   useCircleMarker = false,
+  flyTo = null,
 }: {
   markers?: MapMarker[];
   polygons?: MapPolygon[];
@@ -191,6 +202,7 @@ export default function MapView({
   height?: number;
   scrollWheelZoom?: boolean;
   useCircleMarker?: boolean;
+  flyTo?: { lat: number; lon: number } | null;
 }) {
   const affectedSet = useMemo(() => new Set(affectedTramoIds), [affectedTramoIds]);
   const visibleValenbisi = useMemo(
@@ -321,6 +333,7 @@ export default function MapView({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; &copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
+        <FlyToPoint target={flyTo} />
         {eventImpactZones.map((zone) => {
           const selected = selectedEventId === zone.eventId;
           return (
