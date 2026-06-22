@@ -65,7 +65,7 @@ export default function DocumentacionPage() {
           {/* RESUMEN */}
           <Section id="resumen" icon={<Target className="h-5 w-5" />} title="Resumen del proyecto">
             <p>
-              UrbanFlow Valencia es una <strong>plataforma de apoyo a la decisión municipal</strong>.
+              UrbanFlow Valencia es una <strong>plataforma de apoyo para decisiones en municipios</strong>.
               Responde a una pregunta concreta de un técnico del ayuntamiento:{" "}
               <em>“con un presupuesto limitado, ¿dónde instalo nuevos equipamientos
               para que el máximo de ciudadanos quede cubierto?”</em>
@@ -74,8 +74,7 @@ export default function DocumentacionPage() {
               El núcleo es un <strong>motor de optimización</strong> (programación lineal
               entera) que selecciona la mejor combinación de ubicaciones. Para medir
               la demanda, se integra un <strong>modelo de aprendizaje automático</strong>{" "}
-              que predice la presión de tráfico, validado y monitorizado siguiendo el
-              ciclo EDM.
+              que predice la presión de tráfico, validado y monitorizado.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge color="blue">Optimización (protagonista)</Badge>
