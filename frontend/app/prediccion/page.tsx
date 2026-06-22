@@ -22,6 +22,7 @@ import { PageHeader, Callout } from "@/components/ui";
 import type {
   CityEvent,
   EmtArrivalsResponse,
+  EmtRoute,
   EmtStop,
   GlobalMetrics,
   HeatmapResponse,
@@ -142,6 +143,18 @@ function formatRealtimeTime(value?: string | null): string {
   return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
 
+function uniqueStopLines(stop: EmtStop): string[] {
+  return Array.from(new Set(stop.lines.map((line) => line.trim().toUpperCase()).filter(Boolean)));
+}
+
+function routeContainsStop(route: EmtRoute, stopId: number): boolean {
+  return route.stops.some((stop) => stop.stopId === stopId);
+}
+
+function uniqueRoutes(routes: EmtRoute[]): EmtRoute[] {
+  return routes.filter((route, index, all) => all.findIndex((candidate) => candidate.id === route.id) === index);
+}
+
 function mobilityAlertRank(alert: MobilityAlert): number {
   const severity = { critical: 0, warning: 1, info: 2 }[alert.severity] ?? 3;
   return severity;
@@ -210,6 +223,10 @@ export default function PrediccionPage() {
   const [emtArrivalsRealtime, setEmtArrivalsRealtime] = useState<EmtArrivalsResponse | null>(null);
   const [emtArrivalsLoading, setEmtArrivalsLoading] = useState(false);
   const [emtArrivalsError, setEmtArrivalsError] = useState<string | null>(null);
+  const [emtRoutesForStop, setEmtRoutesForStop] = useState<EmtRoute[]>([]);
+  const [emtRoutesLoading, setEmtRoutesLoading] = useState(false);
+  const [emtRoutesError, setEmtRoutesError] = useState<string | null>(null);
+  const [emtRoutesStopId, setEmtRoutesStopId] = useState<number | null>(null);
 
   useEffect(() => {
     const updateVisibility = () => setIsPageVisible(pageIsVisible());
@@ -294,12 +311,46 @@ export default function PrediccionPage() {
     }
   }, []);
 
+  const loadEmtRoutesForStop = useCallback(async (stop: EmtStop, signal?: AbortSignal) => {
+    if (!pageIsVisible()) return;
+    const lines = uniqueStopLines(stop);
+    if (!lines.length) {
+      setEmtRoutesForStop([]);
+      setEmtRoutesStopId(stop.stopId);
+      setEmtRoutesError("La parada no informa lineas EMT para cargar rutas.");
+      return;
+    }
+    setEmtRoutesLoading(true);
+    setEmtRoutesError(null);
+    setEmtRoutesStopId(stop.stopId);
+    try {
+      const responses = await Promise.all(lines.map((line) => api.mobilityEmtRoutes(line, { signal })));
+      if (signal?.aborted) return;
+      const routes = uniqueRoutes(
+        responses
+          .flatMap((res) => res.routes)
+          .filter((route) => routeContainsStop(route, stop.stopId)),
+      );
+      setEmtRoutesForStop(routes);
+      setEmtRoutesError(routes.length ? null : "No se han encontrado rutas para esta parada.");
+    } catch (error) {
+      if (isAbortError(error)) return;
+      setEmtRoutesForStop([]);
+      setEmtRoutesError(error instanceof Error ? error.message : "Error de red");
+    } finally {
+      if (!signal?.aborted) setEmtRoutesLoading(false);
+    }
+  }, []);
+
   const toggleMobilityLayer = useCallback((key: MobilityLayerKey) => {
     setMobilityLayers((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
   const handleSelectEmtStop = useCallback((stop: EmtStop) => {
     setSelectedEmtStop(stop);
+    setEmtRoutesForStop([]);
+    setEmtRoutesStopId(null);
+    setEmtRoutesError(null);
     setMobilityLayers((prev) => ({
       ...prev,
       emt: true,
@@ -420,9 +471,31 @@ export default function PrediccionPage() {
   }, [mobilityRealtime, selectedEmtStop, isPageVisible, loadEmtArrivalsRealtime]);
 
   useEffect(() => {
+    if (!mobilityRealtime || !isPageVisible || !mobilityLayers.emtRoutes || !selectedEmtStop) {
+      if (!mobilityLayers.emtRoutes) {
+        setEmtRoutesLoading(false);
+        setEmtRoutesForStop([]);
+        setEmtRoutesStopId(null);
+        setEmtRoutesError(null);
+      }
+      return;
+    }
+    const controller = new AbortController();
+    void loadEmtRoutesForStop(selectedEmtStop, controller.signal);
+    return () => controller.abort();
+  }, [
+    mobilityRealtime,
+    isPageVisible,
+    mobilityLayers.emtRoutes,
+    selectedEmtStop,
+    loadEmtRoutesForStop,
+  ]);
+
+  useEffect(() => {
     if (!mobilityRealtime) {
       setEmtArrivalsLoading(false);
       setValenbisiLoading(false);
+      setEmtRoutesLoading(false);
     }
   }, [mobilityRealtime]);
 
@@ -587,7 +660,9 @@ export default function PrediccionPage() {
   const visibleEmtStops =
     mobilityRealtime && mobilityLayers.emt ? emtStopsRealtime : [];
   const visibleEmtRoutes =
-    mobilityRealtime && mobilityLayers.emtRoutes ? emtArrivalsRealtime?.routes ?? [] : [];
+    mobilityRealtime && mobilityLayers.emtRoutes && emtRoutesStopId === selectedEmtStop?.stopId
+      ? emtRoutesForStop
+      : [];
   const visibleEstimatedBuses =
     mobilityRealtime && mobilityLayers.estimatedBuses
       ? emtArrivalsRealtime?.estimatedPositions ?? []
@@ -802,24 +877,31 @@ export default function PrediccionPage() {
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {MOBILITY_LAYER_OPTIONS.map(({ key, label, icon }) => (
-                <label
-                  key={key}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm ${
-                    mobilityLayers[key]
-                      ? "border-brand-200 bg-brand-50 text-brand-800"
-                      : "border-slate-200 bg-white text-slate-600"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={mobilityLayers[key]}
-                    onChange={() => toggleMobilityLayer(key)}
-                  />
-                  {icon}
-                  <span>{label}</span>
-                </label>
-              ))}
+              {MOBILITY_LAYER_OPTIONS.map(({ key, label, icon }) => {
+                const optionLabel = key === "emtRoutes" && emtRoutesLoading ? "Rutas EMT: cargando" : label;
+                return (
+                  <label
+                    key={key}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm ${
+                      mobilityLayers[key]
+                        ? "border-brand-200 bg-brand-50 text-brand-800"
+                        : "border-slate-200 bg-white text-slate-600"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={mobilityLayers[key]}
+                      onChange={() => toggleMobilityLayer(key)}
+                    />
+                    {key === "emtRoutes" && emtRoutesLoading ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      icon
+                    )}
+                    <span>{optionLabel}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
         </Card>
@@ -881,10 +963,12 @@ export default function PrediccionPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-sky-600" />
                 Parada EMT
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-1.5 w-8 rounded-full border border-blue-500 border-dashed" />
-                Ruta EMT aprox.
-              </span>
+              {mobilityLayers.emtRoutes && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-8 rounded-full border border-blue-500 border-dashed" />
+                  {emtRoutesLoading ? "Cargando rutas EMT" : `${visibleEmtRoutes.length} rutas EMT`}
+                </span>
+              )}
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-800">
                 BUS
                 <span className="font-normal">posicion estimada</span>
@@ -947,6 +1031,19 @@ export default function PrediccionPage() {
                   {emtArrivalsError && (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                       {emtArrivalsError}
+                    </p>
+                  )}
+                  {mobilityLayers.emtRoutes && (
+                    <p className={`rounded-lg px-3 py-2 text-sm ${
+                      emtRoutesError
+                        ? "bg-amber-50 text-amber-800"
+                        : "bg-slate-50 text-slate-600"
+                    }`}>
+                      {emtRoutesLoading
+                        ? "Cargando rutas EMT de esta parada..."
+                        : emtRoutesError
+                          ? emtRoutesError
+                          : `${visibleEmtRoutes.length} rutas EMT de esta parada visibles en el mapa.`}
                     </p>
                   )}
                   {emtArrivalsRealtime?.arrivals.length ? (
