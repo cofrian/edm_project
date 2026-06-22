@@ -63,7 +63,7 @@ const MOBILITY_LAYER_OPTIONS: Array<{ key: MobilityLayerKey; label: string; icon
   { key: "emt", label: "EMT", icon: <Bus className="h-4 w-4" /> },
   { key: "events", label: "Eventos", icon: <AlertTriangle className="h-4 w-4" /> },
   { key: "emtRoutes", label: "Rutas EMT", icon: <Route className="h-4 w-4" /> },
-  { key: "estimatedBuses", label: "Buses estimados", icon: <Clock className="h-4 w-4" /> },
+  { key: "estimatedBuses", label: "Buses aproximados", icon: <Clock className="h-4 w-4" /> },
   { key: "onlyAlerts", label: "Solo alertas", icon: <AlertTriangle className="h-4 w-4" /> },
 ];
 
@@ -301,7 +301,7 @@ export default function PrediccionPage() {
       const res = await api.mobilityEmtArrivals(stop.stopId, undefined, { signal });
       if (signal?.aborted) return;
       setEmtArrivalsRealtime(res);
-      setEmtArrivalsError(res.error ?? (res.source === "unavailable" ? "No se han podido cargar proximas llegadas" : null));
+      setEmtArrivalsError(res.error ?? (res.source === "unavailable" ? "No se han podido cargar próximas llegadas" : null));
     } catch (error) {
       if (isAbortError(error)) return;
       setEmtArrivalsRealtime(null);
@@ -317,7 +317,7 @@ export default function PrediccionPage() {
     if (!lines.length) {
       setEmtRoutesForStop([]);
       setEmtRoutesStopId(stop.stopId);
-      setEmtRoutesError("La parada no informa lineas EMT para cargar rutas.");
+      setEmtRoutesError("Esta parada no tiene líneas EMT asociadas.");
       return;
     }
     setEmtRoutesLoading(true);
@@ -671,12 +671,12 @@ export default function PrediccionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Datos abiertos · Valencia"
-        title="Tráfico en vivo y predicción horaria"
-        description="Vías del Ayuntamiento de Valencia en tiempo real (geoportal.valencia.es). La predicción CatBoost se muestra en el panel; en el mapa, colores oficiales del estado del tráfico."
+        eyebrow="Movilidad en Valencia"
+        title="Tráfico real y predicción por hora"
+        description="Consulta el tráfico actual del Ayuntamiento y compara otros días u horas con la predicción del modelo."
       >
-        <Badge color="green">Tráfico Ayto. en vivo</Badge>
-        {viewingNow ? <Badge color="green">Ahora — datos reales</Badge> : null}
+        <Badge color="green">Tráfico del Ayuntamiento</Badge>
+        {viewingNow ? <Badge color="green">Ahora: datos reales</Badge> : null}
         {!isPageVisible ? <Badge color="amber">Pausado en segundo plano</Badge> : null}
         {traffic?.n_tramos ? (
           <Badge color="blue">{traffic.n_tramos} tramos</Badge>
@@ -684,7 +684,7 @@ export default function PrediccionPage() {
       </PageHeader>
 
       <div className="grid gap-4 lg:grid-cols-4">
-        <Card title="Hora del día" className="lg:col-span-1">
+        <Card title="Fecha y hora" className="lg:col-span-1">
           <div className="space-y-4">
             <div>
               <label className="label">Fecha</label>
@@ -728,7 +728,7 @@ export default function PrediccionPage() {
               />
               {viewingNow && (
                 <p className="mt-1 text-xs text-emerald-700">
-                  Momento actual: mapa y panel muestran tráfico real del Ayuntamiento.
+                  Estás viendo el momento actual: el mapa usa tráfico real del Ayuntamiento.
                 </p>
               )}
             </div>
@@ -747,7 +747,7 @@ export default function PrediccionPage() {
           </div>
         </Card>
 
-        <Card title="Meteo España" className="lg:col-span-1">
+        <Card title="Tiempo actual" className="lg:col-span-1">
           {weather ? (
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -765,11 +765,11 @@ export default function PrediccionPage() {
               <p className="pt-1 text-xs text-slate-400">Fuente: {weatherSourceLabel(weather.source)}</p>
             </dl>
           ) : (
-            <p className="text-sm text-slate-400">Cargando…</p>
+            <p className="text-sm text-slate-400">Cargando...</p>
           )}
         </Card>
 
-        <Card title="Mapa — capa de vías" className="lg:col-span-1">
+        <Card title="Color del mapa" className="lg:col-span-1">
           <div className="space-y-3 text-sm">
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/80 p-2">
               <input
@@ -780,7 +780,7 @@ export default function PrediccionPage() {
               />
               <Radio className="h-4 w-4 text-emerald-600" />
               <span>
-                <strong>Tráfico Ayto.</strong> (tiempo real)
+                <strong>Tráfico real</strong> (Ayuntamiento)
               </span>
             </label>
             <label
@@ -799,8 +799,8 @@ export default function PrediccionPage() {
               />
               <Layers className="h-4 w-4 text-slate-400" />
               <span>
-                Predicción CatBoost
-                {viewingNow ? " (solo futuro/pasado)" : " (futuro/pasado)"}
+                Predicción del modelo
+                {viewingNow ? " (solo otros días u horas)" : " (otros días u horas)"}
               </span>
             </label>
             {!viewingNow && (
@@ -811,13 +811,13 @@ export default function PrediccionPage() {
                   onChange={(e) => setApplyEvents(e.target.checked)}
                 />
                 <Gauge className="h-4 w-4 text-slate-400" />
-                Impacto eventos en modelo
+                Tener en cuenta eventos
               </label>
             )}
           </div>
         </Card>
 
-        <Card title="Tráfico Ayuntamiento" className="lg:col-span-1">
+        <Card title="Tráfico del Ayuntamiento" className="lg:col-span-1">
           {trafficError ? (
             <p className="text-sm text-red-600">{trafficError}</p>
           ) : traffic ? (
@@ -839,10 +839,10 @@ export default function PrediccionPage() {
                 {traffic.fetched_at &&
                   ` · ${new Date(traffic.fetched_at).toLocaleTimeString("es-ES")}`}
               </p>
-              <p className="text-[11px] text-slate-400">Auto-actualización cada 3 min</p>
+              <p className="text-[11px] text-slate-400">Se actualiza cada 3 min</p>
             </dl>
           ) : (
-            <p className="text-sm text-slate-400">Cargando tráfico del Ayuntamiento…</p>
+            <p className="text-sm text-slate-400">Cargando tráfico del Ayuntamiento...</p>
           )}
         </Card>
 
@@ -908,7 +908,7 @@ export default function PrediccionPage() {
       </div>
 
       <div className="space-y-4">
-        <Card title="Mapa de vías">
+        <Card title="Mapa de tráfico">
           {roadColorMode === "live" && (
             <div className="mb-3 flex flex-wrap gap-3 text-xs">
               {Object.entries(TRAFFIC_ESTADO_LABELS).map(([key, label]) => (
@@ -923,11 +923,11 @@ export default function PrediccionPage() {
               {mapEvents.length > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-violet-700">
                   <span className="h-2 w-5 rounded-sm bg-violet-400/70 ring-1 ring-violet-600" />
-                  Corredor vial evento
+                  Zona afectada por evento
                   {affectedTramoIds.length > 0 ? ` · ${affectedTramoIds.length} tramos` : ""}
                 </span>
               )}
-              <span className="text-slate-400">· Pasa el ratón para veh/h</span>
+              <span className="text-slate-400">· Pasa el ratón para ver vehículos/hora</span>
             </div>
           )}
           {roadColorMode === "prediction" && (
@@ -944,7 +944,7 @@ export default function PrediccionPage() {
               {mapEvents.length > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-violet-700">
                   <span className="h-2 w-5 rounded-sm bg-violet-400/70 ring-1 ring-violet-600" />
-                  Corredor vial · {affectedTramoIds.length} tramos
+                  Zona afectada · {affectedTramoIds.length} tramos
                 </span>
               )}
             </div>
@@ -953,7 +953,7 @@ export default function PrediccionPage() {
             <div className="mb-3 flex flex-wrap gap-3 text-xs">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                Valenbisi ok
+                Valenbisi disponible
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
@@ -971,7 +971,7 @@ export default function PrediccionPage() {
               )}
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-800">
                 BUS
-                <span className="font-normal">posicion estimada</span>
+                <span className="font-normal">posición aproximada</span>
               </span>
             </div>
           )}
@@ -995,26 +995,26 @@ export default function PrediccionPage() {
           />
           {traffic?.n_tramos === 0 && (
             <p className="mt-2 text-sm text-amber-700">
-              No hay geometrías de vía. Comprueba la conexión con geoportal.valencia.es.
+              No hay datos de vías. Comprueba la conexión con geoportal.valencia.es.
             </p>
           )}
         </Card>
 
         {mobilityRealtime && (
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="EMT seleccionado">
+            <Card title="Parada EMT seleccionada">
               {selectedEmtStop ? (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900">{selectedEmtStop.name}</p>
                       <p className="text-sm text-slate-500">
-                        Parada {selectedEmtStop.stopId} · lineas {selectedEmtStop.lines.join(", ") || "sin datos"}
+                        Parada {selectedEmtStop.stopId} · líneas {selectedEmtStop.lines.join(", ") || "sin datos"}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {emtArrivalsRealtime?.stale && <Badge color="amber">EMT fallback</Badge>}
+                        {emtArrivalsRealtime?.stale && <Badge color="amber">Datos EMT alternativos</Badge>}
                         {emtArrivalsRealtime?.source === "estimated_route" && (
-                          <Badge color="blue">Estimacion por ruta</Badge>
+                          <Badge color="blue">Estimación por ruta</Badge>
                         )}
                       </div>
                     </div>
@@ -1051,7 +1051,7 @@ export default function PrediccionPage() {
                       {emtArrivalsRealtime.arrivals.slice(0, 8).map((arrival, index) => (
                         <div key={`${arrival.line}-${arrival.destination ?? "dest"}-${index}`} className="flex items-center justify-between gap-3 p-3 text-sm">
                           <div>
-                            <p className="font-semibold text-slate-900">Linea {arrival.line}</p>
+                            <p className="font-semibold text-slate-900">Línea {arrival.line}</p>
                             <p className="text-xs text-slate-500">{arrival.destination ?? "Destino no informado"}</p>
                           </div>
                           <div className="text-right">
@@ -1065,16 +1065,16 @@ export default function PrediccionPage() {
                     </div>
                   ) : !emtArrivalsError ? (
                     <p className="text-sm text-slate-500">
-                      {emtArrivalsLoading ? "Cargando proximas llegadas..." : "Sin llegadas disponibles para la parada."}
+                      {emtArrivalsLoading ? "Cargando próximas llegadas..." : "Sin llegadas disponibles para la parada."}
                     </p>
                   ) : null}
                   {visibleEstimatedBuses.length > 0 && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-900">
-                      <p className="font-semibold">Buses estimados sobre ruta</p>
+                      <p className="font-semibold">Buses aproximados en ruta</p>
                       <ul className="mt-2 space-y-1">
                         {visibleEstimatedBuses.slice(0, 4).map((bus) => (
                           <li key={bus.id}>
-                            Linea {bus.line}: {bus.minutesToTargetStop} min · confianza {bus.confidence}
+                            Línea {bus.line}: {bus.minutesToTargetStop} min · fiabilidad {bus.confidence}
                             {bus.delayed ? " · posible retraso" : ""}
                           </li>
                         ))}
@@ -1084,7 +1084,7 @@ export default function PrediccionPage() {
                 </div>
               ) : (
                 <p className="text-sm text-slate-500">
-                  Selecciona una parada EMT en el mapa para consultar llegadas y estimar buses.
+                  Selecciona una parada EMT en el mapa para consultar llegadas y ver buses aproximados.
                 </p>
               )}
             </Card>
@@ -1092,13 +1092,13 @@ export default function PrediccionPage() {
             <Card title="Alertas de movilidad">
               <div className="mb-4 flex flex-wrap gap-2 text-sm">
                 <Badge color={mobilityCriticalCount ? "red" : "slate"}>
-                  {mobilityCriticalCount} criticas
+                  {mobilityCriticalCount} críticas
                 </Badge>
                 <Badge color={mobilityWarningCount ? "amber" : "slate"}>
-                  {mobilityWarningCount} warnings
+                  {mobilityWarningCount} avisos
                 </Badge>
-                {valenbisiRealtime?.stale && <Badge color="amber">Valenbisi stale</Badge>}
-                {emtArrivalsRealtime?.stale && <Badge color="amber">EMT fallback</Badge>}
+                {valenbisiRealtime?.stale && <Badge color="amber">Valenbisi sin datos recientes</Badge>}
+                {emtArrivalsRealtime?.stale && <Badge color="amber">EMT con datos alternativos</Badge>}
               </div>
               {mobilityAlerts.length ? (
                 <div className="space-y-3">
@@ -1122,8 +1122,8 @@ export default function PrediccionPage() {
                 <p className="text-sm text-slate-500">Sin alertas activas con las capas actuales.</p>
               )}
               <p className="mt-4 text-xs leading-5 text-slate-500">
-                La posicion del bus es estimada a partir del tiempo de llegada y la ruta; no representa GPS real.
-                La precision depende de rutas disponibles, orden de paradas y respuesta SAE EMT.
+                La posición del bus se calcula con el tiempo de llegada y la ruta; no es GPS real.
+                La precisión depende de las rutas disponibles, el orden de paradas y la respuesta de EMT.
               </p>
             </Card>
           </div>
@@ -1184,19 +1184,16 @@ export default function PrediccionPage() {
         {activeTab === "sistema" && <SistemaPanel system={systemMetrics} />}
       </div>
 
-      <Callout tone="brand" title="EDM · Evaluación y monitorización integradas">
+      <Callout tone="brand" title="Qué incluye esta página">
         <ul className="list-inside list-disc space-y-1 text-sm">
           <li>
-            <strong>Resumen / Eventos / Evaluación / Monitorización / Sistema</strong> en pestañas
-            (no ocupan espacio hasta que las abres).
+            <strong>Resumen, eventos, evaluación, monitorización y sistema</strong> están separados en pestañas.
           </li>
           <li>
-            <strong>Evaluación:</strong> métricas globales y de la hora seleccionada; cada zona
-            muestra la calle del sensor.
+            <strong>Evaluación:</strong> muestra métricas generales y de la hora seleccionada.
           </li>
           <li>
-            <strong>Monitorización:</strong> zonas a revisar ahora (presión alta + baja fiabilidad
-            histórica).
+            <strong>Monitorización:</strong> marca zonas con mucha presión o poca fiabilidad histórica.
           </li>
         </ul>
         <Link
