@@ -25,42 +25,42 @@ const MODULES = [
   {
     href: "/mapa",
     title: "Mapa urbano",
-    text: "Explora Valencia con capas GIS, estaciones actuales, demanda y red viaria.",
+    text: "Consulta Valencia con tráfico, cobertura, estaciones y red viaria.",
     icon: <Layers className="h-5 w-5" />,
   },
   {
     href: "/optimizacion",
     title: "Optimizador GIS",
-    text: "Selecciona equipamientos, presupuesto o N puntos y revisa la solución sobre mapa.",
+    text: "Elige equipamientos, presupuesto o número de puntos y mira el resultado en el mapa.",
     icon: <Map className="h-5 w-5" />,
   },
   {
     href: "/datos",
     title: "Datos urbanos",
-    text: "Candidatos, isócronas, población, tráfico, meteorología y artefactos curados.",
+    text: "Revisa candidatos, población, tráfico, meteorología y otros datos usados por la app.",
     icon: <Database className="h-5 w-5" />,
   },
   {
     href: "/prediccion",
     title: "Demanda",
-    text: "Consulta la presión de tráfico prevista por zona y hora con fiabilidad asociada.",
+    text: "Consulta el tráfico previsto por zona y hora, junto con su fiabilidad.",
     icon: <Activity className="h-5 w-5" />,
   },
   {
     href: "/monitorizacion",
     title: "Monitorización",
-    text: "Comprueba alertas de error, fecha de datos, modelo activo y señales de drift.",
+    text: "Revisa errores, fecha de los datos, modelo activo y cambios en la demanda.",
     icon: <ShieldCheck className="h-5 w-5" />,
   },
 ];
 
 const CAPABILITIES = [
-  "Optimización exacta PuLP/CBC",
-  "Cobertura deportiva, sanitaria y multiobjetivo",
-  "Modo Valenbisi con pesos editables",
-  "Mapa GIS con tráfico, cobertura y estaciones actuales",
-  "Modelo CatBoost de demanda horaria",
-  "Despliegue desacoplado con frontend y API",
+  "Optimización con PuLP/CBC",
+  "Cobertura para deporte, salud y objetivos combinados",
+  "Valenbisi con pesos ajustables",
+  "Mapa con tráfico, cobertura y estaciones actuales",
+  "Predicción de demanda por hora",
+  "Frontend y API separados",
 ];
 
 export default async function Home() {
@@ -75,20 +75,20 @@ export default async function Home() {
         <Card className="border-slate-300">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
-              <p className="eyebrow">Plataforma de decisión urbana</p>
+              <p className="eyebrow">Herramienta de decisión urbana</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
                 UrbanFlow Valencia
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-                App para decidir dónde instalar nuevos equipamientos urbanos con
-                criterios reproducibles: cobertura de población, isócronas,
-                demanda, costes y restricciones de presupuesto.
+                App para elegir dónde instalar nuevos equipamientos urbanos.
+                Compara población cubierta, tiempos de acceso, demanda, costes
+                y presupuesto disponible.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge color="blue">GIS</Badge>
               <Badge color="green">Optimización</Badge>
-              <Badge color="slate">ModelOps</Badge>
+              <Badge color="slate">Modelo</Badge>
             </div>
           </div>
 
@@ -114,13 +114,13 @@ export default async function Home() {
         <Card>
           <p className="eyebrow">Estado del sistema</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">
-            Modelo y validación
+            Modelo y datos
           </h2>
           <dl className="mt-5 space-y-3 text-sm">
             <StatusRow k="Modelo activo" v={meta.model} />
             <StatusRow k="Datos" v={meta.data_date} />
             <StatusRow k="Validación" v={meta.validation} />
-            <StatusRow k="API/modelo" v={meta.model_loaded ? "Cargado" : "Fallback disponible"} />
+            <StatusRow k="API/modelo" v={meta.model_loaded ? "Cargado" : "Alternativa disponible"} />
           </dl>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <MiniMetric label="R²" value={metrics.R2} />
@@ -132,9 +132,9 @@ export default async function Home() {
       </section>
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Candidatos" value={128} hint="Ubicaciones evaluables" tone="brand" icon={<Building2 className="h-4 w-4" />} />
+        <Stat label="Candidatos" value={128} hint="Ubicaciones que se pueden elegir" tone="brand" icon={<Building2 className="h-4 w-4" />} />
         <Stat label="Capas GIS" value="4" hint="Tráfico, cobertura y estaciones" tone="teal" icon={<Layers className="h-4 w-4" />} />
-        <Stat label="Modos" value="4" hint="Deporte, salud, multi y movilidad" icon={<Target className="h-4 w-4" />} />
+        <Stat label="Modos" value="4" hint="Deporte, salud, varios objetivos y movilidad" icon={<Target className="h-4 w-4" />} />
         <Stat label="Registros" value="~853k" hint="Tráfico horario de octubre" icon={<Users className="h-4 w-4" />} />
       </section>
 
@@ -143,11 +143,11 @@ export default async function Home() {
           <div>
             <p className="eyebrow">Módulos de la app</p>
             <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-              Flujo completo de decisión
+              Qué puedes hacer
             </h2>
           </div>
           <Link href="/metodologia" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-950">
-            Ver detalle técnico <ArrowRight className="h-4 w-4" />
+            Ver metodología <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
@@ -170,26 +170,26 @@ export default async function Home() {
         <Card>
           <p className="eyebrow">Cómo decide</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">
-            Del dato al candidato recomendado
+            De los datos a la recomendación
           </h2>
           <div className="mt-5 space-y-3">
-            <FlowStep icon={<Database className="h-4 w-4" />} title="1. Datos curados" text="Candidatos, costes, población, isócronas y equipamientos existentes." />
-            <FlowStep icon={<BarChart3 className="h-4 w-4" />} title="2. Señal de demanda" text="CatBoost estima presión de tráfico por zona y hora." />
-            <FlowStep icon={<Route className="h-4 w-4" />} title="3. Optimización" text="PuLP/CBC maximiza cobertura o score respetando la restricción." />
-            <FlowStep icon={<GitBranch className="h-4 w-4" />} title="4. Resultado" text="Mapa GIS, métricas y ranking para interpretar la decisión." />
+            <FlowStep icon={<Database className="h-4 w-4" />} title="1. Datos preparados" text="La app parte de candidatos, costes, población, tiempos de acceso y equipamientos existentes." />
+            <FlowStep icon={<BarChart3 className="h-4 w-4" />} title="2. Demanda prevista" text="El modelo estima el tráfico por zona y hora." />
+            <FlowStep icon={<Route className="h-4 w-4" />} title="3. Optimización" text="El sistema busca la mejor cobertura o puntuación sin saltarse las restricciones." />
+            <FlowStep icon={<GitBranch className="h-4 w-4" />} title="4. Resultado" text="El mapa, las métricas y el ranking ayudan a entender la decisión." />
           </div>
         </Card>
 
         <Card>
           <p className="eyebrow">Motor de optimización</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">
-            Qué resuelve la herramienta
+            Qué resuelve
           </h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DecisionCard title="Presupuesto máximo" text="Elige la combinación que más impacto aporta sin superar el coste disponible." formula="Σ costeᵢ·xᵢ ≤ presupuesto" />
-            <DecisionCard title="N puntos" text="Selecciona exactamente las mejores ubicaciones cuando el número de actuaciones ya está fijado." formula="Σ xᵢ = N" />
-            <DecisionCard title="Cobertura real" text="Mide habitantes en isócronas de candidatos descontando cobertura existente." formula="max Σ pⱼYⱼ" />
-            <DecisionCard title="Movilidad" text="Pondera tráfico, población y déficit para priorizar estaciones Valenbisi." formula="max Σ scoreᵢxᵢ" />
+            <DecisionCard title="Presupuesto máximo" text="Elige las ubicaciones con más impacto sin pasar el presupuesto." formula="Σ costeᵢ·xᵢ ≤ presupuesto" />
+            <DecisionCard title="Número de puntos" text="Selecciona las mejores ubicaciones cuando ya sabes cuántas actuaciones quieres hacer." formula="Σ xᵢ = N" />
+            <DecisionCard title="Cobertura útil" text="Calcula cuánta población queda cubierta sin contar la que ya tenía un equipamiento cerca." formula="max Σ pⱼYⱼ" />
+            <DecisionCard title="Movilidad" text="Combina tráfico, población y falta de servicio para priorizar estaciones de Valenbisi." formula="max Σ scoreᵢxᵢ" />
           </div>
         </Card>
       </section>
