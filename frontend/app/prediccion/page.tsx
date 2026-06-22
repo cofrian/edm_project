@@ -961,11 +961,11 @@ export default function PrediccionPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : !emtArrivalsError ? (
                     <p className="text-sm text-slate-500">
                       {emtArrivalsLoading ? "Cargando proximas llegadas..." : "Sin llegadas disponibles para la parada."}
                     </p>
-                  )}
+                  ) : null}
                   {visibleEstimatedBuses.length > 0 && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-900">
                       <p className="font-semibold">Buses estimados sobre ruta</p>
