@@ -22,6 +22,13 @@ OPEN_METEO_URL = (
     "wind_speed_10m,wind_direction_10m,surface_pressure"
     "&timezone=Europe%2FMadrid"
 )
+OPEN_METEO_FORECAST_URL = (
+    "https://api.open-meteo.com/v1/forecast"
+    "?latitude=39.4699&longitude=-0.3763"
+    "&hourly=temperature_2m,relative_humidity_2m,precipitation,"
+    "wind_speed_10m,wind_direction_10m,surface_pressure"
+    "&timezone=Europe%2FMadrid&forecast_days=2"
+)
 
 # Valores por defecto razonables para verano en Valencia
 DEFAULT_WEATHER = {
@@ -185,22 +192,66 @@ def weather_for_model(target_date: date | None = None) -> dict:
     }
 
 
+def _open_meteo_hourly_forecast() -> list[dict] | None:
+    """Forecast horario real de Open-Meteo para hoy y mañana (48h)."""
+    cache_key = "weather:forecast:hourly"
+    cached = get_cached(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        payload = get_json(OPEN_METEO_FORECAST_URL, timeout=20)
+        hourly = payload.get("hourly") or {}
+        times = hourly.get("time") or []
+        temps = hourly.get("temperature_2m") or []
+        hums = hourly.get("relative_humidity_2m") or []
+        precips = hourly.get("precipitation") or []
+        winds = hourly.get("wind_speed_10m") or []
+        wind_dirs = hourly.get("wind_direction_10m") or []
+        pressures = hourly.get("surface_pressure") or []
+        result = []
+        for i, time_str in enumerate(times):
+            try:
+                dt = datetime.fromisoformat(time_str)
+            except ValueError:
+                continue
+            result.append({
+                "fecha": dt.date().isoformat(),
+                "hora": dt.hour,
+                "temp_c": _f(temps[i] if i < len(temps) else None, DEFAULT_WEATHER["temp_c"]),
+                "hum_rel": _f(hums[i] if i < len(hums) else None, DEFAULT_WEATHER["hum_rel"]),
+                "pres_mb": _f(pressures[i] if i < len(pressures) else None, DEFAULT_WEATHER["pres_mb"]),
+                "vel_viento_ms": _f(winds[i] if i < len(winds) else None, DEFAULT_WEATHER["vel_viento_ms"]),
+                "dir_viento_grados": _f(wind_dirs[i] if i < len(wind_dirs) else None, DEFAULT_WEATHER["dir_viento_grados"]),
+                "precip_lm2": _f(precips[i] if i < len(precips) else None, 0.0),
+                "source": "open-meteo-forecast",
+            })
+        set_cached(cache_key, result, ttl_seconds=3600)
+        return result
+    except Exception:
+        return None
+
+
 def forecast_day(target: date | None = None) -> list[dict]:
-    """Pronóstico horario simplificado (24h) para el slider."""
+    """Pronóstico horario real (Open-Meteo) para la fecha indicada."""
     d = target or date.today()
+    date_str = d.isoformat()
+    hourly = _open_meteo_hourly_forecast()
+    if hourly:
+        day_hours = [h for h in hourly if h["fecha"] == date_str]
+        if day_hours:
+            return sorted(day_hours, key=lambda h: h["hora"])
+    # Fallback: estimación sinusoidal sobre tiempo actual
     base = current_weather()
-    hours = []
-    for h in range(24):
-        # Variación diurna simple sobre la observación actual
-        temp_adj = base["temp_c"] + 4 * max(0, (h - 6) / 12) - 2 * max(0, (h - 18) / 6)
-        hours.append({
+    return [
+        {
             "hora": h,
-            "fecha": d.isoformat(),
-            "temp_c": round(temp_adj, 1),
+            "fecha": date_str,
+            "temp_c": round(base["temp_c"] + 4 * max(0, (h - 6) / 12) - 2 * max(0, (h - 18) / 6), 1),
             "hum_rel": base["hum_rel"],
             "pres_mb": base["pres_mb"],
             "vel_viento_ms": base["vel_viento_ms"],
             "precip_lm2": base["precip_lm2"],
             "source": base.get("source", "default"),
-        })
-    return hours
+        }
+        for h in range(24)
+    ]
