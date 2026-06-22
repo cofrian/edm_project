@@ -58,68 +58,68 @@ const FACILITY_HELP: Record<
   sports: {
     question: "¿Dónde abrir nuevas instalaciones deportivas?",
     objective:
-      "Prioriza candidatos que cubren población sin acceso actual a polideportivos.",
-    output: "Ranking de ubicaciones, coste usado y nueva población cubierta.",
-    basis: "Cobertura con isócronas, población hexagonal y restricción de presupuesto.",
+      "Busca ubicaciones que acerquen polideportivos a población que ahora no tiene buena cobertura.",
+    output: "Ranking de ubicaciones, coste usado y población nueva cubierta.",
+    basis: "Cobertura, población y presupuesto disponible.",
   },
   health: {
     question: "¿Dónde reforzar la red sanitaria?",
     objective:
-      "Busca centros de salud que añaden cobertura real sin duplicar la red existente.",
+      "Busca centros de salud que cubran población nueva sin repetir zonas ya atendidas.",
     output: "Ubicaciones sanitarias priorizadas bajo el presupuesto disponible.",
-    basis: "Cobertura sanitaria con población real y equipamientos existentes.",
+    basis: "Cobertura sanitaria, población y centros ya existentes.",
   },
   multi: {
     question: "¿Cómo repartir presupuesto entre deporte y salud?",
     objective:
-      "Combina dos objetivos con λ: 1 prioriza deporte, 0 prioriza salud, 0.5 equilibra ambos.",
-    output: "Mezcla óptima de equipamientos sin instalar dos servicios en el mismo punto.",
-    basis: "Modelo multiobjetivo con restricción de no duplicidad por candidato.",
+      "Permite dar más peso a deporte, a salud o equilibrar ambos objetivos.",
+    output: "Mezcla recomendada de equipamientos sin poner dos servicios en el mismo punto.",
+    basis: "Comparación conjunta de cobertura deportiva y sanitaria.",
   },
   valenbisi: {
     question: "¿Qué puntos de movilidad tienen mayor potencial?",
     objective:
-      "Combina tráfico, población alcanzable y déficit de estaciones en un score ponderado.",
-    output: "Selección por número fijo o presupuesto usando el score de movilidad.",
-    basis: "Optimización exacta sobre candidatos curados de movilidad sostenible.",
+      "Combina tráfico, población cercana y falta de estaciones para priorizar nuevos puntos.",
+    output: "Selección por número fijo o por presupuesto usando la puntuación de movilidad.",
+    basis: "Candidatos preparados para ampliar la red de Valenbisi.",
   },
 };
 
 const FUNCTIONAL_TRACE = [
   {
     source: "Cobertura urbana",
-    block: "Variables binarias, restricciones de cobertura y presupuesto.",
-    app: "Implementado en PuLP/CBC para deporte y salud, con población hexagonal e isócronas.",
+    block: "Cobertura, presupuesto y población alcanzada.",
+    app: "Usado en PuLP/CBC para deporte y salud, con población y áreas de alcance.",
     status: "Activo en API",
   },
   {
     source: "Movilidad Valenbisi",
-    block: "Candidatos de movilidad, tráfico, población alcanzable, déficit y optimización exacta.",
-    app: "Modo Valenbisi con pesos editables y selección de N puntos o presupuesto sobre candidatos curados.",
+    block: "Candidatos de movilidad, tráfico, población cercana y falta de estaciones.",
+    app: "Modo Valenbisi con pesos editables y selección por número de puntos o presupuesto.",
     status: "Activo en API",
   },
   {
     source: "Multiobjetivo",
     block: "Combinación de cobertura deportiva y sanitaria en una misma decisión.",
-    app: "Suma ponderada activa con λ y restricción para evitar duplicar servicios en el mismo punto.",
+    app: "Permite equilibrar deporte y salud, evitando duplicar servicios en el mismo punto.",
     status: "Activo en API",
   },
   {
-    source: "Capas GIS",
+    source: "Capas del mapa",
     block: "Contexto espacial para entender la decisión sobre el territorio.",
     app: "Mapa con tráfico, cobertura existente, estaciones actuales y candidatos recomendados.",
     status: "Activo en app",
   },
   {
     source: "Preparación de datos",
-    block: "Conversión de datos crudos a candidatos, población, isócronas, costes y cobertura existente.",
-    app: "Artefactos servidos desde backend/data/processed: candidatos, población, cobertura y capas GeoJSON.",
-    status: "Curado",
+    block: "Conversión de datos originales en candidatos, población, costes y cobertura existente.",
+    app: "Archivos preparados en backend/data/processed: candidatos, población, cobertura y capas GeoJSON.",
+    status: "Preparado",
   },
   {
     source: "Análisis avanzado",
-    block: "Heurísticas y áreas dinámicas de influencia para comparar alternativas.",
-    app: "Documentado como análisis interno; el servicio público usa PuLP/CBC por reproducibilidad y estabilidad.",
+    block: "Análisis internos para comparar alternativas.",
+    app: "Documentado como apoyo técnico; la app pública usa PuLP/CBC por estabilidad.",
     status: "Documentado",
   },
 ];
@@ -284,7 +284,7 @@ export default function OptimizacionPage() {
       label: `${formatFacilityType(s.facility_type, facility)} #${s.candidate_id} · ${
         usesRealPopulation
           ? `${s.score.toLocaleString("es-ES")} hab.`
-          : `score ${s.score.toLocaleString("es-ES")}`
+          : `puntuación ${s.score.toLocaleString("es-ES")}`
       }`,
       color:
         FACILITY_COLORS[s.facility_type ?? ""] ??
@@ -347,10 +347,10 @@ export default function OptimizacionPage() {
       <PageHeader
         eyebrow="UrbanFlow Valencia"
         title="Optimizador urbano"
-        description="Herramienta para comparar escenarios de equipamientos sobre Valencia con capas GIS, solver PuLP/CBC y resultados interpretables."
+        description="Herramienta para comparar dónde instalar nuevos equipamientos en Valencia usando mapa, presupuesto y resultados fáciles de revisar."
       >
-        <Badge color="blue">Mapa GIS</Badge>
-        <Badge color="green">Solver exacto</Badge>
+        <Badge color="blue">Mapa</Badge>
+        <Badge color="green">Optimización</Badge>
       </PageHeader>
 
       <div className="inline-flex w-full flex-wrap gap-2 rounded-full bg-white p-1.5 shadow-card sm:w-auto">
@@ -430,7 +430,7 @@ export default function OptimizacionPage() {
                       </p>
                       <p className="mt-0.5 text-xs leading-5 text-slate-500">
                         Primero decide el tipo de plan. Si el número de nuevas
-                        estaciones ya está cerrado, usa N estaciones. Si lo que
+                        estaciones ya está cerrado, usa número de estaciones. Si lo que
                         manda es el coste máximo, usa presupuesto.
                       </p>
                     </div>
@@ -440,15 +440,15 @@ export default function OptimizacionPage() {
                       active={constraint === "count"}
                       onClick={() => selectConstraint("count")}
                       icon={<Target className="h-5 w-5" />}
-                      title="Elegir N estaciones"
-                      subtitle="Plan cerrado: el solver elige exactamente esa cantidad de puntos."
+                      title="Elegir número de estaciones"
+                      subtitle="Plan cerrado: la app elige exactamente esa cantidad de puntos."
                     />
                     <ModeButton
                       active={constraint === "budget"}
                       onClick={() => selectConstraint("budget")}
                       icon={<Coins className="h-5 w-5" />}
                       title="Usar presupuesto máximo"
-                      subtitle="Plan flexible: el solver decide cuántas actuaciones caben."
+                      subtitle="Plan flexible: la app decide cuántas actuaciones caben."
                     />
                   </div>
                 </div>
@@ -517,7 +517,7 @@ export default function OptimizacionPage() {
                 )}
 
                 {facility === "multi" && (
-                  <Field label="λ deporte" value={lambdaSports.toFixed(2)}>
+                  <Field label="Peso de deporte" value={lambdaSports.toFixed(2)}>
                     <input
                       type="range"
                       min={0}
@@ -534,7 +534,7 @@ export default function OptimizacionPage() {
                 {facility === "valenbisi" && (
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Pesos del score
+                      Pesos de la puntuación
                     </p>
                     <Weight
                       icon={<Activity className="h-4 w-4 text-slate-700" />}
@@ -555,21 +555,21 @@ export default function OptimizacionPage() {
                       set={setWDef}
                     />
                     <p className="mt-3 rounded-full bg-white px-4 py-2 text-xs leading-5 text-slate-500 shadow-card">
-                      Score actual: tráfico {wTraf.toFixed(1)} · población{" "}
+                      Puntuación actual: tráfico {wTraf.toFixed(1)} · población{" "}
                       {wPob.toFixed(1)} · déficit {wDef.toFixed(1)}.
                     </p>
                     <div className="mt-3 grid gap-2 text-xs leading-5 text-slate-500">
                       <p>
                         <strong className="text-slate-700">Tráfico</strong>: acerca
-                        estaciones a zonas con más presión de movilidad.
+                        estaciones a zonas con más movimiento.
                       </p>
                       <p>
                         <strong className="text-slate-700">Población</strong>: prioriza
-                        puntos con más personas alcanzables.
+                        puntos cerca de más personas.
                       </p>
                       <p>
                         <strong className="text-slate-700">Déficit</strong>: empuja la
-                        solución hacia zonas peor cubiertas por la red actual.
+                        recomendación hacia zonas peor cubiertas por la red actual.
                       </p>
                     </div>
                   </div>
@@ -585,8 +585,8 @@ export default function OptimizacionPage() {
                   {usesRealPopulation
                     ? "maximizar población nueva cubierta sin superar presupuesto."
                     : constraint === "count"
-                      ? "elegir exactamente N ubicaciones con mayor score conjunto."
-                      : "maximizar score conjunto sin superar presupuesto."}
+                      ? "elegir exactamente N ubicaciones con mejor puntuación conjunta."
+                      : "maximizar la puntuación conjunta sin superar presupuesto."}
                 </div>
               </div>
             </Card>
@@ -595,14 +595,13 @@ export default function OptimizacionPage() {
               <Card className="p-4 sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="eyebrow">Mapa GIS de decisión</p>
+                    <p className="eyebrow">Mapa de decisión</p>
                     <h3 className="mt-1 text-xl font-bold text-slate-900">
                       Valencia: capas y recomendaciones
                     </h3>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                       {helper.output} Las capas ayudan a revisar cobertura actual,
-                      presión de movilidad y puntos propuestos antes de aceptar una
-                      solución.
+                      movilidad y puntos propuestos antes de aceptar una solución.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -645,7 +644,7 @@ export default function OptimizacionPage() {
                   <LegendDot color="#059669" label="Cobertura sanitaria" />
                   <LegendDot color="#64748b" label="Valenbisi actual" />
                   <LegendDot color="#7c3aed" label="Recomendación" />
-                  {layersLoading && <span>Cargando capas GIS...</span>}
+                  {layersLoading && <span>Cargando capas del mapa...</span>}
                   {result && <span>Restricción aplicada: {result.constraint}</span>}
                 </div>
               </Card>
@@ -667,7 +666,7 @@ export default function OptimizacionPage() {
                       : "—"
                   }
                   tone="teal"
-                  hint={usesRealPopulation ? "Nueva cobertura" : "Score ponderado"}
+                  hint={usesRealPopulation ? "Nueva cobertura" : "Puntuación ponderada"}
                 />
                 <Stat
                   label="Coste"
@@ -690,23 +689,23 @@ export default function OptimizacionPage() {
                   tone={apiUnavailable ? "amber" : result ? "teal" : "brand"}
                   title={
                     apiUnavailable
-                      ? "API no disponible"
+                      ? "No se pudo conectar con la API"
                       : result
                         ? "Lectura del resultado"
                         : "Calculando escenario"
                   }
                 >
                   {apiUnavailable
-                    ? "La interfaz funciona, pero no ha podido obtener solución del backend. Revisa NEXT_PUBLIC_API_URL o que la API local esté arrancada."
+                    ? "La interfaz funciona, pero no ha podido obtener una solución de la API. Revisa NEXT_PUBLIC_API_URL o que la API local esté arrancada."
                     : result
                       ? result.n_selected > 0
-                        ? `El solver propone ${result.n_selected} ubicaciones${
+                        ? `La app propone ${result.n_selected} ubicaciones${
                             budgetUsage != null
                               ? ` usando aproximadamente el ${budgetUsage}% del presupuesto`
                               : ""
                           }. La primera recomendación es el candidato #${topCandidate?.candidate_id}.`
-                        : "El solver no ha seleccionado ubicaciones con esta restricción. Sube el presupuesto o reduce las exigencias del escenario."
-                      : "Ejecutando PuLP/CBC sobre los artefactos curados del proyecto."}
+                        : "No se han seleccionado ubicaciones con esta restricción. Sube el presupuesto o reduce las exigencias del escenario."
+                      : "Calculando la mejor combinación con los datos preparados del proyecto."}
                 </Callout>
               )}
             </div>
@@ -722,7 +721,7 @@ export default function OptimizacionPage() {
                   </h3>
                   <p className="mt-1 text-sm text-slate-500">
                     Ordenadas por impacto. Cada fila corresponde a un candidato
-                    que el solver ha seleccionado para el escenario activo.
+                    seleccionado para el escenario activo.
                   </p>
                 </div>
                 <Badge color="blue">{result.selected.length} candidatos</Badge>
@@ -736,7 +735,7 @@ export default function OptimizacionPage() {
                       <th className="py-2 pr-3">Tipo</th>
                       <th className="py-2 pr-3">Zona</th>
                       <th className="py-2 pr-3">Coordenadas</th>
-                      <th className="py-2 pr-3">Población / score</th>
+                      <th className="py-2 pr-3">Población / puntuación</th>
                       <th className="py-2">Coste</th>
                     </tr>
                   </thead>
@@ -778,7 +777,7 @@ export default function OptimizacionPage() {
           {ran && result && result.selected.length === 0 && (
             <Callout tone="amber" title="Sin solución para este escenario">
               No se seleccionó ninguna ubicación. Prueba a aumentar el presupuesto
-              o revisa que la API esté desplegada con los artefactos de cobertura.
+              o revisa que la API tenga los archivos de cobertura cargados.
             </Callout>
           )}
         </>
@@ -791,7 +790,7 @@ export default function OptimizacionPage() {
                 <div>
                   <p className="eyebrow">Método del optimizador</p>
                   <h3 className="mt-1 text-lg font-bold text-slate-900">
-                    Formulación matemática del motor
+                    Cómo calcula la recomendación
                   </h3>
                   <MethodFormula
                     facility={facility}
@@ -808,7 +807,7 @@ export default function OptimizacionPage() {
                 <div>
                   <p className="eyebrow">Cómo leer la herramienta</p>
                   <h3 className="mt-1 text-lg font-bold text-slate-900">
-                    De escenario a decisión
+                    Del escenario al resultado
                   </h3>
                   <div className="mt-4 grid gap-3">
                     <InfoStep
@@ -818,7 +817,7 @@ export default function OptimizacionPage() {
                     />
                     <InfoStep
                       icon={<Route className="h-4 w-4" />}
-                      title="2. Revisa el mapa GIS"
+                      title="2. Revisa el mapa"
                       text="Activa capas para ver tráfico, cobertura existente y estaciones actuales."
                     />
                     <InfoStep
@@ -838,20 +837,19 @@ export default function OptimizacionPage() {
               <div className="min-w-0">
                 <p className="eyebrow">Trazabilidad funcional</p>
                 <h3 className="mt-1 text-lg font-bold text-slate-900">
-                  Cobertura funcional del motor UrbanFlow
+                  Qué partes usa UrbanFlow
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Esta pestaña documenta qué piezas del motor están activas,
-                  cuáles son capas de contexto y cuáles quedan como análisis
-                  interno para mantener la app estable.
+                  Esta pestaña resume qué piezas están activas, qué capas sirven
+                  de contexto y qué análisis quedan solo como apoyo interno.
                 </p>
                 <div className="mt-4 overflow-x-auto scroll-thin">
                   <table className="w-full min-w-[780px] text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                        <th className="py-2 pr-3">Fuente</th>
-                        <th className="py-2 pr-3">Bloque funcional</th>
-                        <th className="py-2 pr-3">Implementación en la app</th>
+                        <th className="py-2 pr-3">Parte</th>
+                        <th className="py-2 pr-3">Qué hace</th>
+                        <th className="py-2 pr-3">Cómo se usa en la app</th>
                         <th className="py-2">Estado</th>
                       </tr>
                     </thead>
@@ -877,13 +875,13 @@ export default function OptimizacionPage() {
                     </tbody>
                   </table>
                 </div>
-                <Callout tone="amber" title="Criterio de despliegue">
+                <Callout tone="amber" title="Por qué se usa este método">
                   <span className="inline-flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
-                      Los análisis experimentales se explican aquí, pero la ruta
-                      pública ejecuta PuLP/CBC porque es reproducible, testeable y
-                      más estable en despliegue.
+                      Los análisis experimentales se explican aquí como apoyo, pero
+                      la app pública usa PuLP/CBC porque da resultados estables y
+                      fáciles de comprobar.
                     </span>
                   </span>
                 </Callout>
@@ -910,12 +908,12 @@ function MethodFormula({
         {
           label: "Objetivo",
           formula: "max Σⱼ pⱼ · Yⱼ",
-          detail: "Maximizar habitantes nuevos cubiertos por el escenario.",
+          detail: "Cubrir al mayor número posible de habitantes nuevos.",
         },
         {
           label: "Cobertura",
           formula: "Yⱼ ≤ Σᵢ αᵢⱼ · Xᵢ",
-          detail: "Un hexágono cuenta si cae dentro de una isócrona seleccionada.",
+          detail: "Una zona cuenta si queda dentro del área de alcance elegida.",
         },
         {
           label: "Presupuesto",
@@ -925,17 +923,17 @@ function MethodFormula({
       ]
     : [
         {
-          label: "Score",
-          formula: "scoreᵢ = wₜ·tráficoᵢ + wₚ·poblaciónᵢ + w_d·déficitᵢ",
-          detail: "Cada candidato se valora con los pesos configurados.",
+          label: "Puntuación",
+          formula: "puntuaciónᵢ = wₜ·tráficoᵢ + wₚ·poblaciónᵢ + w_d·déficitᵢ",
+          detail: "Cada candidato recibe una puntuación según los pesos elegidos.",
         },
         {
           label: "Objetivo",
-          formula: "max Σᵢ scoreᵢ · xᵢ",
-          detail: "Se seleccionan los puntos con mayor impacto conjunto.",
+          formula: "max Σᵢ puntuaciónᵢ · xᵢ",
+          detail: "Se eligen los puntos con mejor puntuación conjunta.",
         },
         {
-          label: constraint === "count" ? "N estaciones" : "Presupuesto",
+          label: constraint === "count" ? "Número de estaciones" : "Presupuesto",
           formula:
             constraint === "count"
               ? "Σᵢ xᵢ = N"
@@ -943,7 +941,7 @@ function MethodFormula({
           detail:
             constraint === "count"
               ? "El usuario fija exactamente cuántas estaciones quiere proponer."
-              : "El solver decide cuántas estaciones caben en el coste máximo.",
+              : "La app decide cuántas estaciones caben en el coste máximo.",
         },
       ];
 
@@ -952,7 +950,7 @@ function MethodFormula({
       {
         label: "Balance",
         formula: "max λ·cobertura_deporte + (1−λ)·cobertura_salud",
-        detail: "λ permite mover prioridad entre deporte y salud.",
+        detail: "Permite mover la prioridad entre deporte y salud.",
       },
       {
         label: "No duplicidad",
@@ -968,13 +966,13 @@ function MethodFormula({
         <div>
           <p className="text-sm font-semibold text-slate-900">
             {usesRealPopulation
-              ? "Modelo de cobertura poblacional"
+              ? "Modelo de cobertura de población"
               : "Modelo de movilidad Valenbisi"}
           </p>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
             {usesRealPopulation
-              ? "Convierte isócronas y población en una decisión de cobertura nueva."
-              : "Convierte tráfico, población y déficit en una priorización editable."}
+              ? "Cruza áreas de alcance y población para medir nueva cobertura."
+              : "Convierte tráfico, población y falta de estaciones en una puntuación editable."}
           </p>
         </div>
         <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-card">
@@ -992,12 +990,12 @@ function MethodFormula({
         {usesRealPopulation ? (
           <>
             <strong className="text-slate-800">αᵢⱼ</strong> vale 1 si el
-            centroide del hexágono censal j cae dentro de la isócrona del
-            candidato i. Así se mide nueva cobertura, no solo cercanía visual.
+            centro de la zona de población j cae dentro del área de alcance del
+            candidato i. Así se mide cobertura nueva, no solo cercanía en el mapa.
           </>
         ) : (
           <>
-            El score se recalcula con los pesos elegidos por el usuario; por
+            La puntuación se recalcula con los pesos elegidos por el usuario; por
             eso Valenbisi permite comparar planes por número de estaciones o por
             presupuesto disponible.
           </>
@@ -1026,13 +1024,13 @@ function DecisionFlow({
       label: "Restricción",
       text:
         facility === "valenbisi" && constraint === "count"
-          ? "N estaciones"
+          ? "Número de estaciones"
           : "Presupuesto",
       active: true,
     },
     {
       label: "Mapa",
-      text: "Capas GIS",
+      text: "Capas del mapa",
       active: true,
     },
     {
@@ -1488,8 +1486,8 @@ function formatModeName(mode: string, fallback: FacilityMode) {
 function getModeHint(facility: FacilityMode, constraint: ConstraintMode) {
   if (facility === "valenbisi") {
     return constraint === "count"
-      ? "N estaciones + score"
-      : "Presupuesto + score";
+      ? "Número de estaciones + puntuación"
+      : "Presupuesto + puntuación";
   }
 
   if (facility === "multi") return "Balance deporte/salud";
