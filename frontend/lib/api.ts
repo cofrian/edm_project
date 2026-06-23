@@ -280,8 +280,10 @@ export const api = {
   mapSports: () => tryGet<GeoFeatureCollection>("/map/existing-sports"),
   mapHealth: () => tryGet<GeoFeatureCollection>("/map/existing-health"),
   mapTraffic: () => tryGet<GeoFeatureCollection>("/map/traffic-segments"),
-  mapPopulationHexes: (facilityType: "sports" | "health") =>
-    tryGet<GeoFeatureCollection>(`/map/population-hexes?facility_type=${facilityType}`),
+  mapPopulationHexes: (facilityType: "sports" | "health", includeAll = true) =>
+    tryGet<GeoFeatureCollection>(
+      `/map/population-hexes?facility_type=${facilityType}&include_all=${includeAll}`,
+    ),
   mapCandidatesFacilities: () => tryGet<GeoFeatureCollection>("/map/candidates-facilities"),
   mapCoveredHexes: (candidateIds: number[], facilityType: "sports" | "health") =>
     tryPost<GeoFeatureCollection>("/map/covered-hexes", {

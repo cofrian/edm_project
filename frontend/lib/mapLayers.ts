@@ -27,7 +27,7 @@ export const LAYER_META: Record<
   demand: {
     label: "Hexágonos de población",
     color: "#eab308",
-    description: "Hexágonos censales H3 sin cobertura previa",
+    description: "Malla censal H3; color indica déficit de cobertura",
   },
   candidates: {
     label: "Candidatos",
