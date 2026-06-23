@@ -26,7 +26,7 @@ import { Badge, Card } from "@/components/Card";
 import { Callout, PageHeader, Stat } from "@/components/ui";
 import { DynamicMap } from "@/components/DynamicMap";
 import type { GeoJSONFeature, GeoJSONFeatureCollection, OptimizeResponse } from "@/lib/types";
-import type { MapLine, MapMarker, MapPolygon } from "@/components/MapView";
+import type { MapMarker, MapPolygon } from "@/components/MapView";
 
 type FacilityMode = "sports" | "health" | "multi" | "valenbisi";
 type ConstraintMode = "budget" | "count";
@@ -315,17 +315,20 @@ export default function OptimizacionPage() {
     return polygons;
   }, [facility, layers.health, layers.sports, showCoverage]);
 
-  const trafficLines = useMemo(
-    () =>
-      showTraffic
-        ? lineFeaturesToLines(layers.traffic, {
-            color: "#f97316",
-            label: "Segmento de tráfico",
-            limit: 320,
-          })
-        : [],
-    [layers.traffic, showTraffic],
-  );
+  const trafficGeoJsonForMap = useMemo(() => {
+    if (!layers.traffic.features.length) return null;
+    return {
+      ...layers.traffic,
+      features: layers.traffic.features.map((f) => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          denominacion: (f.properties?.name as string | undefined) ?? "Segmento de tráfico",
+          color: "#f97316",
+        },
+      })),
+    };
+  }, [layers.traffic]);
 
   const valenbisiMarkers = useMemo(
     () =>
@@ -610,7 +613,7 @@ export default function OptimizacionPage() {
                       onClick={() => setShowTraffic((v) => !v)}
                       tone="amber"
                       label="Tráfico"
-                      count={trafficLines.length}
+                      count={layers.traffic.features.length}
                     />
                     <LayerToggle
                       active={showCoverage}
@@ -633,7 +636,8 @@ export default function OptimizacionPage() {
                   <DynamicMap
                     markers={mapMarkers}
                     polygons={coveragePolygons}
-                    lines={trafficLines}
+                    trafficGeoJson={trafficGeoJsonForMap}
+                    showTraffic={showTraffic}
                     height={660}
                   />
                 </div>
@@ -1378,31 +1382,6 @@ function pointFeaturesToMarkers(
   });
 }
 
-function lineFeaturesToLines(
-  collection: GeoJSONFeatureCollection,
-  options: { color: string; label: string; limit: number },
-): MapLine[] {
-  return collection.features.slice(0, options.limit).flatMap((feature) => {
-    if (feature.geometry?.type !== "LineString") return [];
-    if (!Array.isArray(feature.geometry.coordinates)) return [];
-
-    const positions = feature.geometry.coordinates
-      .map(toLatLon)
-      .filter((point): point is [number, number] => Boolean(point));
-
-    if (positions.length < 2) return [];
-
-    return [
-      {
-        positions,
-        label: featureLabel(feature, options.label),
-        color: options.color,
-        opacity: 0.38,
-        weight: 2,
-      },
-    ];
-  });
-}
 
 function polygonFeaturesToPolygons(
   collection: GeoJSONFeatureCollection,
