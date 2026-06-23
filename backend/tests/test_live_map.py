@@ -44,6 +44,14 @@ def test_events_list(client):
     assert len(body["events"]) == body["count"]
 
 
+def test_san_juan_beach_events(client):
+    r = client.get("/events", params={"from": "2026-06-23", "to": "2026-06-24"})
+    assert r.status_code == 200
+    names = {e["nombre"] for e in r.json()["events"]}
+    assert "Nit de Sant Joan — Hogueras Malva-rosa" in names
+    assert "Nit de Sant Joan — Hogueras Cabanyal / Las Arenas" in names
+
+
 @patch("src.integrations.aemet._open_meteo_current")
 def test_weather_open_meteo_fallback(mock_meteo, client):
     mock_meteo.return_value = {
