@@ -1,8 +1,8 @@
 # UrbanFlow Valencia
 
-> **Predicción inteligente de tráfico y optimización de instalaciones urbanas para la ciudad de Valencia**
+> **Herramienta de planificación y optimización urbana para operarios del Ayuntamiento de Valencia**
 > Proyecto de la asignatura **EDM — Evaluación, Despliegue y Monitorización de Modelos**
-> Máster en Inteligencia de Negocio y Big Data · CUNEF Universidad
+> Grado en Ciencia de Datos · Universitat Politècnica de València (UPV)
 
 | | URL |
 |---|---|
@@ -16,16 +16,16 @@
 
 ## ¿Qué es UrbanFlow Valencia?
 
-Valencia registra más de 1.100 zonas de medición de tráfico urbano. UrbanFlow Valencia convierte esos datos en una herramienta de decisión para planificadores urbanos que responde tres preguntas concretas:
+UrbanFlow Valencia es una **herramienta de apoyo a la decisión para operarios del Ayuntamiento de Valencia** con dos módulos independientes:
 
-**1. ¿Cuánto tráfico habrá en cada zona a una hora concreta?**
-Veinticuatro modelos CatBoost (uno por hora del día) predicen la intensidad de tráfico en las 1.158 zonas de la ciudad. Las predicciones combinan patrones históricos, variables meteorológicas en tiempo real y el impacto de eventos urbanos (conciertos, partidos, ferias).
+**Módulo A — Predicción de tráfico**
+Veinticuatro modelos CatBoost (uno por hora del día, de 0 a 23) predicen la intensidad de tráfico en las 1.158 zonas de la ciudad. El operario puede consultar cualquier combinación de zona, hora y día para conocer el nivel de tráfico esperado con su margen de fiabilidad. Útil para planificar operaciones viarias, dispositivos de seguridad o eventos urbanos.
 
-**2. ¿Dónde instalar nuevas infraestructuras con el presupuesto disponible?**
-Un optimizador de programación lineal entera (PuLP + CBC) selecciona las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población bajo una restricción de presupuesto real.
+**Módulo B — Optimización de instalaciones**
+Un solver de programación lineal entera (PuLP + CBC) selecciona las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población bajo una restricción de presupuesto real. Opera de forma independiente al módulo de predicción: sus entradas son candidatos reales del Ayuntamiento y datos censales H3.
 
-**3. ¿Sigue siendo fiable el modelo en producción?**
-El módulo de monitorización calcula el MAE por hora, lanza alertas cuando supera un umbral y señala las zonas con error sistemático, permitiendo detectar degradación del modelo sin intervención manual.
+**Monitorización del modelo en producción**
+El módulo de monitorización calcula el MAE por hora, lanza alertas cuando supera el umbral configurado y señala las zonas con error sistemático. Permite al equipo técnico detectar degradación del modelo sin intervención manual.
 
 Además, la aplicación integra datos en tiempo real de Valenbisi, autobuses EMT, estado del tráfico del Ayuntamiento y meteorología (AEMET / Open-Meteo).
 
@@ -37,7 +37,7 @@ La asignatura EDM cubre el ciclo completo de vida de un modelo de machine learni
 
 | Fase CRISP-DM | Implementación en UrbanFlow Valencia |
 |---|---|
-| **Comprensión del negocio** | Problema urbano real: déficit de instalaciones y presión de tráfico en Valencia |
+| **Comprensión del negocio** | Herramienta para operarios del Ayuntamiento: predecir tráfico horario en 1.158 zonas y optimizar ubicación de equipamientos bajo presupuesto |
 | **Comprensión de los datos** | Datos del Ayuntamiento: tráfico octubre 2023, Valenbisi, EMT, AEMET, eventos urbanos |
 | **Preparación de los datos** | Limpieza, alineación temporal, embeddings de zona (5 dimensiones), features cíclicas |
 | **Modelado** | 24 modelos CatBoost por hora + baseline histórico + shrink weight sigmoid |

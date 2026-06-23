@@ -80,10 +80,10 @@ export default async function Home() {
                 UrbanFlow Valencia
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-                Plataforma que predice el tráfico de Valencia hora a hora
-                mediante 24 modelos CatBoost y usa esa señal para optimizar
-                dónde instalar nuevos equipamientos urbanos respetando un
-                presupuesto real.
+                Plataforma con dos módulos independientes para operarios del
+                Ayuntamiento: predicción horaria de tráfico en las 1.158 zonas
+                de Valencia con CatBoost, y optimización de instalaciones
+                urbanas bajo presupuesto con programación lineal entera.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -169,15 +169,15 @@ export default async function Home() {
 
       <section className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr]">
         <Card>
-          <p className="eyebrow">Cómo decide</p>
+          <p className="eyebrow">Dos módulos, una herramienta</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">
-            De los datos a la recomendación
+            Planificación y optimización urbana
           </h2>
           <div className="mt-5 space-y-3">
-            <FlowStep icon={<Database className="h-4 w-4" />} title="1. Datos de Valencia" text="Tráfico histórico de octubre 2023, zonas GeoJSON, hexágonos H3 de población, candidatos, meteorología AEMET y eventos urbanos." />
-            <FlowStep icon={<BarChart3 className="h-4 w-4" />} title="2. Predicción CatBoost" text="24 modelos (uno por hora) predicen la intensidad de tráfico en 1.158 zonas usando features temporales, meteorológicas y embeddings de zona." />
-            <FlowStep icon={<Route className="h-4 w-4" />} title="3. Optimización ILP" text="PuLP + CBC selecciona los candidatos que maximizan la cobertura poblacional sin superar el presupuesto definido." />
-            <FlowStep icon={<GitBranch className="h-4 w-4" />} title="4. Resultado en mapa" text="El heatmap, los candidatos seleccionados, las métricas del modelo y las alertas de fiabilidad apoyan la decisión." />
+            <FlowStep icon={<Database className="h-4 w-4" />} title="1. Datos de Valencia" text="Tráfico histórico oct. 2023, hexágonos H3 con censo, candidatos a instalaciones, meteorología AEMET y movilidad en tiempo real." />
+            <FlowStep icon={<BarChart3 className="h-4 w-4" />} title="2. Módulo A — Predicción de tráfico" text="24 modelos CatBoost (uno por hora) predicen la intensidad de tráfico en 1.158 zonas. El operario consulta el heatmap por hora, zona y condición meteorológica." />
+            <FlowStep icon={<Route className="h-4 w-4" />} title="3. Módulo B — Optimización de instalaciones" text="PuLP + CBC selecciona los candidatos de polideportivos, salud o Valenbisi que maximizan la cobertura de población bajo el presupuesto disponible." />
+            <FlowStep icon={<GitBranch className="h-4 w-4" />} title="4. Decisión informada" text="Ambos módulos exponen sus resultados en mapa, tablas y alertas para que el técnico municipal tenga toda la información antes de actuar." />
           </div>
         </Card>
 
