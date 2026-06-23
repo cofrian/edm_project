@@ -217,6 +217,290 @@ El sistema compara el MAE de cada hora frente a un umbral configurable (por defe
 
 ---
 
+## Explicación técnica detallada de los modelos
+
+Esta sección recoge la explicación completa de los dos modelos principales de UrbanFlow Valencia: el sistema de predicción de tráfico basado en CatBoost y el optimizador urbano basado en Programación Lineal Entera. Complementa los apartados anteriores con el razonamiento técnico detrás de cada decisión de diseño.
+
+---
+
+### Por qué dos módulos independientes
+
+UrbanFlow separa deliberadamente predicción y optimización porque responden a preguntas distintas con horizontes temporales distintos.
+
+El **módulo de predicción** responde a "¿qué ocurrirá?": estima la presión de tráfico futura en cualquier zona y hora, y sirve de contexto para la toma de decisiones operativa (planificación de dispositivos de seguridad, gestión de eventos, anticipación de incidencias).
+
+El **módulo de optimización** responde a "¿dónde conviene actuar?": dado un presupuesto y un conjunto de candidatos reales, determina qué ubicaciones maximizan el impacto urbano. Opera de forma independiente al módulo de predicción y puede incorporar tráfico predicho como variable de puntuación.
+
+Esta separación es una decisión de arquitectura consciente: ambos módulos pueden ejecutarse de forma autónoma, actualizarse por separado y evaluarse con métricas propias.
+
+---
+
+### Módulo A — Predicción de tráfico con CatBoost: diseño detallado
+
+#### El problema que resuelve
+
+Valencia registra la intensidad de tráfico en más de 1.000 zonas de medición distribuidas por toda la ciudad. El comportamiento del tráfico no es uniforme: las dinámicas de las 8 de la mañana de un lunes no tienen nada que ver con las 14:00 del sábado o con la madrugada de un festivo.
+
+El objetivo del módulo es predecir, para cualquier combinación de zona + hora + día + condiciones meteorológicas, cuántos vehículos por hora se esperan.
+
+#### Arquitectura de 24 modelos independientes
+
+En lugar de entrenar un único modelo que gestione todas las horas del día, UrbanFlow entrena **24 modelos CatBoost independientes**, uno por cada hora del día (modelo hora 0, modelo hora 1, ..., modelo hora 23).
+
+Esta decisión tiene tres ventajas concretas:
+
+1. **Captura de patrones horarios distintos.** El modelo de las 8h aprende las relaciones entre variables que determinan el tráfico matutino (tipo de día, temperatura, presión atmosférica). El modelo de las 23h aprende relaciones completamente diferentes. Un único modelo tendría que aproximar todos estos patrones a la vez, con mayor pérdida de precisión en todas las franjas.
+
+2. **Independencia de fallos.** Si un modelo de una hora concreta falla o se degrada, los demás no se ven afectados. La monitorización puede detectar degradación franja a franja.
+
+3. **Reentrenamiento selectivo.** Si cambian las condiciones de tráfico en una franja horaria (por ejemplo, nuevas políticas de movilidad nocturna), solo es necesario reentrenar el modelo de esa hora, no los 24.
+
+Los modelos se almacenan como artefactos `.cbm` (formato nativo de CatBoost) bajo `backend/models/`, versionados con **Git LFS** por ser archivos binarios pesados no aptos para el control de versiones estándar.
+
+#### Datos de entrenamiento y validación temporal
+
+El conjunto de datos principal proviene del **Ayuntamiento de Valencia**: más de 850.000 registros horarios de intensidad de tráfico de **octubre de 2023**, cubriendo las 1.158 zonas de medición de la ciudad.
+
+La validación sigue un esquema **temporal estricto**:
+
+- **Entrenamiento:** días 1 a 24 de octubre de 2023
+- **Validación:** días 25 a 31 de octubre de 2023 (nunca vistos durante el ajuste)
+
+Esta separación es crítica en series temporales. Una partición aleatoria provocaría fuga de información: el modelo aprendería patrones del futuro durante el entrenamiento y sus métricas de evaluación serían artificialmente optimistas. La partición temporal garantiza que las métricas reflejan la capacidad real de generalización a días futuros.
+
+#### Enfoque residual con baseline histórico
+
+El modelo no predice la intensidad de tráfico directamente desde cero. Utiliza un **enfoque residual en dos capas**:
+
+**Capa 1 — Baseline histórico:**
+Para cada combinación `(zona, día_semana, hora)`, se calcula la intensidad media histórica a partir del conjunto de entrenamiento. Este baseline captura el comportamiento "esperado" de cada zona en condiciones normales.
+
+**Capa 2 — Corrección CatBoost:**
+CatBoost no predice la intensidad absoluta, sino el **residuo** respecto al baseline: cuánto se desvía la situación actual de lo históricamente habitual, dado el contexto meteorológico, el tipo de día y otros factores.
+
+La predicción final combina ambas capas mediante una **función de ponderación sigmoide** (shrink weight):
+
+```
+intensidad_final = baseline × exp(shrink_weight × residual_CatBoost)
+
+shrink_weight = sigmoid((baseline − τ) / s)
+```
+
+Donde `τ` es un umbral de tráfico y `s` es un parámetro de escala.
+
+El efecto de esta función es clave para la robustez del sistema:
+
+- Cuando el baseline es **alto** (zona concurrida, hora punta): el peso sigmoid es cercano a 1 y el modelo CatBoost tiene mucha influencia. Hay suficiente evidencia histórica para confiar en la corrección del modelo.
+- Cuando el baseline es **bajo** (zona poco transitada, madrugada, festivo): el peso sigmoid cae y la predicción se acerca progresivamente al baseline. En zonas o franjas con poca representación en los datos, el modelo podría generar correcciones erráticas; el shrink weight las amortigua.
+
+Este mecanismo evita sobreajuste en condiciones infrecuentes sin necesidad de construir reglas explícitas de fallback.
+
+#### Features del modelo
+
+| Categoría | Variables | Descripción |
+|---|---|---|
+| **Temporales cíclicas** | `hora_sin`, `hora_cos` | Codificación circular de la hora (evita discontinuidad entre 23h y 0h) |
+| **Temporales** | `dia_mes_norm`, `wind_sin`, `wind_cos` | Día del mes normalizado y dirección del viento codificada |
+| **Tipo de día** | `Dia_Semana`, `tipo_dia` | Laboral / fin de semana / festivo |
+| **Zona** | `z_emb1` ... `z_emb5` | Embeddings de 5 dimensiones aprendidos por zona (1.158 zonas → representación densa) |
+| **Meteorología actual** | `temp_c`, `hum_rel`, `pres_mb`, `vel_viento_ms`, `precip_lm2` | Variables AEMET de la hora objetivo |
+| **Retardos meteorológicos** | `temp_c_lag1`, `temp_c_lag3`, `pres_mb_lag1`, `pres_mb_lag3` | Temperatura y presión con 1h y 3h de retardo |
+
+Los **embeddings de zona** merecen mención especial. En lugar de tratar la zona como una variable categórica con 1.158 categorías independientes (lo que generaría sparsidad y dificultaría la generalización), se aprende una representación densa de 5 dimensiones por zona. Zonas con comportamientos de tráfico similares terminan con embeddings próximos en el espacio vectorial, lo que permite al modelo generalizar entre zonas con patrones parecidos incluso si tienen poco historial individual.
+
+#### Métricas de evaluación (días 25-31, no vistos en entrenamiento)
+
+| Métrica | Valor | Interpretación |
+|---|---|---|
+| **MAE** | 44,4 veh/h | Error absoluto medio. El modelo se equivoca en promedio en 44 vehículos/hora |
+| **RMSE** | 87,8 veh/h | Penaliza errores grandes. Errores puntuales grandes son moderados |
+| **R²** | 0,92 | El modelo explica el 92 % de la varianza observada en los datos de prueba |
+| **sMAPE** | 16,8 % | Error porcentual simétrico. Útil para comparar entre zonas con distinto volumen base |
+
+Además de las métricas globales, la app muestra el **error por franja horaria**, ya que un modelo puede tener buen MAE promedio y fallar sistemáticamente en horas concretas (p. ej., hora punta de salida). Esta granularidad es lo que permite a la monitorización detectar degradación real antes de que afecte a la toma de decisiones.
+
+#### Salida: heatmap de presión urbana
+
+La predicción de cada hora se transforma en un **heatmap de presión urbana** con tres niveles:
+
+- **Baja:** intensidad predicha en el rango inferior histórico de la zona
+- **Media:** intensidad normal o ligeramente elevada
+- **Alta:** intensidad por encima del percentil de referencia de la zona
+
+La clasificación es relativa a la propia zona: una zona con tráfico estructuralmente alto puede mostrar "presión baja" un domingo, mientras que una zona tranquila puede mostrar "presión alta" durante un evento. Esto hace el heatmap operativamente más útil que una escala absoluta de vehículos/hora.
+
+El usuario puede cambiar la fecha, la hora y el escenario de eventos para ver la presión prevista en cualquier combinación de condiciones.
+
+---
+
+### Módulo B — Optimización urbana con ILP: diseño detallado
+
+#### El problema que resuelve
+
+Dado un conjunto de **ubicaciones candidatas reales** (polideportivos, centros de salud, puntos potenciales para nuevas estaciones Valenbisi) y un **presupuesto máximo**, ¿qué combinación de actuaciones maximiza el beneficio para la ciudad?
+
+La respuesta no es trivial. Elegir los candidatos con mayor demanda individual puede ser subóptimo si cubren la misma zona de población. Un solver de optimización matemática evalúa las combinaciones de forma sistemática y encuentra la asignación globalmente óptima, no solo localmente buena.
+
+#### Formulación matemática general
+
+El problema se formula como **Programación Lineal Entera (ILP)** e implementa con **PuLP** y el solver de código abierto **CBC (COIN-OR Branch-and-Cut)**.
+
+Las variables de decisión son binarias:
+
+```
+Xᵢ ∈ {0, 1}   →  1 si se selecciona el candidato i, 0 si no
+Yⱼ ∈ {0, 1}   →  1 si la zona de población j queda cubierta, 0 si no
+```
+
+El problema general de cobertura de población:
+
+```
+Maximizar:   Σⱼ población_j × Yⱼ
+
+Sujeto a:
+  Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ           ∀ j   (cobertura: zona j cubierta solo si algún candidato que la alcanza es seleccionado)
+  Σᵢ coste_i × Xᵢ ≤ presupuesto       (restricción presupuestaria)
+  Xᵢ, Yⱼ ∈ {0, 1}                    (variables binarias)
+```
+
+Donde `αᵢⱼ = 1` si el candidato `i` cubre la zona de población `j` según su radio de influencia, y `αᵢⱼ = 0` en caso contrario. Esta matriz de cobertura se precalcula una vez a partir de la geometría H3.
+
+#### Representación espacial con hexágonos H3
+
+La ciudad de Valencia se divide en **hexágonos H3** (sistema de indexación geoespacial de Uber) a una resolución que equilibra granularidad y coste computacional.
+
+Cada hexágono tiene asociado:
+- **Población** estimada a partir de datos censales
+- **Demanda** de servicio (diferente según el modo: deportiva, sanitaria, movilidad)
+- **Cobertura existente** (si ya hay instalaciones en su área de influencia)
+
+Para cada candidato, se precalcula el conjunto de hexágonos que quedarían dentro de su radio de influencia si fuera seleccionado. Esta relación candidato → hexágonos cubiertos forma la **matriz de cobertura `αᵢⱼ`**.
+
+Separar la representación espacial (hexágonos H3) de la lógica de optimización (ILP) permite actualizar los datos de población o de candidatos sin modificar el solver, y permite ajustar el radio de influencia sin reformular el problema.
+
+#### Modos de optimización
+
+La app implementa cinco modos con formulaciones adaptadas a cada objetivo:
+
+**Modo polideportivo (`/optimize/sports`)**
+Maximiza la población que tendría cobertura deportiva a partir de las nuevas instalaciones, evitando redundancia con los polideportivos ya existentes. La cobertura existente se modela excluyendo los hexágonos ya cubiertos del conjunto objetivo `Yⱼ`.
+
+**Modo sanitario (`/optimize/health`)**
+Idéntico en estructura al modo deportivo pero sobre la red de centros de salud. Prioriza zonas con mayor densidad de población sin cobertura sanitaria cercana.
+
+**Modo multiobjetivo (`/optimize/multi`)**
+Combina cobertura deportiva y sanitaria en un único problema con un **parámetro lambda** configurable:
+
+```
+Maximizar: λ × cobertura_deportiva + (1 − λ) × cobertura_sanitaria
+
+Restricción adicional:
+  Xᵢ_deporte + Xᵢ_salud ≤ 1   ∀ i   (no instalar dos servicios en el mismo candidato)
+```
+
+Con `λ = 1` la solución es puramente deportiva; con `λ = 0` puramente sanitaria; con `λ = 0.5` equilibra ambos objetivos. Esta formulación permite que el decisor ajuste las prioridades sin cambiar el modelo.
+
+**Modo Valenbisi (`/optimize/valenbisi`)**
+Cambia la función objetivo de cobertura poblacional a una **puntuación de movilidad** ponderada:
+
+```
+puntuación_i = wₜ × tráfico_i + wₚ × población_i + w_d × déficit_i
+
+Maximizar: Σᵢ puntuación_i × Xᵢ
+
+Restricción alternativa (modo count): Σᵢ Xᵢ = N   (exactamente N estaciones nuevas)
+Restricción alternativa (modo budget): Σᵢ coste_i × Xᵢ ≤ presupuesto
+```
+
+Los tres pesos (`wₜ`, `wₚ`, `w_d`) son configurables por el usuario en la interfaz, lo que permite priorizar zonas con más tráfico, más población o mayor déficit de estaciones según el criterio de planificación de cada momento.
+
+El componente de **tráfico** puede incorporar la predicción del módulo A: zonas con alta presión de tráfico predicho reciben mayor puntuación, lo que conecta ambos módulos.
+
+**Modo cobertura general (`/optimize/coverage`)**
+Maximiza la cobertura poblacional general sin restringirse a un tipo de instalación concreto.
+
+#### Por qué ILP y no heurísticas
+
+El problema de selección de ubicaciones bajo restricción de presupuesto es un caso del **problema de cobertura de conjuntos** (Set Cover), que es NP-hard en general. Sin embargo, en la escala de Valencia (cientos de candidatos, miles de hexágonos) el solver CBC resuelve el problema a optimalidad en **5 a 30 segundos**.
+
+Las alternativas heurísticas (greedy, algoritmos genéticos, simulated annealing) son más rápidas pero no garantizan la solución óptima. Para un sistema de apoyo a la decisión que va a usarse en reuniones de planificación real, la garantía de optimalidad matemática es una ventaja operativa: el decisor puede confiar en que el sistema ha explorado el espacio de soluciones de forma exhaustiva, no solo una aproximación local.
+
+#### Salida del optimizador
+
+El solver devuelve:
+- Lista ordenada de candidatos seleccionados con coordenadas, tipo, zona y coste individual
+- Presupuesto total utilizado y porcentaje respecto al máximo
+- Población adicional cubierta (modos con cobertura) o puntuación total (modo Valenbisi)
+- Indicación del modo y la restricción activa
+
+La interfaz visualiza los candidatos seleccionados sobre el mapa junto con las capas de cobertura existente, tráfico y estaciones actuales, permitiendo contrastar visualmente la recomendación antes de tomar una decisión.
+
+---
+
+### Módulo C — Integración de movilidad en tiempo real: lógica de datos
+
+La capa de movilidad no es solo visualización: incorpora lógica de cruce entre fuentes para generar **alertas inteligentes** que el módulo de predicción no puede generar por sí solo.
+
+#### Integración Valenbisi
+
+El sistema consulta el estado de todas las estaciones Valenbisi de Valencia en tiempo real (vía ArcGIS del Ayuntamiento) y clasifica cada estación en cuatro estados: disponible, vacía, llena o cerrada.
+
+Adicionalmente, el sistema cruza la posición de cada estación con los **eventos urbanos activos**. Si una estación problemática (vacía, llena o cerrada) se encuentra a menos de 1 km de un evento activo, se genera una alerta de tipo `VALENBISI_NEAR_EVENT`. Esta alerta no puede generarse a partir de los datos de tráfico predicho: requiere el cruce espacial en tiempo real entre la red de Valenbisi y el calendario de eventos.
+
+#### Integración EMT
+
+La integración con la EMT cubre tres capas:
+
+1. **Paradas:** posición geográfica y líneas que sirven cada parada
+2. **Llegadas en tiempo real:** minutos estimados hasta la próxima llegada de cada línea (SAE EMT)
+3. **Rutas:** trazado geográfico de las líneas a partir de datos GTFS, con proyección de paradas sobre el shape real
+
+Cuando el SAE no devuelve información de una línea, el sistema calcula una **posición estimada del autobús** a partir del tiempo de llegada declarado y el trazado GTFS, marcándola como "posición aproximada" en el mapa para no confundirla con datos GPS reales.
+
+Si una llegada supera en más de 3 minutos su tiempo previsto, el sistema genera una alerta `EMT_DELAY`.
+
+#### Cadena de fallback meteorológico
+
+La meteorología es una feature clave del módulo de predicción. Para garantizar que siempre haya datos disponibles:
+
+1. **Fuente primaria:** AEMET (`opendata.aemet.es`) con API key configurada
+2. **Fallback 1:** Open-Meteo (API gratuita, no requiere autenticación)
+3. **Fallback 2:** Valores sinusoidales estimados por hora del día (temperatura y humedad típicas para Valencia según la época del año)
+
+El fallback garantiza que el módulo de predicción siempre recibe features meteorológicas coherentes, incluso si ambas APIs externas fallan simultáneamente.
+
+#### Cache TTL por fuente
+
+Cada fuente externa tiene un TTL de caché independiente calibrado según la frecuencia real de actualización de los datos:
+
+| Fuente | TTL | Justificación |
+|---|---|---|
+| Valenbisi (ArcGIS) | 180 s | Los anclajes cambian cada pocos minutos |
+| Llegadas SAE EMT | 45 s | Alta frecuencia de cambio; más de 45 s hace el dato inútil operativamente |
+| Rutas EMT (GTFS) | 6 horas | Las rutas no cambian en el corto plazo |
+| Tráfico ArcGIS | 60 s | El estado del tráfico puede cambiar en minutos |
+| Meteorología (AEMET/Open-Meteo) | 600 s | La meteorología cambia más lentamente |
+
+---
+
+### Monitorización: cerrar el ciclo del modelo
+
+El módulo de monitorización implementa la fase final del ciclo CRISP-DM: observar el comportamiento del modelo en producción y detectar degradación antes de que afecte a las decisiones operativas.
+
+#### Qué se monitoriza
+
+- **MAE por franja horaria:** comparación entre el MAE de cada modelo (hora 0 a hora 23) y un umbral configurable (por defecto 80 veh/h). Si una hora supera el umbral, se genera una alerta de baja fiabilidad para esa franja.
+- **Zonas con error sistemático:** identificación de las zonas de medición con mayor MAE persistente en validación. Estas zonas deben tratarse con cautela en la toma de decisiones.
+- **Estado del sistema:** CPU, memoria RAM y uptime del contenedor Docker, expuesto en tiempo real.
+
+#### Por qué monitorizar el MAE por hora y no solo el MAE global
+
+Un modelo puede tener un MAE global aceptable (p. ej., 44 veh/h promedio) y al mismo tiempo fallar de forma sistemática en una franja concreta (p. ej., el modelo de las 8h tiene un MAE de 120 veh/h). Si esa franja es la más relevante operativamente (hora punta matutina), el MAE global es engañoso.
+
+La monitorización a nivel de hora permite detectar este tipo de degradación localizada y reaccionar de forma selectiva: reentrenar solo el modelo problemático sin tocar los 23 restantes.
+
+---
+
 ## Frontend — Páginas de la aplicación
 
 | Ruta | Descripción |
