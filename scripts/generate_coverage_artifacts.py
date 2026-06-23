@@ -9,7 +9,7 @@ Implementa la lógica del curso SMARTCITIES:
 
 Salidas en backend/data/processed/:
   population_hexes.csv, coverage_alpha.json, candidates_facilities.csv,
-  existing_sports.geojson, existing_health.geojson
+  population_hexes.geojson, existing_sports.geojson, existing_health.geojson
 """
 
 from __future__ import annotations
@@ -40,6 +40,12 @@ from common import (
 VALENCIA_BBOX = (-0.42, 39.42, -0.30, 39.52)  # min_lon, min_lat, max_lon, max_lat
 
 
+def _centroids_wgs84(gdf: gpd.GeoDataFrame) -> gpd.GeoSeries:
+    projected = gdf.to_crs("EPSG:3857")
+    centroids = projected.geometry.centroid
+    return gpd.GeoSeries(centroids, crs=projected.crs).to_crs("EPSG:4326")
+
+
 def _read_facilities_csv(path: str, name_col: str) -> gpd.GeoDataFrame:
     df = pd.read_csv(path, sep=";")
     df["geometry"] = df["geometry"].apply(wkt.loads)
@@ -55,7 +61,7 @@ def _load_population_hexes(gpkg_path: str) -> gpd.GeoDataFrame:
         pop = pop.set_crs("EPSG:4326")
     pop = pop.to_crs("EPSG:4326")
     min_lon, min_lat, max_lon, max_lat = VALENCIA_BBOX
-    centroids = pop.geometry.centroid
+    centroids = _centroids_wgs84(pop)
     mask = (
         (centroids.x >= min_lon)
         & (centroids.x <= max_lon)
@@ -63,9 +69,10 @@ def _load_population_hexes(gpkg_path: str) -> gpd.GeoDataFrame:
         & (centroids.y <= max_lat)
     )
     pop = pop.loc[mask].copy().reset_index(drop=True)
+    centroids = _centroids_wgs84(pop)
     pop["hex_id"] = pop.index.astype(int)
-    pop["centroid_lon"] = pop.geometry.centroid.x
-    pop["centroid_lat"] = pop.geometry.centroid.y
+    pop["centroid_lon"] = centroids.x
+    pop["centroid_lat"] = centroids.y
     return pop
 
 
@@ -110,6 +117,7 @@ def build_coverage_artifacts() -> None:
 
     pop_out = pd.DataFrame({
         "hex_id": pop["hex_id"],
+        "h3": pop["h3"],
         "population": pop["population"].astype(float),
         "centroid_lon": pop["centroid_lon"],
         "centroid_lat": pop["centroid_lat"],
@@ -127,11 +135,32 @@ def build_coverage_artifacts() -> None:
     pop_out.to_csv(os.path.join(OUT_DATA, "population_hexes.csv"), index=False)
     print(f"[OK] population_hexes.csv ({len(pop_out)} hexágonos, pop total {pop_out['population'].sum():,.0f})")
 
+    pop_features = []
+    for _, row in pop.join(pop_out.set_index("hex_id"), on="hex_id", rsuffix="_out").iterrows():
+        pop_features.append({
+            "type": "Feature",
+            "geometry": mapping(row.geometry),
+            "properties": {
+                "hex_id": int(row["hex_id"]),
+                "h3": str(row["h3"]),
+                "population": float(row["population"]),
+                "centroid_lon": float(row["centroid_lon"]),
+                "centroid_lat": float(row["centroid_lat"]),
+                "need_sports": bool(row["need_sports"]),
+                "need_health": bool(row["need_health"]),
+                "weight_sports": float(row["weight_sports"]),
+                "weight_health": float(row["weight_health"]),
+            },
+        })
+    with open(os.path.join(OUT_DATA, "population_hexes.geojson"), "w", encoding="utf-8") as f:
+        json.dump({"type": "FeatureCollection", "features": pop_features}, f, ensure_ascii=False)
+    print(f"[OK] population_hexes.geojson ({len(pop_features)} geometrías H3 reales)")
+
     # Matriz α sparse: candidate_id -> [hex_id, ...]
     alpha: dict[str, list[int]] = {}
     n = len(locations)
     m = len(pop)
-    centroids = pop.geometry.centroid
+    centroids = _centroids_wgs84(pop)
     for i, row in locations.iterrows():
         iso = row["isochrone"]
         covered = [

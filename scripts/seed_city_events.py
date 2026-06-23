@@ -29,6 +29,8 @@ VENUES = {
     "tapineria": (39.4765, -0.3755, "Mercado de Tapinería"),
     "pobla_farnals": (39.5760, -0.2830, "Pl. Cortes Valencianas, La Pobla de Farnals"),
     "aragon_mestalla": (39.4745, -0.3580, "Av. de Aragón, Mestalla"),
+    "playa_malvarrosa": (39.4796, -0.3234, "Playa de la Malva-rosa, Valencia"),
+    "playa_cabanyal": (39.4678, -0.3238, "Playa del Cabanyal / Las Arenas, Valencia"),
 }
 
 
@@ -164,6 +166,25 @@ def _builtin_events() -> list[dict[str, Any]]:
             radio=500 if "ciutat" in venue else 400,
             factor=1.4 if "ACB" in name else 1.25,
             fuente="fdm_valencia" if "Volta" in name else "acb.com",
+        ))
+
+    # Nit de Sant Joan 2026: hogueras autorizadas en Malva-rosa y Cabanyal.
+    for venue, label in [
+        ("playa_malvarrosa", "Malva-rosa"),
+        ("playa_cabanyal", "Cabanyal / Las Arenas"),
+    ]:
+        ev.append(_event(
+            f"san-juan-hogueras-{venue}-2026-06-23",
+            f"Nit de Sant Joan — Hogueras {label}",
+            "fiesta_popular",
+            "2026-06-23",
+            "20:00",
+            venue,
+            duration_h=8.0,
+            radio=950,
+            factor=1.55,
+            fuente="ayuntamiento_valencia",
+            enlace="https://www.valencia.es/cas/actualidad/-/content/operativo-total-noche-de-san-juan-val%C3%A8ncia.-movilidad-limpieza-y-seguridad",
         ))
 
     # Viveros jul 2-15
