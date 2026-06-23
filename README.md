@@ -91,78 +91,34 @@ flowchart LR
 ## Módulos funcionales
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph FUENTES["1 · Fuentes de datos"]
-        F1["Historicos
-        Trafico Valencia oct2023
-        Baseline · Metricas validacion"]
-        F2["Espaciales
-        Zonas y segmentos GeoJSON
-        Hexagonos H3 · Candidatos
-        Valenbisi · Paradas EMT"]
-        F3["Tiempo real
-        Valenbisi ArcGIS
-        EMT Valencia · ArcGIS Trafico
-        AEMET / Open-Meteo"]
-        F4["Eventos urbanos
-        Conciertos · Partidos
-        Ferias · Actividades"]
+        F1["Historicos — Trafico Valencia oct2023 · Baseline · Metricas validacion"]
+        F2["Espaciales — Zonas GeoJSON · Hexagonos H3 · Candidatos · Valenbisi · EMT"]
+        F3["Tiempo real — Valenbisi ArcGIS · EMT Valencia · ArcGIS Trafico · AEMET / Open-Meteo"]
+        F4["Eventos urbanos — Conciertos · Partidos · Ferias · Actividades"]
     end
 
     subgraph BACKEND["2 · Motor backend · FastAPI"]
-        B1["Prediccion de trafico
-        24 modelos CatBoost por hora
-        Features temporales y meteo
-        Heatmap por zona"]
-        B2["Optimizacion urbana
-        PuLP + CBC solver
-        Deportes · Salud · Multi
-        Integracion Valenbisi"]
-        B3["Integracion de movilidad
-        Cache TTL · Control frescura
-        Normalizacion de fuentes
-        Estimaciones y fallback"]
-        B4["Monitorizacion
-        MAE · RMSE · R2 · sMAPE
-        Alertas fiabilidad por hora
-        Zonas a revisar"]
+        B1["Prediccion de trafico — 24 modelos CatBoost por hora · Features temporales y meteo"]
+        B2["Optimizacion urbana — PuLP + CBC solver · Deportes · Salud · Multi · Valenbisi"]
+        B3["Integracion de movilidad — Cache TTL · Normalizacion · Fallback meteorologico"]
+        B4["Monitorizacion — MAE · RMSE · R2 · sMAPE · Alertas fiabilidad · Zonas a revisar"]
     end
 
-    subgraph API["3 · API y productos de datos"]
-        A1["Prediccion
-        /predict
-        /predict/heatmap
-        /predict/hour"]
-        A2["Optimizacion
-        /optimize/sports
-        /optimize/health
-        /optimize/multi
-        /optimize/valenbisi"]
-        A3["Movilidad
-        /mobility/valenbisi/stations
-        /mobility/emt/stops
-        /mobility/emt/arrivals
-        /mobility/alerts"]
-        A4["Mapas y metricas
-        /map/zones
-        /metrics/by-hour
-        /monitoring/alerts
-        /weather/forecast"]
+    subgraph API["3 · API REST"]
+        A1["/predict  /predict/heatmap  /predict/hour"]
+        A2["/optimize/sports  /optimize/health  /optimize/multi  /optimize/valenbisi"]
+        A3["/mobility/valenbisi  /mobility/emt/stops  /mobility/alerts"]
+        A4["/map/zones  /metrics/by-hour  /monitoring/alerts  /weather/forecast"]
     end
 
     subgraph FRONTEND["4 · Frontend · Next.js"]
-        W1["Mapa urbano
-        Visualizacion · Capas · Filtros"]
-        W2["Prediccion
-        Heatmap de trafico por hora"]
-        W3["Evaluacion
-        Metricas y comparativas"]
-        W4["Optimizacion
-        Escenarios e instalaciones"]
-        W5["Monitorizacion
-        Alertas y estado del sistema"]
-        W6["Metodologia / Datos
-        Documentacion y fuentes"]
+        W1["Prediccion — Heatmap de trafico por hora y zona"]
+        W2["Optimizacion — Escenarios de instalaciones con mapa de cobertura"]
+        W3["Evaluacion — Metricas del modelo y comparativas"]
+        W4["Monitorizacion — Alertas de fiabilidad y estado del sistema"]
+        W5["Datos / Metodologia — Fuentes y documentacion CRISP-DM"]
     end
 
     FUENTES --> BACKEND --> API --> FRONTEND
