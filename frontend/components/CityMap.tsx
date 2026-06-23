@@ -193,8 +193,7 @@ function popupHtml(layer: LayerKey, feature: GeoFeature): string {
     const zone = p.zona != null ? `Zona ${p.zona}` : "Estación existente";
     return `<div class="map-popup"><strong>Valenbisi actual</strong>
       <div class="metric"><span>Referencia</span><b>${zone}</b></div>
-      <div class="metric"><span>Estado</span><b>Inventariada</b></div>
-      <span class="muted">La capa muestra ubicación; no disponibilidad de bicis en vivo.</span></div>`;
+      <div class="metric"><span>Estado</span><b>Inventariada</b></div></div>`;
   }
   const label = (p.name as string) ?? (p.zona != null ? `Estación zona ${p.zona}` : LAYER_META[layer].label);
   return `<div class="map-popup"><strong>${label}</strong><span class="muted">${LAYER_META[layer].label}</span></div>`;
