@@ -638,6 +638,7 @@ export default function OptimizacionPage() {
                     polygons={coveragePolygons}
                     trafficGeoJson={trafficGeoJsonForMap}
                     showTraffic={showTraffic}
+                    useCircleMarker
                     height={660}
                   />
                 </div>
