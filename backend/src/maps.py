@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from .coverage_data import (
@@ -17,6 +18,21 @@ from .data_loader import (
     load_traffic_segments,
     load_zones_points,
 )
+
+
+def _hex_polygon(lat: float, lon: float, edge_m: float = 380) -> list[list[float]]:
+    """Hexágono pointy-top (orientación H3 res. par) desde centroide."""
+    deg_lat = 1.0 / 111_320
+    deg_lon = 1.0 / (111_320 * math.cos(math.radians(lat)))
+    r_lat = edge_m * deg_lat
+    r_lon = edge_m * deg_lon
+    coords = [
+        [lon + r_lon * math.cos(math.radians(90 + 60 * i)),
+         lat + r_lat * math.sin(math.radians(90 + 60 * i))]
+        for i in range(6)
+    ]
+    coords.append(coords[0])
+    return coords
 
 
 def zones_points() -> dict:
@@ -49,11 +65,12 @@ def population_hexes_geojson(facility_type: Literal["sports", "health"] = "sport
     for _, r in df.iterrows():
         if need_col in df.columns and not bool(r.get(need_col, True)):
             continue
+        clat, clon = float(r["centroid_lat"]), float(r["centroid_lon"])
         features.append({
             "type": "Feature",
             "geometry": {
-                "type": "Point",
-                "coordinates": [float(r["centroid_lon"]), float(r["centroid_lat"])],
+                "type": "Polygon",
+                "coordinates": [_hex_polygon(clat, clon)],
             },
             "properties": {
                 "hex_id": int(r["hex_id"]),
@@ -99,11 +116,12 @@ def covered_hexes_geojson(candidate_ids: list[int], facility_type: Literal["spor
         hid = int(r["hex_id"])
         if hid not in hex_ids:
             continue
+        clat, clon = float(r["centroid_lat"]), float(r["centroid_lon"])
         features.append({
             "type": "Feature",
             "geometry": {
-                "type": "Point",
-                "coordinates": [float(r["centroid_lon"]), float(r["centroid_lat"])],
+                "type": "Polygon",
+                "coordinates": [_hex_polygon(clat, clon)],
             },
             "properties": {
                 "hex_id": hid,
