@@ -267,8 +267,11 @@ def map_existing_health() -> dict:
 
 
 @app.get("/map/population-hexes")
-def map_population_hexes(facility_type: Literal["sports", "health"] = "sports") -> dict:
-    return population_hexes_geojson(facility_type)
+def map_population_hexes(
+    facility_type: Literal["sports", "health"] = "sports",
+    include_all: bool = False,
+) -> dict:
+    return population_hexes_geojson(facility_type, include_all=include_all)
 
 
 @app.get("/map/candidates-facilities")

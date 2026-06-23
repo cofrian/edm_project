@@ -20,6 +20,15 @@ def load_population_hexes() -> pd.DataFrame:
 
 
 @lru_cache
+def load_population_hexes_geojson() -> dict:
+    p = get_settings().path("population_hexes.geojson")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+    return {"type": "FeatureCollection", "features": []}
+
+
+@lru_cache
 def load_coverage_alpha() -> dict:
     p = get_settings().path("coverage_alpha.json")
     if not os.path.exists(p):

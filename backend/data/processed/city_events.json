@@ -1,9 +1,9 @@
 {
   "meta": {
-    "generated": "2026-06-19T15:57:12.549087",
+    "generated": "2026-06-23T21:00:19.905872",
     "from": "2026-06-14",
     "to": "2026-07-15",
-    "count": 84
+    "count": 86
   },
   "events": [
     {
@@ -327,6 +327,34 @@
       "factor_max": 1.4,
       "fuente": "acb.com",
       "enlace": ""
+    },
+    {
+      "id": "san-juan-hogueras-playa_malvarrosa-2026-06-23",
+      "nombre": "Nit de Sant Joan — Hogueras Malva-rosa",
+      "tipo": "fiesta_popular",
+      "inicio": "2026-06-23T20:00:00+02:00",
+      "fin": "2026-06-24T04:00:00+02:00",
+      "lat": 39.4796,
+      "lon": -0.3234,
+      "direccion": "Playa de la Malva-rosa, Valencia",
+      "radio_metros": 950,
+      "factor_max": 1.55,
+      "fuente": "ayuntamiento_valencia",
+      "enlace": "https://www.valencia.es/cas/actualidad/-/content/operativo-total-noche-de-san-juan-val%C3%A8ncia.-movilidad-limpieza-y-seguridad"
+    },
+    {
+      "id": "san-juan-hogueras-playa_cabanyal-2026-06-23",
+      "nombre": "Nit de Sant Joan — Hogueras Cabanyal / Las Arenas",
+      "tipo": "fiesta_popular",
+      "inicio": "2026-06-23T20:00:00+02:00",
+      "fin": "2026-06-24T04:00:00+02:00",
+      "lat": 39.4678,
+      "lon": -0.3238,
+      "direccion": "Playa del Cabanyal / Las Arenas, Valencia",
+      "radio_metros": 950,
+      "factor_max": 1.55,
+      "fuente": "ayuntamiento_valencia",
+      "enlace": "https://www.valencia.es/cas/actualidad/-/content/operativo-total-noche-de-san-juan-val%C3%A8ncia.-movilidad-limpieza-y-seguridad"
     },
     {
       "id": "committee-2026-06-25",

@@ -55,6 +55,26 @@ def test_existing_maps(client):
     assert r2.status_code == 200
 
 
+def test_population_hexes_real_h3_geometry(client):
+    r = client.get("/map/population-hexes", params={"facility_type": "sports"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["type"] == "FeatureCollection"
+    assert len(body["features"]) > 0
+
+    first = body["features"][0]
+    assert first["geometry"]["type"] == "Polygon"
+    assert len(first["geometry"]["coordinates"][0]) == 7
+    assert first["properties"]["h3"]
+
+    all_hexes = client.get(
+        "/map/population-hexes",
+        params={"facility_type": "sports", "include_all": True},
+    ).json()
+    assert len(all_hexes["features"]) >= len(body["features"])
+    assert any(not f["properties"]["needs_coverage"] for f in all_hexes["features"])
+
+
 def test_monitoring_alerts(client):
     r = client.get("/monitoring/alerts")
     assert r.status_code == 200
