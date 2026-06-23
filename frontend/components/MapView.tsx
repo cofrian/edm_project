@@ -70,6 +70,21 @@ export interface MapEventMarker {
   direccion?: string;
 }
 
+type TrafficFeature = {
+  properties?: Record<string, unknown>;
+  geometry?: {
+    type?: string;
+    coordinates?: unknown;
+  };
+};
+
+type TrafficPrediction = {
+  zona: number;
+  color: string;
+  nivel: string;
+  intensidad: number;
+};
+
 function eventMarkerIcon(selected: boolean): L.DivIcon {
   return L.divIcon({
     className: "event-marker-leaflet",
@@ -147,6 +162,30 @@ function formatVhTooltip(props: Record<string, unknown>, nombre: string, estado:
       ? `<strong>${vh} veh/h</strong> (Ayto. capa 188)`
       : "<span>Sin lectura en vivo</span>";
   return `<div class="text-sm"><strong>${nombre}</strong><br/>Estado: ${estado}<br/>${vhLine}</div>`;
+}
+
+function trafficFeatureCenter(feature?: TrafficFeature): { lat: number; lon: number } | null {
+  const coords = feature?.geometry?.coordinates;
+  if (feature?.geometry?.type !== "LineString" || !Array.isArray(coords)) return null;
+
+  let lat = 0;
+  let lon = 0;
+  let n = 0;
+  for (const coord of coords) {
+    if (Array.isArray(coord) && typeof coord[0] === "number" && typeof coord[1] === "number") {
+      lon += coord[0];
+      lat += coord[1];
+      n += 1;
+    }
+  }
+
+  return n > 0 ? { lat: lat / n, lon: lon / n } : null;
+}
+
+function distanceSq(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const dLat = a.lat - b.lat;
+  const dLon = a.lon - b.lon;
+  return dLat * dLat + dLon * dLon;
 }
 
 export default function MapView({
@@ -230,9 +269,10 @@ export default function MapView({
   );
 
   const zonaStyle = useMemo(() => {
-    const m = new Map<number, { color: string; nivel: string; intensidad: number }>();
+    const m = new Map<number, TrafficPrediction>();
     for (const p of heatmapPoints) {
       m.set(p.zona, {
+        zona: p.zona,
         color: p.nivel ? nivelColor(p.nivel) : intensidadColor(p.intensidad, maxIntensity),
         nivel: p.nivel,
         intensidad: p.intensidad,
@@ -241,9 +281,50 @@ export default function MapView({
     return m;
   }, [heatmapPoints, maxIntensity]);
 
-  const trafficStyle = (feature?: {
-    properties?: Record<string, unknown>;
-  }): PathOptions => {
+  const predictionSignature = useMemo(() => {
+    if (roadColorMode !== "prediction" || heatmapPoints.length === 0) return "no-prediction";
+    const first = heatmapPoints[0];
+    const mid = heatmapPoints[Math.floor(heatmapPoints.length / 2)];
+    const last = heatmapPoints[heatmapPoints.length - 1];
+    return [
+      heatmapPoints.length,
+      `${first?.zona}:${first?.intensidad}`,
+      `${mid?.zona}:${mid?.intensidad}`,
+      `${last?.zona}:${last?.intensidad}`,
+    ].join("-");
+  }, [heatmapPoints, roadColorMode]);
+
+  const nearestHeatmapPrediction = (feature?: TrafficFeature): TrafficPrediction | undefined => {
+    const center = trafficFeatureCenter(feature);
+    if (!center || heatmapPoints.length === 0) return undefined;
+
+    let best: HeatmapPoint | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const point of heatmapPoints) {
+      const d = distanceSq(center, point);
+      if (d < bestDistance) {
+        bestDistance = d;
+        best = point;
+      }
+    }
+
+    if (!best) return undefined;
+    return {
+      zona: best.zona,
+      color: best.nivel ? nivelColor(best.nivel) : intensidadColor(best.intensidad, maxIntensity),
+      nivel: best.nivel,
+      intensidad: best.intensidad,
+    };
+  };
+
+  const resolveTrafficPrediction = (feature?: TrafficFeature): TrafficPrediction | undefined => {
+    const props = feature?.properties ?? {};
+    const zona = props.zona_nearest != null ? Number(props.zona_nearest) : null;
+    const pred = zona != null && Number.isFinite(zona) ? zonaStyle.get(zona) : undefined;
+    return pred ?? nearestHeatmapPrediction(feature);
+  };
+
+  const trafficStyle = (feature?: TrafficFeature): PathOptions => {
     const props = feature?.properties ?? {};
     const idtramo = String(props.idtramo ?? "");
     const isAffected = affectedSet.has(idtramo);
@@ -254,8 +335,7 @@ export default function MapView({
       "#94a3b8";
 
     if (roadColorMode === "prediction") {
-      const zona = props.zona_nearest != null ? Number(props.zona_nearest) : null;
-      const pred = zona != null ? zonaStyle.get(zona) : undefined;
+      const pred = resolveTrafficPrediction(feature);
       const baseColor = pred?.color ?? "#94a3b8";
       return {
         color: isAffected ? "#7c3aed" : baseColor,
@@ -277,14 +357,13 @@ export default function MapView({
   };
 
   const onEachTrafficFeature = (
-    feature: { properties?: Record<string, unknown> },
+    feature: TrafficFeature,
     layer: Layer,
   ) => {
     const props = feature.properties ?? {};
     const nombre = String(props.denominacion ?? "Tramo");
     const estado = String(props.estado_label ?? "—");
-    const zona = props.zona_nearest != null ? Number(props.zona_nearest) : null;
-    const pred = zona != null ? zonaStyle.get(zona) : undefined;
+    const pred = resolveTrafficPrediction(feature);
     const vh = props.intensidad_vh;
 
     if (roadColorMode === "live") {
@@ -304,8 +383,8 @@ export default function MapView({
     }
 
     const predLine = pred
-      ? `<p class="text-xs">Predicción zona ${zona}: ${pred.intensidad} veh/h (${pred.nivel})</p>`
-      : `<p class="text-xs">Sin zona asignada</p>`;
+      ? `<p class="text-xs">Predicción zona ${pred.zona}: <b>${pred.intensidad} veh/h</b> (${pred.nivel})</p>`
+      : `<p class="text-xs">Sin predicción disponible para esta calle</p>`;
     layer.bindTooltip(
       `<strong>${nombre}</strong><br/>${pred ? `${pred.intensidad} veh/h · ${pred.nivel}` : "Sin predicción"}`,
       { sticky: true },
@@ -359,7 +438,7 @@ export default function MapView({
         })}
         {showTraffic && trafficGeoJson && trafficGeoJson.features.length > 0 && (
           <GeoJSON
-            key={`traffic-${roadColorMode}-${trafficGeoJson.features.length}-${affectedTramoIds.length}`}
+            key={`traffic-${roadColorMode}-${trafficGeoJson.features.length}-${affectedTramoIds.length}-${predictionSignature}`}
             data={trafficGeoJson as never}
             style={trafficStyle as never}
             onEachFeature={onEachTrafficFeature as never}
