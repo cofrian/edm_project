@@ -20,21 +20,21 @@ const TOC = [
   ["crisp", "Metodología CRISP-DM"],
   ["arquitectura", "Cómo está montada la app"],
   ["despliegue", "Despliegue"],
-  ["optimizacion", "Optimizador"],
-  ["pipeline", "Flujo de trabajo"],
-  ["modelo", "Modelo de demanda"],
+  ["optimizacion", "Optimización ILP"],
+  ["pipeline", "Flujo completo de datos"],
+  ["modelo", "Modelo de predicción de tráfico"],
   ["monitor", "Evaluación y monitorización"],
   ["stack", "Tecnología y reproducibilidad"],
 ];
 
 const CRISP: [string, string][] = [
-  ["Entender el problema", "Ayudar a decidir dónde instalar equipamientos urbanos para cubrir a más población con recursos limitados."],
-  ["Entender los datos", "Revisión de ubicaciones posibles, equipamientos existentes, población y tráfico horario de Valencia en octubre de 2023."],
-  ["Preparar los datos", "Limpieza de datos, relleno de huecos, cálculo de áreas de alcance, déficit de cobertura y variables de calendario."],
-  ["Modelar", "Optimizador con PuLP/CBC y modelo CatBoost para estimar la demanda por hora."],
-  ["Evaluar", "Métricas MAE, RMSE, R² y sMAPE, revisión de errores por hora y zona, y comprobación de restricciones."],
-  ["Desplegar", "Frontend en Vercel y backend FastAPI en Docker, publicado en Hugging Face Spaces."],
-  ["Monitorizar", "Alertas por errores altos, fecha de datos, modelo activo y posibles pérdidas de precisión con el tiempo."],
+  ["Entender el problema", "Ayudar a planificadores urbanos a decidir dónde instalar nuevos equipamientos en Valencia maximizando la cobertura de población bajo un presupuesto real. La presión de tráfico por zona actúa como señal de demanda."],
+  ["Entender los datos", "Datos de tráfico del Ayuntamiento de Valencia: ~853.000 registros horarios de octubre 2023 en más de 1.158 zonas. También: hexágonos H3 con censo, candidatos a instalaciones, estaciones Valenbisi, paradas EMT y datos meteorológicos AEMET."],
+  ["Preparar los datos", "Limpieza y alineación temporal de los registros de tráfico. Construcción del baseline histórico por zona, día y hora. Generación de embeddings de zona (5 dimensiones). Cálculo de features cíclicas (hora_sin/cos) y retardos meteorológicos. Cálculo de matrices de cobertura H3."],
+  ["Modelar", "24 modelos CatBoost independientes, uno por hora del día (hora 0 a hora 23). Cada modelo aprende el residuo respecto al baseline histórico en escala log-ratio. Un peso sigmoid (shrink weight) regresa la predicción al baseline cuando hay poca evidencia. Solver ILP PuLP/CBC para optimización de instalaciones."],
+  ["Evaluar", "Validación temporal estricta: entrenamiento con días 1-24 de octubre 2023, prueba con días 25-31 (nunca vistos). Métricas globales: MAE ≈ 44,4 veh/h · RMSE ≈ 87,8 · R² ≈ 0,92 · sMAPE ≈ 16,8 %. Análisis por hora del día y por zona para detectar errores sistemáticos."],
+  ["Desplegar", "Backend FastAPI dockerizado en Hugging Face Spaces. Frontend Next.js 14 en Vercel. CI/CD con GitHub Actions: lint, tests, build y publicación automática al hacer push a la rama production."],
+  ["Monitorizar", "Alertas automáticas cuando el MAE de una hora supera el umbral (80 veh/h). Identificación de zonas con error sistemático. Exposición de métricas del sistema (CPU, memoria, uptime). Integración de datos en tiempo real con cache TTL para Valenbisi, EMT y tráfico ArcGIS."],
 ];
 
 export default function DocumentacionPage() {
@@ -65,21 +65,21 @@ export default function DocumentacionPage() {
           {/* RESUMEN */}
           <Section id="resumen" icon={<Target className="h-5 w-5" />} title="Resumen del proyecto">
             <p>
-              UrbanFlow Valencia es una <strong>herramienta para apoyar decisiones urbanas</strong>.
-              Responde a una pregunta concreta:{" "}
-              <em>“si tengo un presupuesto limitado, ¿dónde debería instalar nuevos equipamientos
-              para llegar a más ciudadanos?”</em>
+              UrbanFlow Valencia es una <strong>plataforma de predicción de tráfico y optimización urbana</strong> para la ciudad de Valencia. Responde dos preguntas que un planificador urbano necesita:
             </p>
             <p className="mt-3">
-              El núcleo es un <strong>optimizador</strong> que elige la mejor combinación
-              de ubicaciones según el escenario. Para medir la demanda, la app usa
-              un <strong>modelo de aprendizaje automático</strong> que estima la presión
-              de tráfico y permite revisar su fiabilidad.
+              <strong>¿Cuánto tráfico habrá en cada zona a una hora concreta?</strong> Un conjunto de <strong>24 modelos CatBoost</strong> (uno por hora del día) predicen la intensidad de tráfico en las 1.158 zonas de medición de Valencia. Cada modelo combina el patrón histórico de la zona con variables meteorológicas en tiempo real, codificación cíclica de la hora y embeddings de zona aprendidos durante el entrenamiento.
+            </p>
+            <p className="mt-3">
+              <strong>¿Dónde instalar nuevas infraestructuras con el presupuesto disponible?</strong> Un <strong>optimizador ILP</strong> (PuLP + solver CBC) usa la señal de tráfico predicha junto con datos censales reales para seleccionar las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población.
+            </p>
+            <p className="mt-3">
+              Los datos de tráfico proceden del Ayuntamiento de Valencia: aproximadamente <strong>853.000 registros horarios</strong> de octubre de 2023. El modelo se valida de forma temporal — se entrena con los días 1-24 y se evalúa sobre los días 25-31, que no participan en ninguna fase de ajuste.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Badge color="blue">Optimización</Badge>
-              <Badge color="green">Predicción de demanda</Badge>
-              <Badge color="amber">Datos reales de Valencia</Badge>
+              <Badge color="blue">24 modelos CatBoost por hora</Badge>
+              <Badge color="green">Optimización ILP PuLP + CBC</Badge>
+              <Badge color="amber">853 k registros de tráfico de Valencia</Badge>
             </div>
           </Section>
 
@@ -237,65 +237,105 @@ CMD uvicorn main:app --host 0.0.0.0 --port 7860`}
           </Section>
 
           {/* OPTIMIZACIÓN */}
-          <Section id="optimizacion" icon={<Target className="h-5 w-5" />} title="Optimizador">
+          <Section id="optimizacion" icon={<Target className="h-5 w-5" />} title="Optimización urbana (ILP — PuLP + CBC)">
             <p>
-              Es la parte central del proyecto. El optimizador compara ubicaciones
-              posibles y elige la mejor combinación respetando el presupuesto o el
-              número de ubicaciones que indique el usuario.
+              El optimizador resuelve un <strong>problema de programación lineal entera (ILP)</strong> usando la librería PuLP con el solver de código abierto CBC (COIN-OR Branch-and-Cut). Dado un conjunto de candidatos reales de Valencia, selecciona la combinación que maximiza la cobertura de población bajo las restricciones definidas por el usuario.
             </p>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Formulación general del problema de cobertura</h4>
             <Diagram>
-{`Modelo cobertura:
-max  Σⱼ pⱼ Yⱼ
-s.a. Yⱼ − Σᵢ αᵢⱼ Xᵢ ≤ 0
-     Σᵢ costeᵢ Xᵢ ≤ presupuesto
+{`Variables:
+  Xᵢ ∈ {0,1}  →  se construye el candidato i o no
+  Yⱼ ∈ {0,1}  →  el hexágono H3 de población j queda cubierto
 
-Modelo multiobjetivo:
-max  λ·cobertura_deporte + (1−λ)·cobertura_salud
-s.a. Xᵢ + X'ᵢ ≤ 1
+Objetivo:
+  max  Σⱼ población_j × Yⱼ       (maximizar habitantes cubiertos)
 
-Modo Valenbisi:
-max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
+Restricciones:
+  Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ   ∀j         (cobertura según candidatos elegidos)
+  Σᵢ coste_i × Xᵢ ≤ presupuesto  (restricción económica)
+  Xᵢ, Yⱼ ∈ {0,1}                 (variables binarias)
+
+αᵢⱼ = 1 si el candidato i cubre el hexágono j (radio de alcance)`}
             </Diagram>
-            <ul className="mt-3 list-inside list-disc space-y-1 text-slate-600">
-              <li><strong>Tráfico:</strong> demanda estimada por el modelo en cada zona.</li>
-              <li><strong>Población cubierta:</strong> personas que quedarían cerca de una nueva ubicación.</li>
-              <li><strong>Déficit:</strong> zonas que ahora no tienen suficiente cobertura.</li>
-            </ul>
-            <p className="mt-3">
-              El resultado busca la mejor solución para los pesos y restricciones
-              elegidos, no solo una opción razonable.
+
+            <h4 className="mt-5 font-semibold text-slate-900">Los 5 modos de optimización disponibles</h4>
+            <div className="mt-2 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[540px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-4">Modo</th>
+                    <th className="py-2 pr-4">Objetivo</th>
+                    <th className="py-2 pr-4">Restricción extra</th>
+                    <th className="py-2">Endpoint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Polideportivos", "Máx. población con cobertura deportiva nueva", "Σ coste ≤ presupuesto", "/optimize/sports"],
+                    ["Centros de salud", "Máx. población con cobertura sanitaria nueva", "Σ coste ≤ presupuesto", "/optimize/health"],
+                    ["Multiobjetivo", "λ × cobertura_deportiva + (1−λ) × cobertura_sanitaria", "Xᵢ + X′ᵢ ≤ 1 (no solapamiento)", "/optimize/multi"],
+                    ["Valenbisi", "Máx. score = tráfico + población + déficit_servicio", "Σ xᵢ = N (número fijo)", "/optimize/valenbisi"],
+                    ["Cobertura general", "Máx. población cubierta por cualquier equipamiento", "Σ coste ≤ presupuesto", "/optimize/coverage"],
+                  ].map(([modo, obj, rest, ep]) => (
+                    <tr key={modo} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-4 align-top font-semibold text-slate-800">{modo}</td>
+                      <td className="py-2.5 pr-4 align-top text-slate-600">{obj}</td>
+                      <td className="py-2.5 pr-4 align-top text-slate-500">{rest}</td>
+                      <td className="py-2.5 align-top font-mono text-xs text-slate-700">{ep}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Cobertura sobre hexágonos H3</h4>
+            <p className="mt-1">
+              La ciudad de Valencia se divide en <strong>hexágonos H3</strong> con datos censales reales. Para cada candidato se precalcula qué hexágonos cubre en función de su radio de alcance, generando la <strong>matriz de cobertura α</strong> (candidato × hexágono). El optimizador usa esta matriz para determinar cuánta población nueva quedaría cubierta al seleccionar cada combinación de candidatos.
             </p>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Modo Valenbisi: score compuesto</h4>
+            <Diagram>
+{`score_i = w_tráfico  × tráfico_normalizado_i
+         + w_población × población_normalizada_i
+         + w_déficit   × déficit_servicio_i
+
+Donde déficit_i mide la falta de estaciones Valenbisi
+en el entorno de la ubicación candidata i.
+Los pesos son configurables por el usuario en la interfaz.`}
+            </Diagram>
+
+            <Callout tone="brand" title="Garantía de optimalidad">
+              A diferencia de una heurística, el solver CBC encuentra la <strong>solución óptima global</strong> para los parámetros indicados, no solo una buena aproximación. El tiempo de resolución típico es de 5 a 30 segundos para los conjuntos de candidatos de Valencia.
+            </Callout>
           </Section>
 
-          <Section id="pipeline" icon={<BookOpen className="h-5 w-5" />} title="Flujo de trabajo UrbanFlow">
+          <Section id="pipeline" icon={<BookOpen className="h-5 w-5" />} title="Flujo completo de datos">
             <p>
-              UrbanFlow une preparación de datos, predicción de demanda y
-              optimización en una app que se puede usar y explicar. La API contiene
-              los cálculos que deben ser estables; los análisis exploratorios quedan
-              fuera de la parte pública.
+              UrbanFlow encadena cuatro etapas: ingesta de datos reales de Valencia, predicción horaria de tráfico con CatBoost, optimización ILP de instalaciones y exposición de resultados vía API REST. Cada etapa está desacoplada y es reproducible de forma independiente.
             </p>
             <div className="mt-4 overflow-x-auto scroll-thin">
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="py-2 pr-4">Módulo</th>
-                    <th className="py-2 pr-4">Qué aporta</th>
+                    <th className="py-2 pr-4">Etapa</th>
+                    <th className="py-2 pr-4">Qué hace</th>
                     <th className="py-2">Implementación</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ["Cobertura urbana", "Tiene en cuenta cobertura, presupuesto y población alcanzada.", "PuLP/CBC en /optimize/sports y /optimize/health."],
-                    ["Movilidad Valenbisi", "Combina tráfico, población y falta de servicio para comparar ubicaciones.", "Modo Valenbisi en /optimize/valenbisi y /optimize/coverage."],
-                    ["Varios objetivos", "Permite equilibrar cobertura deportiva y sanitaria.", "Suma ponderada con λ en /optimize/multi."],
-                    ["Señales urbanas", "Usa tráfico, población, costes, áreas de alcance y cobertura existente.", "Datos preparados en backend/data/processed."],
-                    ["Análisis avanzado", "Sirve para contrastar decisiones, pero no se ejecuta en producción.", "Documentado fuera del cálculo público por coste y reproducibilidad."],
-                    ["Preparación de archivos", "Convierte datos originales en candidatos y matrices de cobertura.", "Flujo reproducible con scripts de validación."],
+                    ["Datos de tráfico", "853k registros horarios del Ayuntamiento de Valencia, octubre 2023. Limpieza, alineación temporal y construcción del baseline por zona/día/hora.", "backend/data/processed · baseline_oct2023_SMOO.csv"],
+                    ["Predicción CatBoost", "24 modelos entrenados (uno por hora). Features: hora_sin/cos, embeddings de zona, variables meteo y retardos. Shrink weight sigmoid para gestionar incertidumbre.", "src/pipeline.py · models/catboost_hour_HH.cbm · /predict/heatmap"],
+                    ["Matriz de cobertura H3", "Para cada candidato se precalcula qué hexágonos H3 de población cubre según su radio. Genera la matriz α usada por el solver.", "data/processed/coverage_alpha.json · population_hexes.csv"],
+                    ["Optimización ILP", "PuLP formula el problema de cobertura máxima bajo presupuesto. CBC (Branch-and-Cut) resuelve en 5-30 s. 5 modos disponibles.", "src/optimize_facility.py · src/optimize_valenbisi.py · /optimize/*"],
+                    ["Movilidad tiempo real", "Valenbisi, EMT y tráfico ArcGIS con cache TTL. AEMET con fallback a Open-Meteo. Alertas automáticas de estación vacía, retraso de bus y MAE alto.", "src/integrations/ · src/ttl_cache.py · /api/mobility/*"],
+                    ["API REST + Frontend", "FastAPI expone 50+ endpoints JSON. Next.js renderiza mapas Leaflet, gráficos Recharts y el panel de alertas sin contener lógica de negocio.", "main.py · frontend/lib/api.ts"],
                   ].map(([n, a, d]) => (
                     <tr key={n} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2.5 pr-4 align-top font-mono text-xs text-slate-700">{n}</td>
+                      <td className="py-2.5 pr-4 align-top font-semibold text-slate-800">{n}</td>
                       <td className="py-2.5 pr-4 align-top text-slate-600">{a}</td>
-                      <td className="py-2.5 align-top text-slate-600">{d}</td>
+                      <td className="py-2.5 align-top font-mono text-xs text-slate-500">{d}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -304,16 +344,50 @@ max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
           </Section>
 
           {/* MODELO */}
-          <Section id="modelo" icon={<Activity className="h-5 w-5" />} title="Modelo de demanda (CatBoost)">
+          <Section id="modelo" icon={<Activity className="h-5 w-5" />} title="Modelo de predicción de tráfico (CatBoost)">
             <p>
-              La demanda se estima con un modelo CatBoost. Para cada hora, el
-              modelo combina patrones habituales de tráfico con calendario,
-              meteorología y zona.
+              El sistema entrena <strong>24 modelos CatBoost independientes</strong>, uno por cada hora del día (hora 0 a hora 23), sobre datos de tráfico de Valencia de octubre de 2023. Cada modelo aprende el residuo de su hora respecto a un baseline histórico suavizado por zona, día de la semana y hora.
             </p>
-            <Diagram>{`Intensidad = patrón_base(zona,día,hora) + CatBoost(meteo, calendario, zona)`}</Diagram>
-            <p className="mt-3">
-              La validación es <strong>temporal</strong>: se entrena con los días 1-24
-              de octubre de 2023 y se prueba con los días 25-31. Resultados:
+
+            <h4 className="mt-5 font-semibold text-slate-900">Fórmula de predicción (enfoque híbrido)</h4>
+            <Diagram>{`intensidad = baseline(zona, día_semana, hora)
+           × exp(shrink_weight × residual_CatBoost)
+
+shrink_weight = sigmoid((baseline − τ) / s)
+
+El peso sigmoid hace que la predicción regrese al baseline
+cuando el tráfico histórico es bajo (horas nocturnas,
+zonas poco representadas), evitando extrapolaciones erróneas.`}</Diagram>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Features del modelo</h4>
+            <div className="mt-2 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-4">Categoría</th>
+                    <th className="py-2">Variables</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Temporales (cíclicas)", "hora_sin, hora_cos, dia_mes_norm, wind_sin, wind_cos"],
+                    ["Embeddings de zona", "z_emb1 … z_emb5 (5 dimensiones aprendidas por zona)"],
+                    ["Meteorológicas", "temp_c, hum_rel, pres_mb, vel_viento_ms, precip_lm2"],
+                    ["Retardos meteorológicos", "temp_c_lag1, temp_c_lag3, pres_mb_lag1, pres_mb_lag3"],
+                    ["Categoriales", "Zona (1.158 valores), Dia_Semana, tipo_dia (laboral / festivo / fin de semana)"],
+                  ].map(([k, v]) => (
+                    <tr key={k} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-4 align-top font-semibold text-slate-800">{k}</td>
+                      <td className="py-2.5 font-mono text-xs text-slate-600">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Validación temporal</h4>
+            <p className="mt-1">
+              Entrenamiento: <strong>días 1-24 de octubre 2023</strong>. Prueba: <strong>días 25-31</strong> (nunca usados en ninguna fase de ajuste ni selección de hiperparámetros). Resultados sobre el conjunto de prueba:
             </p>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Metric k="MAE" v="≈ 44.4" />
@@ -321,25 +395,90 @@ max  Σ scoreᵢ·xᵢ, scoreᵢ = tráfico + población + déficit`}
               <Metric k="R²" v="≈ 0.92" />
               <Metric k="sMAPE" v="≈ 16.8 %" />
             </div>
-            <Callout tone="amber" title="Cómo interpretar estos resultados">
-              Las métricas corresponden al modelo CatBoost. La cobertura sirve
-              como apoyo a la decisión, pero no sustituye una revisión urbanística
-              completa antes de actuar en la ciudad.
+            <Callout tone="amber" title="Cómo interpretar estas métricas">
+              MAE de 44,4 veh/h sobre una intensidad media de varios cientos de vehículos por hora representa un error relativo bajo. R² = 0,92 indica que el modelo explica el 92 % de la varianza del tráfico en el conjunto de prueba. Las horas con mayor error (madrugada, eventos puntuales) se señalan en el módulo de monitorización.
             </Callout>
           </Section>
 
           {/* MONITOR */}
           <Section id="monitor" icon={<ShieldCheck className="h-5 w-5" />} title="Evaluación y monitorización">
             <p>
-              La evaluación comprueba si la predicción funciona bien. La
-              monitorización revisa si sigue siendo fiable con el tiempo. La app
-              genera avisos cuando el error por hora o zona es alto.
+              EDM pone el foco en que un modelo no termina cuando se entrena: hay que evaluar su calidad, desplegarlo como servicio y vigilar que siga siendo fiable en producción. UrbanFlow implementa las tres capas.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge color="blue">Validación temporal</Badge>
-              <Badge color="green">Alertas de MAE</Badge>
-              <Badge color="amber">Pérdida de precisión</Badge>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Evaluación del modelo</h4>
+            <p className="mt-1">
+              La validación es <strong>temporal estricta</strong>: los días 25-31 de octubre de 2023 nunca se usan en entrenamiento, ajuste de hiperparámetros ni selección de features. Las métricas globales son:
+            </p>
+            <div className="mt-3 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-4">Métrica</th>
+                    <th className="py-2 pr-4">Valor (prueba)</th>
+                    <th className="py-2">Qué mide</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["MAE", "≈ 44,4 veh/h", "Error absoluto medio. Fácil de interpretar: en promedio el modelo se equivoca en 44 vehículos por hora."],
+                    ["RMSE", "≈ 87,8", "Penaliza errores grandes. Indica que hay picos de error en horas o zonas concretas."],
+                    ["R²", "≈ 0,92", "Varianza explicada. El modelo captura el 92 % del comportamiento del tráfico de Valencia."],
+                    ["sMAPE", "≈ 16,8 %", "Error porcentual simétrico. Útil para comparar entre zonas con distinta escala de tráfico."],
+                  ].map(([m, v, q]) => (
+                    <tr key={m} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-4 align-top font-mono font-semibold text-slate-800">{m}</td>
+                      <td className="py-2.5 pr-4 align-top font-semibold text-slate-700">{v}</td>
+                      <td className="py-2.5 align-top text-slate-600">{q}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+            <p className="mt-3">
+              La app también calcula estas métricas <strong>por hora del día</strong> y <strong>por zona</strong>, exponiendo los resultados en <code>/metrics/by-hour</code> y <code>/metrics/errors-by-zone</code>. Esto permite identificar en qué franjas horarias o zonas el modelo tiene mayor incertidumbre.
+            </p>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Sistema de alertas de monitorización</h4>
+            <p className="mt-1">
+              El módulo de monitorización compara el MAE de cada hora con un umbral configurable (por defecto <strong>80 veh/h</strong>). Cuando una hora lo supera, genera una alerta que aparece en el panel de monitorización y se expone en la API:
+            </p>
+            <div className="mt-2 overflow-x-auto scroll-thin">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-4">Tipo de alerta</th>
+                    <th className="py-2 pr-4">Condición</th>
+                    <th className="py-2">Endpoint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["MAE alto por hora", "MAE_hora > umbral (80 veh/h)", "/monitoring/alerts"],
+                    ["Zona de error sistemático", "Top zonas con mayor error en validación", "/monitoring/zones-to-review"],
+                    ["Zona de baja confianza", "Baseline bajo → shrink weight alto → predicción poco fiable", "/monitoring/zones-to-review"],
+                    ["Valenbisi vacía / llena", "Estación sin bicicletas o sin anclajes libres", "/api/mobility/alerts"],
+                    ["Valenbisi cerca de evento", "Estación a menos de 1 km de un evento activo", "/api/mobility/alerts"],
+                    ["Bus EMT con retraso", "Retraso SAE superior a 3 minutos", "/api/mobility/alerts"],
+                    ["Estado del sistema", "CPU, memoria, uptime del contenedor Docker", "/monitoring/system"],
+                  ].map(([tipo, cond, ep]) => (
+                    <tr key={tipo} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2.5 pr-4 align-top font-semibold text-slate-800">{tipo}</td>
+                      <td className="py-2.5 pr-4 align-top text-slate-600">{cond}</td>
+                      <td className="py-2.5 align-top font-mono text-xs text-slate-500">{ep}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mt-5 font-semibold text-slate-900">Monitorización de datos en tiempo real</h4>
+            <p className="mt-1">
+              Además del modelo, la app monitoriza la frescura de los datos externos. Cada fuente tiene un TTL: si los datos superan ese tiempo sin actualizarse, la API devuelve un flag <code>stale: true</code> y puede activar el fallback. Esto garantiza que el usuario siempre sepa si está viendo datos actuales o una estimación.
+            </p>
+            <Callout tone="brand" title="Por qué la monitorización importa en EDM">
+              Un modelo preciso en validación puede degradarse en producción si el tráfico cambia (obras, nuevas vías, cambios de comportamiento). El sistema de alertas permite detectar esta degradación automáticamente, sin esperar a que alguien note visualmente que algo falla.
+            </Callout>
           </Section>
 
           {/* STACK */}

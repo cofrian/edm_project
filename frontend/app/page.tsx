@@ -23,44 +23,44 @@ export const dynamic = "force-dynamic";
 
 const MODULES = [
   {
-    href: "/mapa",
-    title: "Mapa urbano",
-    text: "Consulta Valencia con tráfico, cobertura, estaciones y red viaria.",
-    icon: <Layers className="h-5 w-5" />,
+    href: "/prediccion",
+    title: "Predicción de tráfico",
+    text: "24 modelos CatBoost predicen la intensidad de tráfico en 1.158 zonas de Valencia, hora a hora, con datos meteorológicos y movilidad en tiempo real.",
+    icon: <Activity className="h-5 w-5" />,
   },
   {
     href: "/optimizacion",
-    title: "Optimizador GIS",
-    text: "Elige equipamientos, presupuesto o número de puntos y mira el resultado en el mapa.",
+    title: "Optimizador urbano",
+    text: "Elige presupuesto y tipo de instalación. El solver ILP (PuLP + CBC) selecciona los candidatos que maximizan la cobertura de población.",
     icon: <Map className="h-5 w-5" />,
+  },
+  {
+    href: "/evaluacion",
+    title: "Evaluación del modelo",
+    text: "MAE, RMSE, R² y sMAPE por hora y zona. Validación temporal sobre los días 25-31 de octubre 2023, nunca usados en el entrenamiento.",
+    icon: <BarChart3 className="h-5 w-5" />,
   },
   {
     href: "/datos",
     title: "Datos urbanos",
-    text: "Revisa candidatos, población, tráfico, meteorología y otros datos usados por la app.",
+    text: "Candidatos, población H3, tráfico histórico, meteorología AEMET y eventos urbanos. Todas las fuentes de Open Data Valencia y Ayuntamiento.",
     icon: <Database className="h-5 w-5" />,
-  },
-  {
-    href: "/prediccion",
-    title: "Demanda",
-    text: "Consulta el tráfico previsto por zona y hora, junto con su fiabilidad.",
-    icon: <Activity className="h-5 w-5" />,
   },
   {
     href: "/monitorizacion",
     title: "Monitorización",
-    text: "Revisa errores, fecha de los datos, modelo activo y cambios en la demanda.",
+    text: "Alertas de MAE por hora, zonas de baja fiabilidad, estado del modelo en producción y métricas del sistema en tiempo real.",
     icon: <ShieldCheck className="h-5 w-5" />,
   },
 ];
 
 const CAPABILITIES = [
-  "Optimización con PuLP/CBC",
-  "Cobertura para deporte, salud y objetivos combinados",
-  "Valenbisi con pesos ajustables",
-  "Mapa con tráfico, cobertura y estaciones actuales",
-  "Predicción de demanda por hora",
-  "Frontend y API separados",
+  "24 modelos CatBoost — uno por cada hora del día",
+  "1.158 zonas de tráfico de Valencia",
+  "Optimización ILP con PuLP/CBC bajo presupuesto",
+  "Cobertura deportiva, sanitaria y multiobjetivo",
+  "Movilidad en tiempo real: Valenbisi, EMT y ArcGIS",
+  "API REST en Hugging Face + frontend en Vercel",
 ];
 
 export default async function Home() {
@@ -80,9 +80,10 @@ export default async function Home() {
                 UrbanFlow Valencia
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-                App para elegir dónde instalar nuevos equipamientos urbanos.
-                Compara población cubierta, tiempos de acceso, demanda, costes
-                y presupuesto disponible.
+                Plataforma que predice el tráfico de Valencia hora a hora
+                mediante 24 modelos CatBoost y usa esa señal para optimizar
+                dónde instalar nuevos equipamientos urbanos respetando un
+                presupuesto real.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -173,24 +174,25 @@ export default async function Home() {
             De los datos a la recomendación
           </h2>
           <div className="mt-5 space-y-3">
-            <FlowStep icon={<Database className="h-4 w-4" />} title="1. Datos preparados" text="La app parte de candidatos, costes, población, tiempos de acceso y equipamientos existentes." />
-            <FlowStep icon={<BarChart3 className="h-4 w-4" />} title="2. Demanda prevista" text="El modelo estima el tráfico por zona y hora." />
-            <FlowStep icon={<Route className="h-4 w-4" />} title="3. Optimización" text="El sistema busca la mejor cobertura o puntuación sin saltarse las restricciones." />
-            <FlowStep icon={<GitBranch className="h-4 w-4" />} title="4. Resultado" text="El mapa, las métricas y el ranking ayudan a entender la decisión." />
+            <FlowStep icon={<Database className="h-4 w-4" />} title="1. Datos de Valencia" text="Tráfico histórico de octubre 2023, zonas GeoJSON, hexágonos H3 de población, candidatos, meteorología AEMET y eventos urbanos." />
+            <FlowStep icon={<BarChart3 className="h-4 w-4" />} title="2. Predicción CatBoost" text="24 modelos (uno por hora) predicen la intensidad de tráfico en 1.158 zonas usando features temporales, meteorológicas y embeddings de zona." />
+            <FlowStep icon={<Route className="h-4 w-4" />} title="3. Optimización ILP" text="PuLP + CBC selecciona los candidatos que maximizan la cobertura poblacional sin superar el presupuesto definido." />
+            <FlowStep icon={<GitBranch className="h-4 w-4" />} title="4. Resultado en mapa" text="El heatmap, los candidatos seleccionados, las métricas del modelo y las alertas de fiabilidad apoyan la decisión." />
           </div>
         </Card>
 
         <Card>
-          <p className="eyebrow">Motor de optimización</p>
+          <p className="eyebrow">Optimización ILP — PuLP + CBC</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">
-            Qué resuelve
+            5 modos de optimización
           </h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DecisionCard title="Presupuesto máximo" text="Elige las ubicaciones con más impacto sin pasar el presupuesto." formula="Σ costeᵢ·xᵢ ≤ presupuesto" />
-            <DecisionCard title="Número de puntos" text="Selecciona las mejores ubicaciones cuando ya sabes cuántas actuaciones quieres hacer." formula="Σ xᵢ = N" />
-            <DecisionCard title="Cobertura útil" text="Calcula cuánta población queda cubierta sin contar la que ya tenía un equipamiento cerca." formula="max Σ pⱼYⱼ" />
-            <DecisionCard title="Movilidad" text="Combina tráfico, población y falta de servicio para priorizar estaciones de Valenbisi." formula="max Σ scoreᵢxᵢ" />
+            <DecisionCard title="Polideportivos" text="Maximiza población cubierta por nuevos polideportivos sin superar el presupuesto. Variables binarias Xᵢ sobre candidatos reales." formula="/optimize/sports" />
+            <DecisionCard title="Centros de salud" text="Igual que deportes pero sobre la red sanitaria actual. Detecta zonas sin centro de salud cercano y las prioriza." formula="/optimize/health" />
+            <DecisionCard title="Multiobjetivo" text="Equilibra cobertura deportiva y sanitaria simultáneamente con un peso λ. Restricción: no se puede colocar ambos en el mismo punto." formula="/optimize/multi  λ ∈ [0,1]" />
+            <DecisionCard title="Valenbisi" text="Selecciona N nuevas estaciones combinando tráfico predicho, densidad de población y déficit de servicio actual de Valenbisi." formula="/optimize/valenbisi" />
           </div>
+          <p className="mt-3 text-xs text-slate-500">La cobertura se calcula sobre hexágonos H3 con datos censales reales. El solver CBC resuelve el problema ILP en 5-30 segundos.</p>
         </Card>
       </section>
     </div>
