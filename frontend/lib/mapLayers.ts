@@ -25,9 +25,9 @@ export const LAYER_META: Record<
     description: "Muestra de segmentos viarios (oct-2023)",
   },
   demand: {
-    label: "Demanda",
+    label: "Hexágonos de población",
     color: "#eab308",
-    description: "Población sin cobertura previa (hexágonos censales)",
+    description: "Hexágonos censales H3 sin cobertura previa",
   },
   candidates: {
     label: "Candidatos",
@@ -35,9 +35,9 @@ export const LAYER_META: Record<
     description: "131 ubicaciones posibles con coste y presión de tráfico precalculada",
   },
   covered: {
-    label: "Nueva cobertura",
+    label: "Cobertura optimizada",
     color: "#22d3ee",
-    description: "Hexágonos cubiertos por la propuesta optimizada",
+    description: "Hexágonos H3 cubiertos por la propuesta del solver",
   },
   proposed: {
     label: "Propuesta",
