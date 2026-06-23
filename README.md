@@ -1,381 +1,353 @@
 # UrbanFlow Valencia
 
-**Predicción de tráfico y optimización urbana en Valencia.**
+> **Predicción inteligente de tráfico y optimización de instalaciones urbanas para la ciudad de Valencia**
+> Proyecto de la asignatura **EDM — Evaluación, Despliegue y Monitorización de Modelos**
+> Máster en Inteligencia de Negocio y Big Data · CUNEF Universidad
 
-Aplicación web desarrollada como entrega de la asignatura **EDM — Evaluación, Despliegue y Monitorización de Modelos**. Integra predicción horaria con **CatBoost**, evaluación del modelo, optimización urbana con **PuLP**, monitorización de fiabilidad y despliegue en Vercel y Hugging Face.
-
-| Demo | URL |
+| | URL |
 |---|---|
-| **Aplicación web** | https://edm-project.vercel.app |
-| **API (FastAPI)** | https://cofrian-edm-proyect.hf.space |
-| **Documentación API** | https://cofrian-edm-proyect.hf.space/docs |
+| **Demo web** | https://edm-project.vercel.app |
+| **API REST** | https://cofrian-edm-proyect.hf.space |
+| **Documentación API (Swagger)** | https://cofrian-edm-proyect.hf.space/docs |
 | **Estado de la API** | https://cofrian-edm-proyect.hf.space/health |
-| **Repositorio** | https://github.com/cofrian/edm_project |
+| **Repositorio GitHub** | https://github.com/cofrian/edm_project |
 
 ---
 
-## Narrativa del proyecto
+## ¿Qué es UrbanFlow Valencia?
 
-UrbanFlow Valencia sigue un flujo sencillo:
+Valencia registra más de 1.100 zonas de medición de tráfico urbano. UrbanFlow Valencia convierte esos datos en una herramienta de decisión para planificadores urbanos que responde tres preguntas concretas:
 
-```
-Tráfico observado (octubre 2023, Valencia)
-        ↓
-CatBoost predice intensidad por zona y hora
-        ↓
-La intensidad se traduce en presión de tráfico
-        ↓
-PuLP recomienda equipamientos urbanos bajo presupuesto
-        ↓
-La app web muestra predicción, evaluación, mapas, optimización y alertas
-```
+**1. ¿Cuánto tráfico habrá en cada zona a una hora concreta?**
+Veinticuatro modelos CatBoost (uno por hora del día) predicen la intensidad de tráfico en las 1.158 zonas de la ciudad. Las predicciones combinan patrones históricos, variables meteorológicas en tiempo real y el impacto de eventos urbanos (conciertos, partidos, ferias).
 
-El objetivo no es solo predecir tráfico. La predicción se usa como señal para tomar decisiones de planificación: dónde instalar nuevos puntos, cómo priorizar actuaciones con presupuesto limitado y cómo vigilar si el modelo sigue siendo fiable.
+**2. ¿Dónde instalar nuevas infraestructuras con el presupuesto disponible?**
+Un optimizador de programación lineal entera (PuLP + CBC) selecciona las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población bajo una restricción de presupuesto real.
+
+**3. ¿Sigue siendo fiable el modelo en producción?**
+El módulo de monitorización calcula el MAE por hora, lanza alertas cuando supera un umbral y señala las zonas con error sistemático, permitiendo detectar degradación del modelo sin intervención manual.
+
+Además, la aplicación integra datos en tiempo real de Valenbisi, autobuses EMT, estado del tráfico del Ayuntamiento y meteorología (AEMET / Open-Meteo).
 
 ---
 
-## Arquitectura general
+## Contexto académico — EDM y CRISP-DM
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Usuario (navegador)                                            │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTPS
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  FRONTEND — Next.js 14 (Vercel)                                 │
-│  https://edm-project.vercel.app                                 │
-│                                                                 │
-│  Páginas: Inicio · Datos · Predicción · Evaluación ·            │
-│           Optimización · Monitorización · Metodología           │
-│                                                                 │
-│  lib/api.ts  →  fetch(NEXT_PUBLIC_API_URL + /endpoint)          │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTP/JSON  (CORS)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  BACKEND — FastAPI + Docker (Hugging Face Spaces)               │
-│  https://cofrian-edm-proyect.hf.space                           │
-│                                                                 │
-│  CatBoost (.cbm)  →  /predict                                   │
-│  Archivos CSV     →  /metrics, /evaluation, /map               │
-│  PuLP + CBC       →  /optimize/sports, /health, /multi, /valenbisi   │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-              Modelos (24 × .cbm, ~160 MB, Git LFS)
-              Datos procesados (CSV, Parquet, GeoJSON)
-```
+La asignatura EDM cubre el ciclo completo de vida de un modelo de machine learning desde el dato crudo hasta el sistema monitorizado en producción. El proyecto aplica el estándar **CRISP-DM** en todas sus fases, con especial énfasis en las que habitualmente se omiten en proyectos académicos: despliegue, automatización y monitorización.
 
-Documentación ampliada: [`docs/arquitectura.md`](docs/arquitectura.md)
-
----
-
-## Frontend (Next.js · Vercel)
-
-### Qué hace
-
-Panel web para explorar datos, consultar tráfico y predicción, revisar métricas de evaluación, ejecutar optimizaciones sobre el mapa y ver alertas de fiabilidad.
-
-### Páginas
-
-| Ruta | Función |
+| Fase CRISP-DM | Implementación en UrbanFlow Valencia |
 |---|---|
-| `/` | Presentación del proyecto y acceso rápido a módulos |
-| `/datos` | Datos usados por la app, variables y preparación |
-| `/prediccion` | Tráfico real, predicción por hora y movilidad en tiempo real |
-| `/evaluacion` | MAE, RMSE, R², sMAPE; gráficos por hora; real vs predicho |
-| `/optimizacion` | Polideportivo, salud, varios objetivos y Valenbisi |
-| `/monitorizacion` | Alertas de MAE, pérdida de precisión y limitaciones del modelo |
-| `/metodologia` | Cómo encaja el proyecto con CRISP-DM y EDM |
+| **Comprensión del negocio** | Problema urbano real: déficit de instalaciones y presión de tráfico en Valencia |
+| **Comprensión de los datos** | Datos del Ayuntamiento: tráfico octubre 2023, Valenbisi, EMT, AEMET, eventos urbanos |
+| **Preparación de los datos** | Limpieza, alineación temporal, embeddings de zona (5 dimensiones), features cíclicas |
+| **Modelado** | 24 modelos CatBoost por hora + baseline histórico + shrink weight sigmoid |
+| **Evaluación** | Validación temporal (días 25-31), MAE/RMSE/R²/sMAPE, análisis por zona y hora |
+| **Despliegue** | FastAPI en Hugging Face + Next.js en Vercel + CI/CD con GitHub Actions |
+| **Monitorización** | Alertas de MAE por hora, zonas de baja fiabilidad, métricas del sistema en tiempo real |
 
-### Conexión con el backend
-
-El frontend **no contiene modelos ni datos pesados**. Todas las operaciones pasan por la API:
-
-```typescript
-// frontend/lib/constants.ts
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-```
-
-```typescript
-// frontend/lib/api.ts — patrón de llamada
-fetch(`${API_URL}/predict`, { method: "POST", body: JSON.stringify(payload) })
-```
-
-Si la API no responde, `lib/api.ts` devuelve **datos alternativos** para que la interfaz no se rompa durante la demo.
-
-### Despliegue en Vercel
-
-| Parámetro | Valor |
-|---|---|
-| Repositorio | `cofrian/edm_project` |
-| Carpeta raíz | `frontend/` |
-| Variable de entorno | `NEXT_PUBLIC_API_URL=https://cofrian-edm-proyect.hf.space` |
-| Publicación | Push automático a `production` |
+El énfasis diferencial de EDM está en que el modelo no termina con la evaluación: debe desplegarse como servicio, automatizarse su publicación y observarse su comportamiento en producción. UrbanFlow Valencia implementa este ciclo completo.
 
 ---
 
-## Backend (FastAPI · Hugging Face Spaces)
+## Arquitectura del sistema
 
-### Qué hace
+```mermaid
+flowchart LR
+    USER["Usuario / Profesor\nNavegador"] --> VERCEL
 
-API REST que **carga archivos ya preparados**. No entrena modelos en producción. Sirve predicciones CatBoost, métricas de evaluación, mapas GeoJSON, candidatos de optimización y resultados de PuLP.
+    subgraph VERCEL["VERCEL — Frontend"]
+        FE["Next.js 14 · React · TypeScript
+        TailwindCSS · Leaflet · Recharts
+        edm-project.vercel.app"]
+    end
 
-### Endpoints principales
+    VERCEL -->|"fetch HTTP/JSON · CORS"| HF
+    HF -.->|"respuesta JSON"| VERCEL
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/health` | Estado de la API |
-| `GET` | `/metadata` | Modelo activo, fecha de datos, validación |
-| `GET` | `/metrics/global` | MAE, RMSE, R², sMAPE (CatBoost) |
-| `GET` | `/metrics/by-hour` | Métricas desglosadas por hora |
-| `GET` | `/metrics/errors-by-zone` | Zonas con mayor error |
-| `GET` | `/evaluation/scatter` | Muestra real vs predicho |
-| `POST` | `/predict` | Intensidad y nivel (baja/media/alta) |
-| `GET` | `/predict/heatmap` | Predicción de todas las zonas para una hora |
-| `POST` | `/predict/hour` | Igual que heatmap con body JSON |
-| `GET` | `/weather/current` | Tiempo actual (AEMET o valores por defecto) |
-| `GET` | `/weather/forecast` | Serie horaria del día |
-| `GET` | `/traffic/live` | Tráfico real del Ayuntamiento (ArcGIS) |
-| `GET` | `/api/mobility/valenbisi/stations` | Valenbisi en tiempo real + alertas |
-| `GET` | `/api/mobility/emt/stops` | Paradas EMT desde Geoportal |
-| `GET` | `/api/mobility/emt/stops/{stop_id}/arrivals` | Llegadas SAE EMT por parada seleccionada |
-| `GET` | `/api/mobility/emt/routes` | Rutas EMT configuradas o aproximadas por paradas |
-| `GET` | `/api/mobility/alerts` | Alertas operativas de movilidad |
-| `GET` | `/events` | Eventos urbanos (`?from=&to=`) |
-| `GET` | `/map/zones` | GeoJSON ~1.158 puntos zona |
-| `POST` | `/optimize/sports` | Polideportivo bajo presupuesto |
-| `POST` | `/optimize/health` | Centro de salud bajo presupuesto |
-| `POST` | `/optimize/multi` | Varios objetivos: deporte + salud con λ |
-| `POST` | `/optimize/valenbisi` | Selección de un número fijo de ubicaciones |
-| `POST` | `/optimize/coverage` | Cobertura bajo presupuesto |
-| `GET` | `/map/traffic-segments` | GeoJSON de segmentos de tráfico |
-| `GET` | `/map/current-valenbisi` | Estaciones Valenbisi actuales |
-| `GET` | `/candidates/valenbisi` | Puntos candidatos |
-| `GET` | `/monitoring/alerts` | Alertas de fiabilidad |
+    subgraph HF["HUGGING FACE SPACES — Backend"]
+        API["FastAPI + Uvicorn · Docker
+        python:3.11-slim + CBC solver
+        cofrian-edm-proyect.hf.space"]
+    end
 
-Documentación interactiva (Swagger): https://cofrian-edm-proyect.hf.space/docs
+    HF --> PRED["Prediccion
+    24 modelos CatBoost"]
+    HF --> OPT["Optimizacion ILP
+    PuLP + CBC solver"]
+    HF --> RT["Tiempo Real
+    Valenbisi · EMT · AEMET · ArcGIS"]
+    HF --> MON["Monitorizacion
+    MAE · Alertas · Metricas"]
 
-### Modelo predictivo
+    HF --- DATA["Datos y artefactos
+    24 x .cbm · baseline · embeddings
+    CSV · GeoJSON · JSON · eventos"]
+```
 
-- **Algoritmo:** CatBoost por hora (24 modelos `.cbm`).
-- **Enfoque:** patrón base por zona y hora + ajuste con CatBoost.
-- **Validación:** temporal, entrenando con los días 1-24 y probando con los días 25-31 de octubre de 2023.
-- **Métricas reales de prueba:**
+> **Punto clave:** Vercel solo sirve HTML, CSS y JavaScript. Toda la lógica de negocio (modelos, optimización, datos en tiempo real) vive en el backend de Hugging Face. Las llamadas HTTP salen desde el navegador del usuario hacia Hugging Face mediante CORS, no desde Vercel.
+
+---
+
+## Módulos funcionales
+
+```mermaid
+flowchart LR
+    subgraph FUENTES["1 · Fuentes de datos"]
+        F1["Historicos
+        Trafico Valencia oct2023
+        Baseline · Metricas validacion"]
+        F2["Espaciales
+        Zonas y segmentos GeoJSON
+        Hexagonos H3 · Candidatos
+        Valenbisi · Paradas EMT"]
+        F3["Tiempo real
+        Valenbisi ArcGIS
+        EMT Valencia · ArcGIS Trafico
+        AEMET / Open-Meteo"]
+        F4["Eventos urbanos
+        Conciertos · Partidos
+        Ferias · Actividades"]
+    end
+
+    subgraph BACKEND["2 · Motor backend · FastAPI"]
+        B1["Prediccion de trafico
+        24 modelos CatBoost por hora
+        Features temporales y meteo
+        Heatmap por zona"]
+        B2["Optimizacion urbana
+        PuLP + CBC solver
+        Deportes · Salud · Multi
+        Integracion Valenbisi"]
+        B3["Integracion de movilidad
+        Cache TTL · Control frescura
+        Normalizacion de fuentes
+        Estimaciones y fallback"]
+        B4["Monitorizacion
+        MAE · RMSE · R2 · sMAPE
+        Alertas fiabilidad por hora
+        Zonas a revisar"]
+    end
+
+    subgraph API["3 · API y productos de datos"]
+        A1["Prediccion
+        /predict
+        /predict/heatmap
+        /predict/hour"]
+        A2["Optimizacion
+        /optimize/sports
+        /optimize/health
+        /optimize/multi
+        /optimize/valenbisi"]
+        A3["Movilidad
+        /mobility/valenbisi/stations
+        /mobility/emt/stops
+        /mobility/emt/arrivals
+        /mobility/alerts"]
+        A4["Mapas y metricas
+        /map/zones
+        /metrics/by-hour
+        /monitoring/alerts
+        /weather/forecast"]
+    end
+
+    subgraph FRONTEND["4 · Frontend · Next.js"]
+        W1["Mapa urbano
+        Visualizacion · Capas · Filtros"]
+        W2["Prediccion
+        Heatmap de trafico por hora"]
+        W3["Evaluacion
+        Metricas y comparativas"]
+        W4["Optimizacion
+        Escenarios e instalaciones"]
+        W5["Monitorizacion
+        Alertas y estado del sistema"]
+        W6["Metodologia / Datos
+        Documentacion y fuentes"]
+    end
+
+    FUENTES --> BACKEND --> API --> FRONTEND
+```
+
+---
+
+## Módulo 1 — Predicción de tráfico (CatBoost)
+
+**Algoritmo:** 24 modelos CatBoost independientes, uno por hora del día (hora 0 a hora 23).
+
+**Datos de entrenamiento:** Tráfico de Valencia, octubre de 2023. Validación temporal: días 1-24 para entrenamiento, días 25-31 para prueba (nunca vistos durante el ajuste).
+
+**Features del modelo:**
+
+| Categoría | Variables |
+|---|---|
+| Temporales (cíclicas) | `hora_sin`, `hora_cos`, `dia_mes_norm`, `wind_sin`, `wind_cos` |
+| Zona | Embeddings de 5 dimensiones por zona (`z_emb1`...`z_emb5`) |
+| Meteorológicas | `temp_c`, `hum_rel`, `pres_mb`, `vel_viento_ms`, `precip_lm2` |
+| Retardos | `temp_c_lag1`, `temp_c_lag3`, `pres_mb_lag1`, `pres_mb_lag3` |
+| Categoriales | `Zona`, `Dia_Semana`, `tipo_dia` |
+
+**Fórmula de predicción (enfoque híbrido):**
+
+```
+intensidad = baseline(zona, dia_semana, hora) × exp(shrink_weight × residual_CatBoost)
+shrink_weight = sigmoid((baseline − τ) / s)
+```
+
+El peso sigmoid hace que la predicción regrese hacia el baseline histórico cuando la incertidumbre es alta (zonas con poco tráfico o horas nocturnas), evitando predicciones erróneas en condiciones poco representadas en el entrenamiento.
+
+**Resultados sobre datos de prueba (días 25-31, nunca usados en entrenamiento):**
 
 | MAE | RMSE | R² | sMAPE |
 |---|---|---|---|
-| ≈ 44.4 veh/h | ≈ 87.8 | ≈ 0.92 | ≈ 16.8 % |
-
-Detalle completo: [`docs/modelo_predictivo.md`](docs/modelo_predictivo.md)
-
-### Optimización (PuLP)
-
-Modelos de optimización implementados con PuLP/CBC y población censal real (`population_spain.gpkg`):
-
-| Modo | Restricción | Objetivo |
-|---|---|---|
-| **Polideportivo** | Σ coste ≤ presupuesto | Maximizar habitantes sin cobertura deportiva |
-| **Centro de salud** | Σ coste ≤ presupuesto | Maximizar habitantes sin cobertura sanitaria |
-| **Multi** | Σ coste ≤ presupuesto, Xᵢ+X'ᵢ≤1 | Equilibrar deporte y salud |
-| **Valenbisi** | Número fijo o presupuesto | Puntuación de tráfico + población + déficit |
-
-El optimizador **CBC** (`coinor-cbc`) se instala en el contenedor Docker y en CI.
-
-### Despliegue en Hugging Face Spaces
-
-| Parámetro | Valor |
-|---|---|
-| Space | `cofrian/edm_proyect` |
-| Tipo | Docker, puerto 7860 |
-| Imagen base | `python:3.11-slim` + FastAPI + CatBoost + CBC |
-| Repo del Space | Sincronizado automáticamente desde `backend/` con `deploy-hf.yml` |
-| Despliegue | GitHub Actions → `git push` al Space → reconstrucción de Docker en HF |
-
-**Variables de entorno en HF** (Settings → Variables and secrets):
-
-```env
-ENV=production
-ALLOW_ORIGINS=http://localhost:3000,https://edm-project.vercel.app
-VALENCIA_VALENBISI_TTL_SECONDS=180
-VALENCIA_EMT_ARRIVALS_TTL_SECONDS=45
-```
-
-| Secreto / variable | Obligatorio | Descripción |
-|---|---|---|
-| `AEMET_API_KEY` | No | API key de [opendata.aemet.es](https://opendata.aemet.es). Sin ella, `/weather/current` devuelve valores por defecto (`source: "default"`). Con clave válida devuelve datos de AEMET. |
-
-> `ALLOW_ORIGINS` debe ser **una sola línea separada por comas**. Tras cambiar variables o secretos, conviene hacer **Factory rebuild** en el Space para reconstruirlo por completo.
+| 44,4 veh/h | 87,8 | 0,92 | 16,8 % |
 
 ---
 
-## Metodología de trabajo en equipo (GitFlow)
+## Módulo 2 — Optimización urbana (ILP)
 
-Bloque de **despliegue y monitorización** de la asignatura EDM. El repositorio `cofrian/edm_project` es el punto de entrada para todo el equipo. Vercel y Hugging Face se actualizan automáticamente al publicar en la rama `production`.
+Programación Lineal Entera implementada con **PuLP** y el solver de código abierto **CBC (COIN-OR)**.
 
-### Ramas y responsabilidades
-
+**Problema general:**
 ```
-feature/*  →  develop  →  main  →  production
- (trabajo)    (integrar)  (estable)  (publicar → Vercel + HF)
+Maximizar:   Σⱼ población_j × Yⱼ       (cobertura poblacional)
+Sujeto a:    Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ         (cobertura según candidatos seleccionados)
+             Σᵢ coste_i × Xᵢ ≤ presupuesto
+             Xᵢ, Yⱼ ∈ {0, 1}
 ```
 
-| Rama | Qué es | ¿Despliega en Vercel/HF? |
+Donde `αᵢⱼ` es 1 si el candidato `i` cubre el hexágono H3 de población `j`.
+
+| Endpoint | Objetivo | Restricción |
 |---|---|---|
-| `feature/nombre` | Trabajo individual (Sergio, Luis, Fernando…) | No |
-| `develop` | Código integrado del equipo | No |
-| `main` | Versión estable, lista para entregar | No (solo CI) |
-| `production` | Demo pública y entrega EDM | **Sí** |
+| `POST /optimize/sports` | Máx. población con cobertura deportiva | Presupuesto total |
+| `POST /optimize/health` | Máx. población con cobertura sanitaria | Presupuesto total |
+| `POST /optimize/multi` | Equilibrio deporte + salud (parámetro λ) | Presupuesto + sin solapamiento |
+| `POST /optimize/valenbisi` | Máx. tráfico + población + déficit | N estaciones fijas |
+| `POST /optimize/coverage` | Máx. cobertura poblacional general | Presupuesto total |
 
-**`main` vs `production`:** en `main` el código está validado pero **no** llega a los usuarios. En `production` sí se publica la web y la API. Así podemos acumular cambios en `main` y desplegar solo cuando convenga (p. ej. antes de la demo con el profesor).
-
-### Cómo se juntan cambios de varias personas
-
-Cada miembro crea su rama desde `develop` actualizado:
-
-```bash
-git checkout develop && git pull
-git checkout -b feature/mi-cambio
-# … editar, commit, push …
-# Pull Request en GitHub → base: develop
-```
-
-Cuando se fusiona un PR en `develop`, Git junta ese cambio con todo lo ya integrado. Si Sergio sube un mapa y Luis una tabla, `develop` acumula ambos:
-
-```
-develop (lunes)     →  código base
-develop + PR Luis   →  base + tabla evaluación
-develop + PR Sergio →  base + tabla + mapa optimización
-develop + PR Fer.   →  base + tabla + mapa + endpoint API
-```
-
-**Conflictos:** solo aparecen si dos personas editan **las mismas líneas** del mismo archivo. Se resuelven en GitHub o en local antes de fusionar.
-
-Antes de abrir PR, conviene traer `develop` a tu feature:
-
-```bash
-git checkout feature/mi-cambio
-git merge develop
-# resolver conflictos si los hay
-git push
-```
-
-### Publicar en la demo (Vercel + Hugging Face)
-
-Cuando el equipo decide publicar:
-
-```bash
-git checkout main && git pull && git merge develop && git push
-git checkout production && git pull && git merge main && git push
-```
-
-Ese último push a **`production`** es el que dispara el despliegue real.
-
-### Qué carpeta afecta a cada servicio
-
-| Carpeta | Servicio que se actualiza al publicar |
-|---|---|
-| `frontend/` | **Vercel** (https://edm-project.vercel.app) |
-| `backend/` | **Hugging Face** (https://cofrian-edm-proyect.hf.space) |
-| `docs/`, `README.md` | Solo GitHub (no despliega) |
-
-Los colaboradores **no necesitan** cuenta en Vercel ni en Hugging Face: basta con permiso de escritura en GitHub.
-
-Guía detallada para el equipo: [`docs/metodologia-equipo.md`](docs/metodologia-equipo.md)
+Tiempo de resolución típico: **5 a 30 segundos**.
 
 ---
 
-## CI/CD y despliegue en producción
+## Módulo 3 — Integración de movilidad en tiempo real
 
-### Visión general (asignatura EDM — despliegue y monitorización)
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         GitHub (edm_project)                            │
-│  feature/* ──PR──► develop ──merge──► main ──merge──► production        │
-└───────────────────────────────┬─────────────────────────────────────────┘
-                                │
-          ┌─────────────────────┼─────────────────────┐
-          │                     │                     │
-          ▼                     ▼                     ▼
-   backend-ci.yml        frontend-ci.yml        deploy-hf.yml
-   frontend-ci.yml        (en PR/push)          (solo production)
-   docker-build.yml                             deploy-check.yml
-   (lint, tests)                                  (curl /health)
-          │                     │                     │
-          │                     │                     │
-          ▼                     ▼                     ▼
-     Validación            Validación          Copia backend/ ──► HF Space
-     (no despliega)        (no despliega)      Reconstruye Docker
-                                │
-                                ▼
-                          Vercel (integración
-                          nativa GitHub)
-                          despliega frontend/
-```
-
-GitHub Actions **no sustituye** a Vercel ni a Hugging Face: revisa el código y publica el backend en el Space. Vercel despliega el frontend con su integración propia de GitHub.
-
-### Procesos de GitHub Actions
-
-| Proceso | Cuándo se ejecuta | Qué hace |
+| Fuente | Datos | Cache TTL |
 |---|---|---|
-| `backend-ci.yml` | Push/PR con cambios en `backend/` | Ruff, pytest (13 tests), carga de FastAPI, CBC + Git LFS |
-| `frontend-ci.yml` | Push/PR con cambios en `frontend/` | ESLint, TypeScript, build Next.js |
-| `docker-build.yml` | Push a `main` con cambios en `backend/` | Construye imagen Docker (prueba de empaquetado) |
-| `deploy-hf.yml` | Push a `production` con cambios en `backend/` | Tests → rsync `backend/` al Space → `git push` → espera `/health` |
-| `deploy-check.yml` | Push a `production` | `curl $API_URL/health` para comprobar que la API responde |
+| **AEMET** (`opendata.aemet.es`) | Temperatura, humedad, presión, viento, precipitación | 600 s |
+| **Open-Meteo** | Fallback meteorológico gratuito si AEMET no responde | 600 s |
+| **Valenbisi** (ArcGIS Ayuntamiento) | Bicicletas y anclajes disponibles por estación | 180 s |
+| **EMT Valencia** (SAE + GTFS) | Paradas, llegadas en tiempo real, rutas de autobús | 45 s |
+| **ArcGIS Ayuntamiento** | Estado del tráfico: fluido / denso / congestionado / cortado | 60 s |
 
-### Despliegue en Vercel (frontend)
+**Cadena de fallback meteorológico:** AEMET → Open-Meteo → valores sinusoidales estimados por hora del día.
 
-| Parámetro | Valor |
+**Alertas inteligentes generadas automáticamente:**
+- Estación Valenbisi vacía, llena o cerrada
+- Estación Valenbisi próxima a un evento activo (radio < 1 km)
+- Autobús EMT con retraso superior a 3 minutos
+- Posición estimada del bus calculada por ruta y tiempo restante cuando el SAE no responde
+
+---
+
+## Módulo 4 — Monitorización del modelo
+
+El sistema compara el MAE de cada hora frente a un umbral configurable (por defecto 80 veh/h).
+
+- Si una hora supera el umbral → alerta de baja fiabilidad para esa franja horaria
+- Se identifican las zonas con mayor error sistemático en validación
+- Se expone el estado del sistema: CPU, memoria y uptime del contenedor Docker
+
+**Endpoints:** `GET /monitoring/alerts` · `GET /monitoring/zones-to-review` · `GET /monitoring/system`
+
+---
+
+## Frontend — Páginas de la aplicación
+
+| Ruta | Descripción |
 |---|---|
-| Proyecto | Conectado a `cofrian/edm_project` |
-| Carpeta raíz | `frontend/` |
-| Rama de producción | `production` |
-| Variable | `NEXT_PUBLIC_API_URL=https://cofrian-edm-proyect.hf.space` |
+| `/` | Presentación del proyecto y acceso a módulos |
+| `/datos` | Dataset, variables y proceso de preparación de datos |
+| `/prediccion` | Heatmap de tráfico por hora + movilidad en tiempo real |
+| `/evaluacion` | MAE, RMSE, R², sMAPE; errores por hora y zona; gráfico real vs predicho |
+| `/optimizacion` | Escenarios de instalación con mapa de resultados y cobertura poblacional |
+| `/monitorizacion` | Alertas de fiabilidad, zonas de riesgo y estado del sistema |
+| `/metodologia` | Metodología, CRISP-DM, fuentes de datos y documentación técnica |
 
-**Flujo:** fusión a `production` con cambios en `frontend/` → Vercel detecta el push → `npm run build` → nueva versión en https://edm-project.vercel.app
+---
 
-El frontend llama a la API por HTTP; no incluye modelos ni datos pesados.
+## CI/CD — Integración y despliegue continuos
 
-### Despliegue en Hugging Face (backend)
+```mermaid
+flowchart TD
+    DEV["Developer local"] -->|git push| GH["GitHub\ncofrian/edm_project"]
 
-| Parámetro | Valor |
-|---|---|
-| Space | `cofrian/edm_proyect` |
-| URL pública | https://cofrian-edm-proyect.hf.space |
-| Tipo | Docker (`python:3.11-slim` + FastAPI + CatBoost + CBC) |
-| Origen del código | Carpeta `backend/` del monorepo |
+    subgraph GITFLOW["GitFlow"]
+        d[develop] -->|PR aprobado| m[main]
+        m -->|PR aprobado| p[production]
+    end
 
-**Flujo automatizado (`deploy-hf.yml`):**
+    GH -.->|rama activa| GITFLOW
 
-1. Push a `production` que toca `backend/`
-2. Trabajo `validate`: mismas revisiones y tests que Backend CI
-3. Trabajo `deploy`: clona el Space, copia `backend/` con `rsync`, hace commit y push con el secreto `HF_TOKEN`
-4. Hugging Face reconstruye la imagen Docker (~2–5 min)
-5. Trabajo `deploy-check`: comprueba que `/health` responde
+    GH -->|"Push o PR backend/"| CI_BE["backend-ci.yml
+    Ruff lint + pytest + FastAPI import"]
+    GH -->|"Push o PR frontend/"| CI_FE["frontend-ci.yml
+    ESLint + TypeScript + next build"]
+    GH -->|"Push a main backend/"| CI_DK["docker-build.yml
+    docker build solo valida"]
 
-**Secretos en GitHub** (Settings → Secrets → Actions):
+    GH -->|"Push a production backend/"| DH1
+
+    subgraph DHF["deploy-hf.yml"]
+        DH1["1 Validate Ruff + pytest"] --> DH2["2 Clone HF Space con HF_TOKEN"]
+        DH2 --> DH3["3 rsync backend a hf-space"]
+        DH3 --> DH4["4 git commit + git push HF"]
+        DH4 --> DH5["5 curl /health hasta 6 min"]
+    end
+
+    DH4 -->|"HF detecta push y reconstruye Docker"| HF1
+
+    subgraph HFSPACE["Hugging Face Space — cofrian/edm_proyect"]
+        HF1["Dockerfile python:3.11-slim + CBC"] --> HF2["FastAPI + uvicorn puerto 7860"]
+        HF2 --> HF_URL["API en vivo
+        cofrian-edm-proyect.hf.space"]
+    end
+
+    GH -->|"Push a production frontend/"| V1
+
+    subgraph VERCEL["Vercel"]
+        V1["Detecta cambios en frontend/"] --> V2["npm run build Next.js 14"]
+        V2 --> V_URL["Frontend en vivo
+        edm-project.vercel.app"]
+    end
+
+    V_URL -->|"NEXT_PUBLIC_API_URL"| HF_URL
+    DH5 -.->|"Deploy OK"| DONE(["Completado"])
+```
+
+### Workflows de GitHub Actions
+
+| Workflow | Cuándo se ejecuta | Qué hace |
+|---|---|---|
+| `backend-ci.yml` | Push o PR con cambios en `backend/` | Ruff lint · pytest 13 tests · FastAPI import check |
+| `frontend-ci.yml` | Push o PR con cambios en `frontend/` | ESLint · TypeScript · next build |
+| `docker-build.yml` | Push a `main` con cambios en `backend/` | Docker build (solo valida el empaquetado, no despliega) |
+| `deploy-hf.yml` | Push a `production` con cambios en `backend/` | Validate → rsync → push HF → health check |
+| `deploy-check.yml` | Push a `production` | `curl /health` para confirmar que la API responde |
+
+### Flujo de despliegue del backend (deploy-hf.yml)
+
+1. Push a `production` con cambios en `backend/`
+2. **Validación:** Ruff + pytest. Si falla, el despliegue se detiene aquí.
+3. **Sincronización:** clona el Space `cofrian/edm_proyect` con `HF_TOKEN`, copia `backend/` con `rsync` (excluyendo `.git`, `.env`, `__pycache__`) y hace `git push` al repositorio de HF.
+4. **Reconstrucción:** Hugging Face detecta el push y reconstruye el Docker automáticamente (~2-5 min).
+5. **Verificación:** `curl /health` con reintentos hasta 6 minutos para confirmar que la API responde.
+
+### Secretos necesarios en GitHub (Settings → Secrets → Actions)
 
 | Secret | Uso |
 |---|---|
-| `HF_TOKEN` | Token Write de Hugging Face para push al Space |
-| `API_URL` | (opcional) URL para comprobar la API; por defecto `https://cofrian-edm-proyect.hf.space` |
-
-### Conexiones entre servicios
-
-| Conexión | Mecanismo | Configuración |
-|---|---|---|
-| Usuario → Frontend | HTTPS | Vercel CDN |
-| Frontend → Backend | `fetch()` JSON | `NEXT_PUBLIC_API_URL` |
-| Backend → Frontend | CORS | `ALLOW_ORIGINS` en HF |
-| GitHub → Vercel | Integración nativa | Push a `production` |
-| GitHub → HF | `deploy-hf.yml` + `HF_TOKEN` | Push a `production` + `backend/` |
-| CI → calidad | Actions en PR y push | Ruff, pytest, ESLint, build |
-
-Detalle operativo: [`docs/despliegue.md`](docs/despliegue.md)
+| `HF_TOKEN` | Token Write de Hugging Face para hacer push al Space |
+| `API_URL` | (opcional) URL del backend para el health check post-deploy |
 
 ---
 
@@ -383,33 +355,43 @@ Detalle operativo: [`docs/despliegue.md`](docs/despliegue.md)
 
 ```
 EDM-Proyecto/
-├── backend/                 # API FastAPI
-│   ├── main.py              # Punto de entrada
-│   ├── src/                 # Lógica: predict, metrics, optimize, monitoring
-│   ├── models/              # 24 × CatBoost (.cbm) + patrón base y datos de zona
-│   ├── data/processed/      # Métricas, predicciones, candidatos, GeoJSON
-│   ├── tests/               # 13 tests pytest
-│   └── Dockerfile           # Imagen Docker (HF Spaces)
+├── backend/                        # API FastAPI
+│   ├── main.py                     # 50+ endpoints
+│   ├── src/
+│   │   ├── pipeline.py             # Inferencia CatBoost (24 modelos)
+│   │   ├── predict.py              # Predicción por zona
+│   │   ├── predict_batch.py        # Heatmap de todas las zonas
+│   │   ├── optimize_facility.py    # ILP deportes / salud
+│   │   ├── optimize_valenbisi.py   # ILP Valenbisi
+│   │   ├── optimize_coverage.py    # ILP cobertura general
+│   │   ├── monitoring.py           # Alertas y métricas
+│   │   ├── metrics.py              # MAE, RMSE, R², sMAPE
+│   │   ├── ttl_cache.py            # Cache en memoria por TTL
+│   │   └── integrations/
+│   │       ├── aemet.py            # Meteorología (AEMET + Open-Meteo)
+│   │       ├── mobility.py         # Valenbisi, EMT, ArcGIS tráfico
+│   │       └── valencia_traffic.py # Tráfico live ArcGIS
+│   ├── models/                     # 24 × .cbm + baseline + embeddings (Git LFS)
+│   ├── data/processed/             # CSV, GeoJSON, JSON
+│   ├── tests/                      # 13 tests pytest
+│   └── Dockerfile                  # python:3.11-slim + CBC
 │
-├── frontend/                # App Next.js
-│   ├── app/                 # Páginas (App Router)
-│   ├── components/          # UI, mapas, gráficos
-│   └── lib/                 # api.ts, types, constants
+├── frontend/                       # Next.js 14
+│   ├── app/                        # 7 páginas (App Router)
+│   ├── components/                 # Mapas Leaflet, gráficos Recharts
+│   └── lib/                        # api.ts · constants · types
 │
-├── notebooks/               # 01–06: flujo explicado (sin reentrenar)
-├── scripts/                 # export_models, generate_metrics, validate_artifacts
-├── docs/                    # Documentación EDM completa
+├── docs/                           # Documentación técnica EDM
 │   ├── arquitectura.md
 │   ├── despliegue.md
 │   ├── modelo_predictivo.md
 │   ├── metodologia_edm.md
-│   ├── metodologia-equipo.md  # GitFlow, merges, CI/CD para el equipo
-│   ├── demo_profesores.md   # Guion de demo (5 min)
-│   └── informe_inspeccion.md
+│   ├── metodologia-equipo.md
+│   └── demo_profesores.md
 │
-├── .github/workflows/       # CI/CD
-├── docker-compose.yml       # Backend local en Docker
-└── .gitattributes           # Git LFS (*.cbm, *.parquet)
+├── .github/workflows/              # 5 workflows CI/CD
+├── docker-compose.yml              # Backend local con Docker
+└── .gitattributes                  # Git LFS (*.cbm, *.parquet)
 ```
 
 ---
@@ -420,8 +402,8 @@ EDM-Proyecto/
 
 - Python 3.11+
 - Node.js 20+
-- Git LFS (`git lfs install` para clonar modelos `.cbm`)
-- Docker (opcional, solo backend)
+- Git LFS instalado (`git lfs install`) para clonar los modelos `.cbm`
+- CBC solver: `sudo apt install coinor-cbc` (Linux) / `brew install cbc` (macOS)
 
 ### Backend
 
@@ -440,7 +422,7 @@ uvicorn main:app --reload --port 8000
 ```
 
 - API: http://localhost:8000
-- Docs: http://localhost:8000/docs
+- Swagger UI: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 
 ### Frontend
@@ -448,10 +430,7 @@ uvicorn main:app --reload --port 8000
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local
-# Editar .env.local:
-# NEXT_PUBLIC_API_URL=http://localhost:8000
-
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
 npm run dev
 ```
 
@@ -473,7 +452,7 @@ cd backend && pytest -q && ruff check .
 # Frontend
 cd frontend && npm run lint && npm run typecheck && npm run build
 
-# Archivos
+# Artefactos
 python scripts/validate_artifacts.py
 ```
 
@@ -481,70 +460,68 @@ python scripts/validate_artifacts.py
 
 ## Variables de entorno
 
-### Backend (`backend/.env` o Hugging Face)
+### Backend (`backend/.env` o Hugging Face Settings → Variables)
+
+| Variable | Obligatoria | Descripción | Ejemplo |
+|---|---|---|---|
+| `ENV` | Sí | Entorno de ejecución | `production` |
+| `ALLOW_ORIGINS` | Sí | Orígenes CORS permitidos (una sola línea, separados por coma) | `http://localhost:3000,https://edm-project.vercel.app` |
+| `DATA_DIR` | No | Ruta a datos procesados | `/app/data/processed` |
+| `MODEL_DIR` | No | Ruta a modelos CatBoost | `/app/models` |
+| `AEMET_API_KEY` | No | API key de opendata.aemet.es. Sin ella usa Open-Meteo como fuente | — |
+| `MAE_ALERT_THRESHOLD` | No | Umbral de alerta MAE en veh/h | `80` |
+| `VALENCIA_VALENBISI_TTL_SECONDS` | No | Cache Valenbisi en tiempo real | `180` |
+| `VALENCIA_EMT_ARRIVALS_TTL_SECONDS` | No | Cache llegadas SAE EMT | `45` |
+| `VALENCIA_EMT_ROUTES_TTL_SECONDS` | No | Cache rutas EMT | `21600` |
+| `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES` | No | Umbral de retraso para alerta EMT | `3` |
+| `VALENCIA_EVENT_VALENBISI_RADIUS_METERS` | No | Radio para alertas Valenbisi cerca de eventos | `1000` |
+
+> Tras cambiar variables o secretos en Hugging Face, haz **Factory rebuild** en el Space para que se apliquen.
+
+### Frontend (`frontend/.env.local` o Vercel → Environment Variables)
 
 | Variable | Descripción | Ejemplo |
 |---|---|---|
-| `ENV` | Entorno de ejecución | `production` |
-| `DATA_DIR` | Ruta a datos procesados | `/app/data/processed` |
-| `MODEL_DIR` | Ruta a modelos CatBoost | `/app/models` |
-| `ALLOW_ORIGINS` | Orígenes CORS (coma, una línea) | `http://localhost:3000,https://edm-project.vercel.app` |
-| `AEMET_API_KEY` | API key opendata.aemet.es (tiempo en vivo) | *(opcional)* |
-| `MAE_ALERT_THRESHOLD` | Umbral de alerta MAE (opcional) | `60` |
-| `VALENCIA_VALENBISI_TTL_SECONDS` | Caché de Valenbisi en tiempo real | `180` |
-| `VALENCIA_EMT_STOPS_TTL_SECONDS` | Caché de paradas EMT | `21600` |
-| `VALENCIA_EMT_ARRIVALS_TTL_SECONDS` | Caché de llegadas SAE por parada | `45` |
-| `VALENCIA_EMT_ARRIVALS_TIMEOUT_SECONDS` | Tiempo máximo de consulta SAE EMT | `12` |
-| `VALENCIA_EMT_ROUTES_TTL_SECONDS` | Caché de rutas EMT | `21600` |
-| `VALENCIA_EVENT_VALENBISI_RADIUS_METERS` | Radio para alertas Valenbisi cerca de eventos | `1000` |
-| `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES` | Umbral de retraso EMT | `3` |
-| `VALENCIA_EMT_AVG_SPEED_KMH` | Velocidad media para posición estimada | `14` |
-| `VALENCIA_EMT_ROUTES_URL` | Fuente GeoJSON opcional de rutas o trazados EMT | *(opcional)* |
-| `VALENCIA_EMT_GTFS_RESOURCE_ID` | Recurso CKAN Open Data Valencia para GTFS EMT | `c81b69e6-c082-44dc-acc6-66fc417b4e66` |
-| `VALENCIA_EMT_GTFS_URL` | URL ZIP GTFS manual si no se usa CKAN | *(opcional)* |
-| `VALENCIA_EMT_GTFS_NAP_FILE_ID` | Fichero NAP GTFS alternativo | `1166` |
-| `VALENCIA_EMT_GTFS_API_KEY` | API key NAP para descargar desde transportes.gob.es | *(opcional)* |
-
-### Frontend (`frontend/.env.local` o Vercel)
-
-| Variable | Descripción | Ejemplo |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | URL base de la API | `https://cofrian-edm-proyect.hf.space` |
-
-Plantillas: `.env.example`, `backend/.env.example`, `frontend/.env.example`
+| `NEXT_PUBLIC_API_URL` | URL base del backend | `https://cofrian-edm-proyect.hf.space` |
 
 ---
 
-## Metodología EDM
+## Flujo de trabajo del equipo (GitFlow)
 
-El proyecto cubre el ciclo CRISP-DM y el temario completo de EDM:
+```
+feature/*  ──PR──►  develop  ──merge──►  main  ──merge──►  production
+ (trabajo)           (integrar)           (estable)          (demo pública)
+```
 
-| Bloque | Implementación |
+| Rama | Propósito | Despliega en Vercel / HF |
+|---|---|---|
+| `feature/nombre` | Desarrollo individual de cada miembro | No |
+| `develop` | Integración continua del equipo | No |
+| `main` | Versión estable y validada, lista para entregar | Solo CI |
+| `production` | Demo pública y entrega EDM | **Sí, ambos servicios** |
+
+**`main` vs `production`:** en `main` el código está validado pero no llega a los usuarios. En `production` se publica la web y la API. Esto permite acumular cambios en `main` y desplegar únicamente cuando convenga (por ejemplo, antes de la demo con el profesor).
+
+### Publicar en producción
+
+```bash
+# Subir a main desde develop
+git checkout main && git pull && git merge develop && git push
+
+# Desplegar a producción
+git checkout production && git pull && git merge main && git push
+# El push a production dispara GitHub Actions → Vercel + Hugging Face
+```
+
+### Qué carpeta afecta a cada servicio
+
+| Carpeta | Servicio que se actualiza |
 |---|---|
-| Evaluación | Validación temporal, MAE/RMSE/R²/sMAPE, errores por hora/zona |
-| Modelado | CatBoost; LightGBM queda documentado por separado |
-| Fiabilidad | Pydantic, CORS, alertas, limitaciones por zona |
-| Automatización | Scripts, notebooks, `validate_artifacts.py`, CI |
-| Despliegue | Vercel + HF vía GitFlow (`production`), GitHub Actions, Git LFS |
-| Monitorización | Alertas MAE, pérdida de precisión y metadatos del modelo |
-| Aplicación | Panel con mapas, gráficos y optimización |
+| `frontend/` | **Vercel** → https://edm-project.vercel.app |
+| `backend/` | **Hugging Face** → https://cofrian-edm-proyect.hf.space |
+| `docs/`, `README.md` | Solo GitHub, no despliega ningún servicio |
 
-Mapa completo: [`docs/metodologia_edm.md`](docs/metodologia_edm.md)  
-Guía de trabajo en equipo (GitFlow + despliegue): [`docs/metodologia-equipo.md`](docs/metodologia-equipo.md)
-
----
-
-## Demo para evaluación (5 min)
-
-Guion paso a paso en [`docs/demo_profesores.md`](docs/demo_profesores.md).
-
-1. Problema urbano → arquitectura
-2. Datos (`/datos`)
-3. Predicción en vivo (`/prediccion`)
-4. Evaluación con métricas reales (`/evaluacion`)
-5. Optimización Valenbisi y cobertura (`/optimizacion`)
-6. Monitorización (`/monitorizacion`)
-7. CI/CD, GitFlow y despliegue Vercel + Hugging Face (ver README § Metodología y § CI/CD)
+Los colaboradores no necesitan cuenta en Vercel ni en Hugging Face: con permiso de escritura en GitHub es suficiente.
 
 ---
 
@@ -554,18 +531,48 @@ Guion paso a paso en [`docs/demo_profesores.md`](docs/demo_profesores.md).
 |---|---|
 | **Frontend** | Next.js 14, React, TypeScript, TailwindCSS, Recharts, Leaflet |
 | **Backend** | FastAPI, Pydantic, Uvicorn |
-| **ML** | CatBoost, scikit-learn, Pandas, NumPy, PyArrow |
-| **Optimización** | PuLP, CBC |
-| **Infra** | Vercel, Hugging Face Spaces (Docker), GitHub Actions |
-| **Datos** | Git LFS (`.cbm`, `.parquet`), CSV, GeoJSON |
+| **ML** | CatBoost 1.2.7, scikit-learn, Pandas, NumPy, PyArrow |
+| **Optimización** | PuLP 2.9, CBC (COIN-OR Branch-and-Cut) |
+| **Infraestructura** | Vercel (frontend), Hugging Face Spaces Docker (backend), GitHub Actions (CI/CD) |
+| **Datos** | Git LFS (`.cbm`, `.parquet`), CSV, GeoJSON, JSON |
+| **Calidad** | Ruff (linting Python), pytest (13 tests), ESLint, TypeScript strict |
+
+---
+
+## Demo para evaluación (5 minutos)
+
+Guion completo paso a paso: [`docs/demo_profesores.md`](docs/demo_profesores.md)
+
+1. **Arquitectura** — diagrama de servicios y flujo de datos
+2. **Datos** (`/datos`) — fuentes, variables y preparación
+3. **Predicción en vivo** (`/prediccion`) — heatmap + movilidad tiempo real
+4. **Evaluación** (`/evaluacion`) — métricas reales, errores por hora y zona
+5. **Optimización** (`/optimizacion`) — Valenbisi y cobertura de instalaciones
+6. **Monitorización** (`/monitorizacion`) — alertas de fiabilidad del modelo
+7. **CI/CD** — GitFlow, GitHub Actions, despliegue Vercel + Hugging Face
+
+---
+
+## Documentación adicional
+
+| Documento | Contenido |
+|---|---|
+| [`docs/arquitectura.md`](docs/arquitectura.md) | Diagrama de servicios y decisiones de diseño |
+| [`docs/modelo_predictivo.md`](docs/modelo_predictivo.md) | CatBoost, features, validación y métricas detalladas |
+| [`docs/despliegue.md`](docs/despliegue.md) | Guía operativa de Vercel y Hugging Face |
+| [`docs/metodologia_edm.md`](docs/metodologia_edm.md) | Mapa completo CRISP-DM × temario EDM |
+| [`docs/metodologia-equipo.md`](docs/metodologia-equipo.md) | GitFlow, merges, resolución de conflictos |
+| [`docs/demo_profesores.md`](docs/demo_profesores.md) | Guion de demo para evaluación |
 
 ---
 
 ## Autores
 
-- **Sergio Ortiz Montesinos** — [scofrian@gmail.com](mailto:scofrian@gmail.com)
-- **Luis Trigueros Espada**
-- **Fernando Martínez Gómez**
+- **Sergio Ortiz Montesinos** — [sortmon@etsinf.upv.es](mailto:sortmon@etsinf.upv.es)
+- **Luis Trigueros Espada** — [ltriesp@etsinf.upv.es](mailto:ltriesp@etsinf.upv.es)
+- **Fernando Martínez Gómez** — [fmargom1@etsinf.upv.es](mailto:fmargom1@etsinf.upv.es)
+
+---
 
 ## Licencia
 
