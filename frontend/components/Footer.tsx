@@ -7,9 +7,8 @@ export function Footer() {
         <div className="sm:col-span-2 lg:col-span-2">
           <p className="font-bold text-slate-900">UrbanFlow Valencia</p>
           <p className="mt-1 max-w-sm text-sm text-slate-500">
-            Plataforma de decisión para la localización óptima de equipamientos
-            urbanos. Maximiza cobertura de población bajo presupuesto con
-            programación lineal entera.
+            Predicción de tráfico con CatBoost y optimización de equipamientos
+            urbanos con ILP. Datos reales de Valencia — EDM · CUNEF Universidad.
           </p>
         </div>
         <div>
@@ -38,7 +37,7 @@ export function Footer() {
       <div className="border-t border-slate-100">
         <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>UrbanFlow Valencia · Plataforma de decisión urbana.</p>
-          <p>Sergio Ortiz Montesinos · Luis Trigueros Espada · Fernando Martínez Gómez</p>
+          <p>sortmon@etsinf.upv.es · ltriesp@etsinf.upv.es · fmargom1@etsinf.upv.es</p>
         </div>
       </div>
     </footer>
