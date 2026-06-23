@@ -424,7 +424,7 @@ export default function PrediccionPage() {
   }, []);
 
   useEffect(() => {
-    if (!isPageVisible) return;
+    if (!isPageVisible || !viewingNow) return;
     let current: AbortController | null = null;
     const run = () => {
       current?.abort();
@@ -437,7 +437,7 @@ export default function PrediccionPage() {
       clearInterval(id);
       current?.abort();
     };
-  }, [loadTraffic, isPageVisible]);
+  }, [loadTraffic, isPageVisible, viewingNow]);
 
   useEffect(() => {
     if (!mobilityRealtime || !isPageVisible) return;
@@ -522,6 +522,7 @@ export default function PrediccionPage() {
     if (viewingNow) {
       setRoadColorMode("live");
     } else {
+      setRoadColorMode("prediction");
       setMobilityRealtime(false);
     }
   }, [viewingNow]);
@@ -792,22 +793,30 @@ export default function PrediccionPage() {
 
         <Card title="Color del mapa" className="lg:col-span-1">
           <div className="space-y-3 text-sm">
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/80 p-2">
+            <label
+              className={`flex items-center gap-2 rounded-lg border p-2 ${
+                !viewingNow
+                  ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-50"
+                  : "cursor-pointer border-emerald-200 bg-emerald-50/80"
+              }`}
+            >
               <input
                 type="radio"
                 name="roadMode"
                 checked={roadColorMode === "live"}
+                disabled={!viewingNow}
                 onChange={() => setRoadColorMode("live")}
               />
               <Radio className="h-4 w-4 text-emerald-600" />
               <span>
-                <strong>Tráfico real</strong> (Ayuntamiento)
+                <strong>Tráfico real</strong>
+                {!viewingNow ? " (solo en hora actual)" : " (Ayuntamiento)"}
               </span>
             </label>
             <label
               className={`flex items-center gap-2 rounded-lg border p-2 ${
                 viewingNow
-                  ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                  ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-50"
                   : "cursor-pointer border-slate-200"
               }`}
             >
@@ -820,8 +829,8 @@ export default function PrediccionPage() {
               />
               <Layers className="h-4 w-4 text-slate-400" />
               <span>
-                Predicción del modelo
-                {viewingNow ? " (solo otros días u horas)" : " (otros días u horas)"}
+                <strong>Predicción del modelo</strong>
+                {viewingNow ? " (cambia la hora)" : ""}
               </span>
             </label>
             {!viewingNow && (
