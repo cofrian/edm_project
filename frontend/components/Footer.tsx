@@ -8,7 +8,7 @@ export function Footer() {
           <p className="font-bold text-slate-900">UrbanFlow Valencia</p>
           <p className="mt-1 max-w-sm text-sm text-slate-500">
             Predicción de tráfico con CatBoost y optimización de equipamientos
-            urbanos con ILP. Datos reales de Valencia — EDM · CUNEF Universidad.
+            urbanos con ILP. Datos reales de Valencia — EDM · UPV.
           </p>
         </div>
         <div>
