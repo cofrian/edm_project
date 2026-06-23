@@ -64,6 +64,22 @@ const HIGHWAY_COLORS: Record<string, string> = {
   living_street: "#1e293b",
 };
 
+const DEMAND_COLORS = ["#fff1b8", "#fbbf24", "#fb923c", "#ef4444", "#991b1b"];
+const ES_INTEGER = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 });
+
+interface DemandStats {
+  count: number;
+  totalCount: number;
+  min: number;
+  max: number;
+  q25: number;
+  q50: number;
+  q75: number;
+  q90: number;
+  totalPopulation: number;
+  totalWeight: number;
+}
+
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
@@ -95,15 +111,86 @@ function filterCollection(
   return { ...collection, features };
 }
 
-function demandColor(weight: number, maxWeight = 15000): string {
-  const t = Math.min(1, weight / maxWeight);
-  const r = Math.round(234 + t * (239 - 234));
-  const g = Math.round(179 - t * 120);
-  const b = Math.round(8 + t * (68 - 8));
-  return `rgb(${r}, ${g}, ${b})`;
+function formatInteger(value: number): string {
+  return ES_INTEGER.format(Number.isFinite(value) ? value : 0);
 }
 
-function styleFeature(layer: LayerKey, feature?: GeoFeature): L.PathOptions {
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function featureDemandWeight(feature?: GeoFeature): number {
+  const p = feature?.properties ?? {};
+  return toFiniteNumber(p.weight ?? p.population, 0);
+}
+
+function featureNeedsCoverage(feature?: GeoFeature): boolean {
+  const p = feature?.properties ?? {};
+  if (typeof p.needs_coverage === "boolean") return p.needs_coverage;
+  return featureDemandWeight(feature) > 0;
+}
+
+function quantile(sorted: number[], q: number): number {
+  if (sorted.length === 0) return 0;
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  const next = sorted[base + 1];
+  if (next == null) return sorted[base];
+  return sorted[base] + rest * (next - sorted[base]);
+}
+
+function createDemandStats(collection: GeoFeatureCollection): DemandStats | null {
+  const weights = collection.features
+    .map((feature) => featureDemandWeight(feature))
+    .filter((value) => value > 0)
+    .sort((a, b) => a - b);
+
+  if (weights.length === 0) return null;
+
+  const totalPopulation = collection.features.reduce(
+    (sum, feature) => sum + toFiniteNumber(feature.properties?.population, 0),
+    0,
+  );
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+
+  return {
+    count: weights.length,
+    totalCount: collection.features.length,
+    min: weights[0],
+    max: weights[weights.length - 1],
+    q25: quantile(weights, 0.25),
+    q50: quantile(weights, 0.5),
+    q75: quantile(weights, 0.75),
+    q90: quantile(weights, 0.9),
+    totalPopulation,
+    totalWeight,
+  };
+}
+
+function demandTone(weight: number, stats?: DemandStats | null): number {
+  if (!stats || weight <= 0) return 0;
+  if (weight >= stats.q90) return 4;
+  if (weight >= stats.q75) return 3;
+  if (weight >= stats.q50) return 2;
+  if (weight >= stats.q25) return 1;
+  return 0;
+}
+
+function demandColor(weight: number, stats?: DemandStats | null): string {
+  return DEMAND_COLORS[demandTone(weight, stats)];
+}
+
+function demandPriorityLabel(weight: number, stats?: DemandStats | null): string {
+  return ["Baja", "Media-baja", "Media", "Alta", "Muy alta"][demandTone(weight, stats)];
+}
+
+function styleFeature(
+  layer: LayerKey,
+  feature?: GeoFeature,
+  demandStats?: DemandStats | null
+): L.PathOptions {
   const color = LAYER_META[layer].color;
   const p = feature?.properties ?? {};
 
@@ -116,15 +203,39 @@ function styleFeature(layer: LayerKey, feature?: GeoFeature): L.PathOptions {
     };
   }
 
-  if (layer === "demand" || layer === "covered") {
-    const weight = Number(p.weight ?? 1);
-    const fill = layer === "covered" ? "#22d3ee" : demandColor(weight);
-    const opacity = Math.min(0.75, 0.2 + weight / 18000);
+  if (layer === "demand") {
+    const weight = featureDemandWeight(feature);
+    const needsCoverage = featureNeedsCoverage(feature);
+    if (!needsCoverage) {
+      return {
+        className: "demand-hex demand-hex-covered",
+        color: "rgba(71, 85, 105, 0.46)",
+        weight: 0.9,
+        fillColor: "#cbd5e1",
+        fillOpacity: 0.48,
+        opacity: 0.9,
+      };
+    }
+    const tone = demandTone(weight, demandStats);
+    const highPriority = tone >= 3;
     return {
-      color: "rgba(255,255,255,0.15)",
-      weight: 0.5,
-      fillColor: fill,
-      fillOpacity: opacity,
+      className: `demand-hex demand-hex-tone-${tone}`,
+      color: highPriority ? "rgba(127, 29, 29, 0.64)" : "rgba(255, 255, 255, 0.9)",
+      weight: highPriority ? 1.3 : 0.9,
+      fillColor: demandColor(weight, demandStats),
+      fillOpacity: 0.56 + tone * 0.07,
+      opacity: 0.96,
+    };
+  }
+
+  if (layer === "covered") {
+    return {
+      className: "coverage-hex",
+      color: "#0e7490",
+      weight: 1.15,
+      fillColor: "#22d3ee",
+      fillOpacity: 0.32,
+      opacity: 0.82,
     };
   }
 
@@ -171,7 +282,11 @@ function markerRadius(layer: LayerKey, feature?: GeoFeature): number {
   return 6;
 }
 
-function popupHtml(layer: LayerKey, feature: GeoFeature): string {
+function popupHtml(
+  layer: LayerKey,
+  feature: GeoFeature,
+  demandStats?: DemandStats | null
+): string {
   const p = feature.properties ?? {};
   if (layer === "candidates") {
     return `<div class="map-popup"><strong>Candidato #${p.candidate_id}</strong>
@@ -180,10 +295,18 @@ function popupHtml(layer: LayerKey, feature: GeoFeature): string {
       <div class="metric"><span>Coste deporte</span><b>${p.cost_sports ?? "—"}</b></div>
       <div class="metric"><span>Coste salud</span><b>${p.cost_health ?? "—"}</b></div></div>`;
   }
-  if (layer === "demand" || layer === "covered") {
+  if (layer === "demand") {
+    const weight = featureDemandWeight(feature);
+    const needsCoverage = featureNeedsCoverage(feature);
+    return `<div class="map-popup demand-popup"><strong>Hexágono ${p.hex_id}</strong>
+      <div class="priority">${needsCoverage ? `Prioridad ${demandPriorityLabel(weight, demandStats)}` : "Ya cubierto"}</div>
+      <div class="metric"><span>Población</span><b>${formatInteger(toFiniteNumber(p.population, 0))}</b></div>
+      <div class="metric"><span>Peso demanda</span><b>${formatInteger(weight)}</b></div></div>`;
+  }
+  if (layer === "covered") {
     return `<div class="map-popup"><strong>Hexágono ${p.hex_id}</strong>
-      <div class="metric"><span>Población</span><b>${Number(p.population ?? 0).toLocaleString("es-ES")}</b></div>
-      <div class="metric"><span>Peso demanda</span><b>${Number(p.weight ?? 0).toLocaleString("es-ES")}</b></div></div>`;
+      <div class="metric"><span>Población</span><b>${formatInteger(toFiniteNumber(p.population, 0))}</b></div>
+      <div class="metric"><span>Estado</span><b>Cubierto</b></div></div>`;
   }
   if (layer === "traffic") {
     return `<div class="map-popup"><strong>${p.name ?? "Vía"}</strong>
@@ -197,6 +320,14 @@ function popupHtml(layer: LayerKey, feature: GeoFeature): string {
   }
   const label = (p.name as string) ?? (p.zona != null ? `Estación zona ${p.zona}` : LAYER_META[layer].label);
   return `<div class="map-popup"><strong>${label}</strong><span class="muted">${LAYER_META[layer].label}</span></div>`;
+}
+
+function demandTooltipHtml(feature: GeoFeature, demandStats?: DemandStats | null): string {
+  const p = feature.properties ?? {};
+  const weight = featureDemandWeight(feature);
+  const title = featureNeedsCoverage(feature) ? demandPriorityLabel(weight, demandStats) : "Ya cubierto";
+  return `<strong>${title}</strong><br/>
+    ${formatInteger(toFiniteNumber(p.population, 0))} hab. · peso ${formatInteger(weight)}`;
 }
 
 function pointToLayer(layer: LayerKey, feature: GeoFeature, latlng: L.LatLng): L.Layer {
@@ -367,20 +498,52 @@ export default function CityMap({
     [coveredGeo?.features.length, layerState, proposedMarkers.length],
   );
   const activeLayers = visibleLayerKeys.filter((k) => layerState[k]);
+  const demandLegendStats = useMemo(() => {
+    if (!layerState.demand || !geo.demand) return null;
+    return createDemandStats(filterCollection(geo.demand, "demand"));
+  }, [geo.demand, layerState.demand]);
 
   const renderGeoLayer = (key: LayerKey, collection: GeoFeatureCollection) => {
     const filtered = filterCollection(collection, key);
+    const layerDemandStats =
+      key === "demand" || key === "covered" ? createDemandStats(filtered) : null;
     return (
       <GeoJSON
         key={`${key}-${filtered.features.length}-${demandType}`}
         data={filtered as never}
-        style={(feature) => styleFeature(key, feature as unknown as GeoFeature)}
+        style={(feature) =>
+          styleFeature(key, feature as unknown as GeoFeature, layerDemandStats)
+        }
         pointToLayer={(feature, latlng) =>
           pointToLayer(key, feature as unknown as GeoFeature, latlng)
         }
         onEachFeature={(feature, layerInstance) => {
           const f = feature as unknown as GeoFeature;
-          layerInstance.bindPopup(popupHtml(key, f), { className: "city-popup" });
+          layerInstance.bindPopup(popupHtml(key, f, layerDemandStats), { className: "city-popup" });
+
+          if (key === "demand") {
+            layerInstance.bindTooltip(demandTooltipHtml(f, layerDemandStats), {
+              className: "demand-tooltip",
+              opacity: 0.96,
+              sticky: true,
+            });
+            layerInstance.on({
+              mouseover: () => {
+                if (!(layerInstance instanceof L.Path)) return;
+                layerInstance.setStyle({
+                  color: "#0f172a",
+                  fillOpacity: 0.88,
+                  opacity: 1,
+                  weight: 2,
+                });
+                layerInstance.bringToFront();
+              },
+              mouseout: () => {
+                if (!(layerInstance instanceof L.Path)) return;
+                layerInstance.setStyle(styleFeature(key, f, layerDemandStats));
+              },
+            });
+          }
         }}
       />
     );
@@ -463,15 +626,44 @@ export default function CityMap({
                   </div>
                 ))}
               </div>
-              {(layerState.demand || layerState.covered) && (
-                <div className="mt-2.5 border-t border-slate-100 pt-2">
-                  <p className="mb-1 text-[10px] text-slate-500">Intensidad demanda</p>
+              {layerState.demand && demandLegendStats && (
+                <div className="mt-2.5 min-w-44 border-t border-slate-100 pt-2">
+                  <div className="mb-1.5 flex items-center justify-between gap-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      Demanda poblacional
+                    </p>
+                    <span className="text-[10px] font-semibold text-slate-700">
+                      {demandLegendStats.totalCount} hex
+                    </span>
+                  </div>
                   <div
-                    className="h-1.5 w-full rounded-full"
+                    className="h-2 w-full rounded-full shadow-inner"
                     style={{
-                      background: "linear-gradient(90deg, #eab308, #ef4444)",
+                      background: `linear-gradient(90deg, ${DEMAND_COLORS.join(", ")})`,
                     }}
                   />
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                    <span>Baja</span>
+                    <span>Muy alta</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+                    <span className="h-2 w-2 rounded-sm bg-slate-300 ring-1 ring-slate-400/50" />
+                    Ya cubierto
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-slate-500">
+                    <span>Rango</span>
+                    <b className="text-right font-semibold text-slate-700">
+                      {formatInteger(demandLegendStats.min)}-{formatInteger(demandLegendStats.max)}
+                    </b>
+                    <span>Con déficit</span>
+                    <b className="text-right font-semibold text-slate-700">
+                      {formatInteger(demandLegendStats.count)}
+                    </b>
+                    <span>Población</span>
+                    <b className="text-right font-semibold text-slate-700">
+                      {formatInteger(demandLegendStats.totalPopulation)}
+                    </b>
+                  </div>
                 </div>
               )}
             </div>

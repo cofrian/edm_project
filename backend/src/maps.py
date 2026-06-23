@@ -11,6 +11,7 @@ from .coverage_data import (
     load_existing_health,
     load_existing_sports,
     load_population_hexes,
+    load_population_hexes_geojson,
 )
 from .data_loader import (
     load_candidates_valenbisi,
@@ -55,26 +56,59 @@ def existing_health() -> dict:
     return load_existing_health()
 
 
-def population_hexes_geojson(facility_type: Literal["sports", "health"] = "sports") -> dict:
+def _population_geometry_by_hex_id() -> dict[int, dict]:
+    geo = load_population_hexes_geojson()
+    geometries: dict[int, dict] = {}
+    for feature in geo.get("features", []):
+        props = feature.get("properties", {})
+        try:
+            hex_id = int(props.get("hex_id"))
+        except (TypeError, ValueError):
+            continue
+        geometry = feature.get("geometry")
+        if geometry:
+            geometries[hex_id] = geometry
+    return geometries
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    text = str(value)
+    return text if text else None
+
+
+def population_hexes_geojson(
+    facility_type: Literal["sports", "health"] = "sports",
+    include_all: bool = False,
+) -> dict:
     df = load_population_hexes()
     if df.empty:
         return {"type": "FeatureCollection", "features": []}
     need_col = "need_sports" if facility_type == "sports" else "need_health"
     weight_col = "weight_sports" if facility_type == "sports" else "weight_health"
+    geometries = _population_geometry_by_hex_id()
     features = []
     for _, r in df.iterrows():
-        if need_col in df.columns and not bool(r.get(need_col, True)):
+        needs_coverage = bool(r.get(need_col, True)) if need_col in df.columns else True
+        if not include_all and not needs_coverage:
             continue
+        hid = int(r["hex_id"])
         clat, clon = float(r["centroid_lat"]), float(r["centroid_lon"])
         features.append({
             "type": "Feature",
-            "geometry": {
+            "geometry": geometries.get(hid) or {
                 "type": "Polygon",
                 "coordinates": [_hex_polygon(clat, clon)],
             },
             "properties": {
-                "hex_id": int(r["hex_id"]),
+                "hex_id": hid,
+                "h3": _optional_str(r["h3"]) if "h3" in r else None,
                 "population": float(r["population"]),
+                "needs_coverage": needs_coverage,
+                "facility_type": facility_type,
                 "weight": float(r.get(weight_col, r["population"])),
             },
         })
@@ -107,6 +141,7 @@ def covered_hexes_geojson(candidate_ids: list[int], facility_type: Literal["spor
     pop = load_population_hexes()
     if pop.empty:
         return {"type": "FeatureCollection", "features": []}
+    geometries = _population_geometry_by_hex_id()
     hex_ids: set[int] = set()
     for cid in candidate_ids:
         for hid in alpha.get("alpha", {}).get(str(cid), []):
@@ -119,12 +154,13 @@ def covered_hexes_geojson(candidate_ids: list[int], facility_type: Literal["spor
         clat, clon = float(r["centroid_lat"]), float(r["centroid_lon"])
         features.append({
             "type": "Feature",
-            "geometry": {
+            "geometry": geometries.get(hid) or {
                 "type": "Polygon",
                 "coordinates": [_hex_polygon(clat, clon)],
             },
             "properties": {
                 "hex_id": hid,
+                "h3": _optional_str(r["h3"]) if "h3" in r else None,
                 "population": float(r["population"]),
                 "facility_type": facility_type,
             },
