@@ -28,7 +28,7 @@ const TOC = [
 ];
 
 const CRISP: [string, string][] = [
-  ["Entender el problema", "Ayudar a planificadores urbanos a decidir dónde instalar nuevos equipamientos en Valencia maximizando la cobertura de población bajo un presupuesto real. La presión de tráfico por zona actúa como señal de demanda."],
+  ["Entender el problema", "Desarrollar una herramienta de apoyo a la decisión para operarios del Ayuntamiento de Valencia con dos módulos independientes: (1) predecir el tráfico horario en las 1.158 zonas de la ciudad, útil para planificar operaciones y eventos; y (2) optimizar dónde instalar nuevos equipamientos urbanos maximizando la cobertura de población bajo un presupuesto real."],
   ["Entender los datos", "Datos de tráfico del Ayuntamiento de Valencia: ~853.000 registros horarios de octubre 2023 en más de 1.158 zonas. También: hexágonos H3 con censo, candidatos a instalaciones, estaciones Valenbisi, paradas EMT y datos meteorológicos AEMET."],
   ["Preparar los datos", "Limpieza y alineación temporal de los registros de tráfico. Construcción del baseline histórico por zona, día y hora. Generación de embeddings de zona (5 dimensiones). Cálculo de features cíclicas (hora_sin/cos) y retardos meteorológicos. Cálculo de matrices de cobertura H3."],
   ["Modelar", "24 modelos CatBoost independientes, uno por hora del día (hora 0 a hora 23). Cada modelo aprende el residuo respecto al baseline histórico en escala log-ratio. Un peso sigmoid (shrink weight) regresa la predicción al baseline cuando hay poca evidencia. Solver ILP PuLP/CBC para optimización de instalaciones."],
@@ -65,16 +65,27 @@ export default function DocumentacionPage() {
           {/* RESUMEN */}
           <Section id="resumen" icon={<Target className="h-5 w-5" />} title="Resumen del proyecto">
             <p>
-              UrbanFlow Valencia es una <strong>plataforma de predicción de tráfico y optimización urbana</strong> para la ciudad de Valencia. Responde dos preguntas que un planificador urbano necesita:
+              UrbanFlow Valencia es una <strong>herramienta de planificación urbana para operarios del Ayuntamiento de Valencia</strong>. Integra dos módulos independientes que juntos permiten tomar decisiones informadas sobre la ciudad:
+            </p>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <MiniCard
+                icon={<Activity className="h-5 w-5" />}
+                title="Módulo A — Predicción de tráfico"
+                text="24 modelos CatBoost predicen la intensidad de tráfico hora a hora en las 1.158 zonas de medición de Valencia. El técnico puede consultar cualquier combinación de zona, hora, día y condición meteorológica y obtener el nivel de tráfico esperado con su margen de fiabilidad."
+              />
+              <MiniCard
+                icon={<Target className="h-5 w-5" />}
+                title="Módulo B — Optimización de instalaciones"
+                text="Un solver ILP (PuLP + CBC) selecciona las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población bajo el presupuesto disponible. Opera con candidatos reales del Ayuntamiento y datos censales H3."
+              />
+            </div>
+
+            <p className="mt-4">
+              Ambos módulos se apoyan en los mismos datos de base: <strong>853.000 registros horarios de tráfico</strong> del Ayuntamiento de Valencia (octubre 2023), capas GeoJSON de la ciudad, datos de movilidad en tiempo real (Valenbisi, EMT, ArcGIS) y meteorología (AEMET / Open-Meteo).
             </p>
             <p className="mt-3">
-              <strong>¿Cuánto tráfico habrá en cada zona a una hora concreta?</strong> Un conjunto de <strong>24 modelos CatBoost</strong> (uno por hora del día) predicen la intensidad de tráfico en las 1.158 zonas de medición de Valencia. Cada modelo combina el patrón histórico de la zona con variables meteorológicas en tiempo real, codificación cíclica de la hora y embeddings de zona aprendidos durante el entrenamiento.
-            </p>
-            <p className="mt-3">
-              <strong>¿Dónde instalar nuevas infraestructuras con el presupuesto disponible?</strong> Un <strong>optimizador ILP</strong> (PuLP + solver CBC) usa la señal de tráfico predicha junto con datos censales reales para seleccionar las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población.
-            </p>
-            <p className="mt-3">
-              Los datos de tráfico proceden del Ayuntamiento de Valencia: aproximadamente <strong>853.000 registros horarios</strong> de octubre de 2023. El modelo se valida de forma temporal — se entrena con los días 1-24 y se evalúa sobre los días 25-31, que no participan en ninguna fase de ajuste.
+              El modelo CatBoost se valida de forma temporal estricta — entrenamiento con días 1-24, prueba con días 25-31 — y su fiabilidad se monitoriza en producción con alertas automáticas de MAE.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge color="blue">24 modelos CatBoost por hora</Badge>
