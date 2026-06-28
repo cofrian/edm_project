@@ -15,8 +15,13 @@ def get_model() -> TrafficModel | None:
     if not models_available():
         return None
     try:
-        return TrafficModel(get_settings().model_dir)
-    except Exception:  # pragma: no cover - entorno sin catboost/artefactos
+        model = TrafficModel(get_settings().model_dir)
+        # Valida que los .cbm sean modelos reales y no punteros LFS sin resolver
+        # (p. ej. checkout de CI sin LFS): fuerza la carga perezosa de un modelo.
+        # Si falla, se degrada a None y la app usa el fallback demo de forma uniforme.
+        model._model(0)
+        return model
+    except Exception:  # pragma: no cover - entorno sin catboost/artefactos válidos
         return None
 
 
