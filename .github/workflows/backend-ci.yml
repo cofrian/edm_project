@@ -18,9 +18,8 @@ jobs:
       run:
         working-directory: backend
     steps:
+      # Sin lfs: los tests usan fallbacks demo y no requieren los modelos .cbm/.parquet (ahorra ~160 MB de ancho de banda LFS por ejecución)
       - uses: actions/checkout@v4
-        with:
-          lfs: true
       - name: Install CBC solver (PuLP)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends coinor-cbc
       - uses: actions/setup-python@v5
