@@ -1,6 +1,6 @@
 # Metodología de trabajo en equipo — UrbanFlow Valencia
 
-Guía para **Sergio Ortiz Montesinos**, **Luis Trigueros Espada** y **Fernando Martínez Gómez** (y futuros colaboradores del repo `cofrian/edm_project`).
+Guía para **Sergio Ortiz Montesinos**, **Luis Trigueros Espada** y **Fernando Martínez Gómez** (y futuros colaboradores del repo `cofrian/urbanflow-valencia-mlops`).
 
 Objetivo: que cualquier cambio pase por el mismo flujo **GitFlow + CI/CD** y llegue desplegado a **Vercel** (frontend) y **Hugging Face** (backend) sin pasos manuales.
 
@@ -10,7 +10,7 @@ Objetivo: que cualquier cambio pase por el mismo flujo **GitFlow + CI/CD** y lle
 
 | Qué | Dónde | Quién despliega |
 |-----|--------|-----------------|
-| Código fuente (monorepo) | [github.com/cofrian/edm_project](https://github.com/cofrian/edm_project) | — |
+| Código fuente (monorepo) | [github.com/cofrian/urbanflow-valencia-mlops](https://github.com/cofrian/urbanflow-valencia-mlops) | — |
 | Frontend web | [edm-project.vercel.app](https://edm-project.vercel.app) | **Vercel** (integración GitHub) |
 | API backend | [cofrian-edm-proyect.hf.space](https://cofrian-edm-proyect.hf.space) | **GitHub Actions** (`deploy-hf.yml`) |
 
@@ -45,8 +45,8 @@ feature/*  →  develop  →  main  →  production
 ### 3.1 Empezar un cambio
 
 ```bash
-git clone https://github.com/cofrian/edm_project.git
-cd edm_project
+git clone https://github.com/cofrian/urbanflow-valencia-mlops.git
+cd urbanflow-valencia-mlops
 git checkout develop
 git pull origin develop
 git checkout -b feature/descripcion-corta

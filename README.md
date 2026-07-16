@@ -1,59 +1,61 @@
 # UrbanFlow Valencia
 
-> **Herramienta de planificación y optimización urbana para operarios del Ayuntamiento de Valencia**
-> Proyecto de la asignatura **EDM — Evaluación, Despliegue y Monitorización de Modelos**
-> Grado en Ciencia de Datos · Universitat Politècnica de València (UPV)
+> **Urban planning and optimization tool for the Valencia City Council**
+> An end-to-end MLOps system: 24 CatBoost models in production, an integer-programming optimizer, real-time data integration, and automated deployment with drift monitoring.
 
-| | URL |
+**Graded 10/10** — EDM (*Model Evaluation, Deployment and Monitoring*), BSc in Data Science, Universitat Politècnica de València.
+
+| | |
 |---|---|
-| **Demo web** | https://edm-project.vercel.app |
-| **API REST** | https://cofrian-edm-proyect.hf.space |
-| **Documentación API (Swagger)** | https://cofrian-edm-proyect.hf.space/docs |
-| **Estado de la API** | https://cofrian-edm-proyect.hf.space/health |
-| **Repositorio GitHub** | https://github.com/cofrian/edm_project |
+| **Live demo** | https://edm-project.vercel.app |
+| **REST API** | https://cofrian-edm-proyect.hf.space |
+| **API docs (Swagger)** | https://cofrian-edm-proyect.hf.space/docs |
+| **API health** | https://cofrian-edm-proyect.hf.space/health |
+
+**Stack:** Python · FastAPI · CatBoost · PuLP/CBC · Next.js 14 · TypeScript · Docker · GitHub Actions · Vercel · Hugging Face Spaces
 
 ---
 
-## ¿Qué es UrbanFlow Valencia?
+## What is UrbanFlow Valencia?
 
-UrbanFlow Valencia es una **herramienta de apoyo a la decisión para operarios del Ayuntamiento de Valencia** con dos módulos independientes:
+A decision-support tool for Valencia City Council staff, built around two independent modules.
 
-**Módulo A — Predicción de tráfico**
-Veinticuatro modelos CatBoost (uno por hora del día, de 0 a 23) predicen la intensidad de tráfico en las 1.158 zonas de la ciudad. El operario puede consultar cualquier combinación de zona, hora y día para conocer el nivel de tráfico esperado con su margen de fiabilidad. Útil para planificar operaciones viarias, dispositivos de seguridad o eventos urbanos.
+**Module A — Traffic prediction.**
+Twenty-four CatBoost models (one per hour of the day, 0 to 23) predict traffic intensity across the city's 1,158 measurement zones. An operator can query any zone/hour/day combination to get the expected traffic level along with its reliability margin — useful for planning roadworks, security deployments or urban events.
 
-**Módulo B — Optimización de instalaciones**
-Un solver de programación lineal entera (PuLP + CBC) selecciona las ubicaciones de polideportivos, centros de salud o estaciones Valenbisi que maximizan la cobertura de población bajo una restricción de presupuesto real. Opera de forma independiente al módulo de predicción: sus entradas son candidatos reales del Ayuntamiento y datos censales H3.
+**Module B — Facility optimization.**
+An integer linear programming solver (PuLP + CBC) selects the locations for sports centres, health centres or Valenbisi bike stations that maximize population coverage under a real budget constraint. It runs independently of the prediction module: its inputs are real City Council candidate sites and H3 census data.
 
-**Monitorización del modelo en producción**
-El módulo de monitorización calcula el MAE por hora, lanza alertas cuando supera el umbral configurado y señala las zonas con error sistemático. Permite al equipo técnico detectar degradación del modelo sin intervención manual.
+**Production monitoring.**
+The monitoring module computes MAE per hour, raises alerts when it exceeds a configurable threshold, and flags zones with systematic error — letting the team detect model degradation without manual inspection.
 
-Además, la aplicación integra datos en tiempo real de Valenbisi, autobuses EMT, estado del tráfico del Ayuntamiento y meteorología (AEMET / Open-Meteo).
+The application also integrates real-time data from Valenbisi, EMT buses, City Council traffic status, and weather (AEMET / Open-Meteo).
 
 ---
 
-## Contexto académico — EDM y CRISP-DM
+## Why this project is worth a look
 
-La asignatura EDM cubre el ciclo completo de vida de un modelo de machine learning desde el dato crudo hasta el sistema monitorizado en producción. El proyecto aplica el estándar **CRISP-DM** en todas sus fases, con especial énfasis en las que habitualmente se omiten en proyectos académicos: despliegue, automatización y monitorización.
+The interesting part is not the model — it's everything around it. The system implements the full CRISP-DM cycle, with emphasis on the phases that academic projects usually skip: deployment, automation and monitoring.
 
-| Fase CRISP-DM | Implementación en UrbanFlow Valencia |
+| CRISP-DM phase | Implementation |
 |---|---|
-| **Comprensión del negocio** | Herramienta para operarios del Ayuntamiento: predecir tráfico horario en 1.158 zonas y optimizar ubicación de equipamientos bajo presupuesto |
-| **Comprensión de los datos** | Datos del Ayuntamiento: tráfico octubre 2023, Valenbisi, EMT, AEMET, eventos urbanos |
-| **Preparación de los datos** | Limpieza, alineación temporal, embeddings de zona (5 dimensiones), features cíclicas |
-| **Modelado** | 24 modelos CatBoost por hora + baseline histórico + shrink weight sigmoid |
-| **Evaluación** | Validación temporal (días 25-31), MAE/RMSE/R²/sMAPE, análisis por zona y hora |
-| **Despliegue** | FastAPI en Hugging Face + Next.js en Vercel + CI/CD con GitHub Actions |
-| **Monitorización** | Alertas de MAE por hora, zonas de baja fiabilidad, métricas del sistema en tiempo real |
+| **Business understanding** | Tool for City Council staff: predict hourly traffic across 1,158 zones and optimize facility siting under budget |
+| **Data understanding** | City Council data: October 2023 traffic, Valenbisi, EMT, AEMET, urban events |
+| **Data preparation** | Cleaning, temporal alignment, 5-dimensional zone embeddings, cyclical features |
+| **Modeling** | 24 hourly CatBoost models + historical baseline + sigmoid shrink weight |
+| **Evaluation** | Strict temporal validation (days 25–31), MAE/RMSE/R²/sMAPE, per-zone and per-hour analysis |
+| **Deployment** | FastAPI on Hugging Face + Next.js on Vercel + CI/CD with GitHub Actions |
+| **Monitoring** | Per-hour MAE alerts, low-reliability zones, live system metrics |
 
-El énfasis diferencial de EDM está en que el modelo no termina con la evaluación: debe desplegarse como servicio, automatizarse su publicación y observarse su comportamiento en producción. UrbanFlow Valencia implementa este ciclo completo.
+A model doesn't end at evaluation: it has to ship as a service, publish itself automatically, and be observable in production. That's the cycle this repository implements.
 
 ---
 
-## Arquitectura del sistema
+## System architecture
 
 ```mermaid
 flowchart LR
-    USER["Usuario / Profesor\nNavegador"] --> VERCEL
+    USER["User\nBrowser"] --> VERCEL
 
     subgraph VERCEL["VERCEL — Frontend"]
         FE["Next.js 14 · React · TypeScript
@@ -62,7 +64,7 @@ flowchart LR
     end
 
     VERCEL -->|"fetch HTTP/JSON · CORS"| HF
-    HF -.->|"respuesta JSON"| VERCEL
+    HF -.->|"JSON response"| VERCEL
 
     subgraph HF["HUGGING FACE SPACES — Backend"]
         API["FastAPI + Uvicorn · Docker
@@ -70,43 +72,43 @@ flowchart LR
         cofrian-edm-proyect.hf.space"]
     end
 
-    HF --> PRED["Prediccion
-    24 modelos CatBoost"]
-    HF --> OPT["Optimizacion ILP
+    HF --> PRED["Prediction
+    24 CatBoost models"]
+    HF --> OPT["ILP optimization
     PuLP + CBC solver"]
-    HF --> RT["Tiempo Real
+    HF --> RT["Real time
     Valenbisi · EMT · AEMET · ArcGIS"]
-    HF --> MON["Monitorizacion
-    MAE · Alertas · Metricas"]
+    HF --> MON["Monitoring
+    MAE · Alerts · Metrics"]
 
-    HF --- DATA["Datos y artefactos
+    HF --- DATA["Data and artifacts
     24 x .cbm · baseline · embeddings
-    CSV · GeoJSON · JSON · eventos"]
+    CSV · GeoJSON · JSON · events"]
 ```
 
-> **Punto clave:** Vercel solo sirve HTML, CSS y JavaScript. Toda la lógica de negocio (modelos, optimización, datos en tiempo real) vive en el backend de Hugging Face. Las llamadas HTTP salen desde el navegador del usuario hacia Hugging Face mediante CORS, no desde Vercel.
+> **Key point:** Vercel only serves HTML, CSS and JavaScript. All business logic (models, optimization, real-time data) lives in the Hugging Face backend. HTTP calls go from the user's browser to Hugging Face via CORS — not from Vercel.
 
 ---
 
-## Módulos funcionales
+## Functional modules
 
 ```mermaid
 flowchart TD
-    subgraph FUENTES["1 · Fuentes de datos"]
-        F1["Historicos — Trafico Valencia oct2023 · Baseline · Metricas validacion"]
-        F2["Espaciales — Zonas GeoJSON · Hexagonos H3 · Candidatos · Valenbisi · EMT"]
-        F3["Tiempo real — Valenbisi ArcGIS · EMT Valencia · ArcGIS Trafico · AEMET / Open-Meteo"]
-        F4["Eventos urbanos — Conciertos · Partidos · Ferias · Actividades"]
+    subgraph SOURCES["1 · Data sources"]
+        F1["Historical — Valencia traffic oct2023 · Baseline · Validation metrics"]
+        F2["Spatial — Zone GeoJSON · H3 hexagons · Candidates · Valenbisi · EMT"]
+        F3["Real time — Valenbisi ArcGIS · EMT Valencia · ArcGIS traffic · AEMET / Open-Meteo"]
+        F4["Urban events — Concerts · Matches · Fairs · Activities"]
     end
 
-    subgraph BACKEND["2 · Motor backend · FastAPI"]
-        B1["Prediccion de trafico — 24 modelos CatBoost por hora · Features temporales y meteo"]
-        B2["Optimizacion urbana — PuLP + CBC solver · Deportes · Salud · Multi · Valenbisi"]
-        B3["Integracion de movilidad — Cache TTL · Normalizacion · Fallback meteorologico"]
-        B4["Monitorizacion — MAE · RMSE · R2 · sMAPE · Alertas fiabilidad · Zonas a revisar"]
+    subgraph BACKEND["2 · Backend engine · FastAPI"]
+        B1["Traffic prediction — 24 hourly CatBoost models · Temporal and weather features"]
+        B2["Urban optimization — PuLP + CBC solver · Sports · Health · Multi · Valenbisi"]
+        B3["Mobility integration — TTL cache · Normalization · Weather fallback"]
+        B4["Monitoring — MAE · RMSE · R2 · sMAPE · Reliability alerts · Zones to review"]
     end
 
-    subgraph API["3 · API REST"]
+    subgraph API["3 · REST API"]
         A1["/predict  /predict/heatmap  /predict/hour"]
         A2["/optimize/sports  /optimize/health  /optimize/multi  /optimize/valenbisi"]
         A3["/mobility/valenbisi  /mobility/emt/stops  /mobility/alerts"]
@@ -114,535 +116,528 @@ flowchart TD
     end
 
     subgraph FRONTEND["4 · Frontend · Next.js"]
-        W1["Prediccion — Heatmap de trafico por hora y zona"]
-        W2["Optimizacion — Escenarios de instalaciones con mapa de cobertura"]
-        W3["Evaluacion — Metricas del modelo y comparativas"]
-        W4["Monitorizacion — Alertas de fiabilidad y estado del sistema"]
-        W5["Datos / Metodologia — Fuentes y documentacion CRISP-DM"]
+        W1["Prediction — Hourly traffic heatmap by zone"]
+        W2["Optimization — Facility scenarios with coverage map"]
+        W3["Evaluation — Model metrics and comparisons"]
+        W4["Monitoring — Reliability alerts and system status"]
+        W5["Data / Methodology — Sources and CRISP-DM documentation"]
     end
 
-    FUENTES --> BACKEND --> API --> FRONTEND
+    SOURCES --> BACKEND --> API --> FRONTEND
 ```
 
 ---
 
-## Módulo 1 — Predicción de tráfico (CatBoost)
+## Module 1 — Traffic prediction (CatBoost)
 
-**Algoritmo:** 24 modelos CatBoost independientes, uno por hora del día (hora 0 a hora 23).
+**Algorithm:** 24 independent CatBoost models, one per hour of the day.
 
-**Datos de entrenamiento:** Tráfico de Valencia, octubre de 2023. Validación temporal: días 1-24 para entrenamiento, días 25-31 para prueba (nunca vistos durante el ajuste).
+**Training data:** Valencia traffic, October 2023. Temporal validation: days 1–24 for training, days 25–31 for test (never seen during fitting).
 
-**Features del modelo:**
+**Model features:**
 
-| Categoría | Variables |
+| Category | Variables |
 |---|---|
-| Temporales (cíclicas) | `hora_sin`, `hora_cos`, `dia_mes_norm`, `wind_sin`, `wind_cos` |
-| Zona | Embeddings de 5 dimensiones por zona (`z_emb1`...`z_emb5`) |
-| Meteorológicas | `temp_c`, `hum_rel`, `pres_mb`, `vel_viento_ms`, `precip_lm2` |
-| Retardos | `temp_c_lag1`, `temp_c_lag3`, `pres_mb_lag1`, `pres_mb_lag3` |
-| Categoriales | `Zona`, `Dia_Semana`, `tipo_dia` |
+| Temporal (cyclical) | `hora_sin`, `hora_cos`, `dia_mes_norm`, `wind_sin`, `wind_cos` |
+| Zone | 5-dimensional per-zone embeddings (`z_emb1`…`z_emb5`) |
+| Weather | `temp_c`, `hum_rel`, `pres_mb`, `vel_viento_ms`, `precip_lm2` |
+| Lags | `temp_c_lag1`, `temp_c_lag3`, `pres_mb_lag1`, `pres_mb_lag3` |
+| Categorical | `Zona`, `Dia_Semana`, `tipo_dia` |
 
-**Fórmula de predicción (enfoque híbrido):**
+**Prediction formula (hybrid approach):**
 
 ```
-intensidad = baseline(zona, dia_semana, hora) × exp(shrink_weight × residual_CatBoost)
+intensity = baseline(zone, weekday, hour) × exp(shrink_weight × CatBoost_residual)
 shrink_weight = sigmoid((baseline − τ) / s)
 ```
 
-El peso sigmoid hace que la predicción regrese hacia el baseline histórico cuando la incertidumbre es alta (zonas con poco tráfico o horas nocturnas), evitando predicciones erróneas en condiciones poco representadas en el entrenamiento.
+The sigmoid weight pulls the prediction back toward the historical baseline when uncertainty is high (low-traffic zones or night hours), avoiding erratic predictions in conditions poorly represented in training.
 
-**Resultados sobre datos de prueba (días 25-31, nunca usados en entrenamiento):**
+**Test-set results (days 25–31, never used in training):**
 
 | MAE | RMSE | R² | sMAPE |
 |---|---|---|---|
-| 44,4 veh/h | 87,8 | 0,92 | 16,8 % |
+| 44.4 veh/h | 87.8 | 0.92 | 16.8 % |
 
 ---
 
-## Módulo 2 — Optimización urbana (ILP)
+## Module 2 — Urban optimization (ILP)
 
-Programación Lineal Entera implementada con **PuLP** y el solver de código abierto **CBC (COIN-OR)**.
+Integer Linear Programming implemented with **PuLP** and the open-source **CBC (COIN-OR)** solver.
 
-**Problema general:**
+**General problem:**
 ```
-Maximizar:   Σⱼ población_j × Yⱼ       (cobertura poblacional)
-Sujeto a:    Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ         (cobertura según candidatos seleccionados)
-             Σᵢ coste_i × Xᵢ ≤ presupuesto
+Maximize:    Σⱼ population_j × Yⱼ        (population coverage)
+Subject to:  Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ           (coverage given selected candidates)
+             Σᵢ cost_i × Xᵢ ≤ budget
              Xᵢ, Yⱼ ∈ {0, 1}
 ```
 
-Donde `αᵢⱼ` es 1 si el candidato `i` cubre el hexágono H3 de población `j`.
+Where `αᵢⱼ` is 1 if candidate `i` covers population hexagon `j`.
 
-| Endpoint | Objetivo | Restricción |
+| Endpoint | Objective | Constraint |
 |---|---|---|
-| `POST /optimize/sports` | Máx. población con cobertura deportiva | Presupuesto total |
-| `POST /optimize/health` | Máx. población con cobertura sanitaria | Presupuesto total |
-| `POST /optimize/multi` | Equilibrio deporte + salud (parámetro λ) | Presupuesto + sin solapamiento |
-| `POST /optimize/valenbisi` | Máx. tráfico + población + déficit | N estaciones fijas |
-| `POST /optimize/coverage` | Máx. cobertura poblacional general | Presupuesto total |
+| `POST /optimize/sports` | Max. population with sports coverage | Total budget |
+| `POST /optimize/health` | Max. population with health coverage | Total budget |
+| `POST /optimize/multi` | Balance sports + health (λ parameter) | Budget + no overlap |
+| `POST /optimize/valenbisi` | Max. traffic + population + deficit | Fixed N stations |
+| `POST /optimize/coverage` | Max. general population coverage | Total budget |
 
-Tiempo de resolución típico: **5 a 30 segundos**.
+Typical solve time: **5 to 30 seconds**.
 
 ---
 
-## Módulo 3 — Integración de movilidad en tiempo real
+## Module 3 — Real-time mobility integration
 
-| Fuente | Datos | Cache TTL |
+| Source | Data | Cache TTL |
 |---|---|---|
-| **AEMET** (`opendata.aemet.es`) | Temperatura, humedad, presión, viento, precipitación | 600 s |
-| **Open-Meteo** | Fallback meteorológico gratuito si AEMET no responde | 600 s |
-| **Valenbisi** (ArcGIS Ayuntamiento) | Bicicletas y anclajes disponibles por estación | 180 s |
-| **EMT Valencia** (SAE + GTFS) | Paradas, llegadas en tiempo real, rutas de autobús | 45 s |
-| **ArcGIS Ayuntamiento** | Estado del tráfico: fluido / denso / congestionado / cortado | 60 s |
+| **AEMET** (`opendata.aemet.es`) | Temperature, humidity, pressure, wind, precipitation | 600 s |
+| **Open-Meteo** | Free weather fallback if AEMET is down | 600 s |
+| **Valenbisi** (City Council ArcGIS) | Bikes and docks available per station | 180 s |
+| **EMT Valencia** (SAE + GTFS) | Stops, real-time arrivals, bus routes | 45 s |
+| **City Council ArcGIS** | Traffic status: free-flowing / dense / congested / closed | 60 s |
 
-**Cadena de fallback meteorológico:** AEMET → Open-Meteo → valores sinusoidales estimados por hora del día.
+**Weather fallback chain:** AEMET → Open-Meteo → sinusoidal values estimated by hour of day.
 
-**Alertas inteligentes generadas automáticamente:**
-- Estación Valenbisi vacía, llena o cerrada
-- Estación Valenbisi próxima a un evento activo (radio < 1 km)
-- Autobús EMT con retraso superior a 3 minutos
-- Posición estimada del bus calculada por ruta y tiempo restante cuando el SAE no responde
+**Automatically generated smart alerts:**
+- Valenbisi station empty, full or closed
+- Valenbisi station near an active event (radius < 1 km)
+- EMT bus delayed by more than 3 minutes
+- Estimated bus position computed from route and remaining time when SAE is unresponsive
 
 ---
 
-## Módulo 4 — Monitorización del modelo
+## Module 4 — Model monitoring
 
-El sistema compara el MAE de cada hora frente a un umbral configurable (por defecto 80 veh/h).
+The system compares each hour's MAE against a configurable threshold (default 80 veh/h).
 
-- Si una hora supera el umbral → alerta de baja fiabilidad para esa franja horaria
-- Se identifican las zonas con mayor error sistemático en validación
-- Se expone el estado del sistema: CPU, memoria y uptime del contenedor Docker
+- If an hour exceeds the threshold → low-reliability alert for that time slot
+- Zones with the largest systematic validation error are identified
+- System status is exposed: CPU, memory and Docker container uptime
 
 **Endpoints:** `GET /monitoring/alerts` · `GET /monitoring/zones-to-review` · `GET /monitoring/system`
 
 ---
 
-## Explicación técnica detallada de los modelos
+## Deep dive — model design
 
-Esta sección recoge la explicación completa de los dos modelos principales de UrbanFlow Valencia: el sistema de predicción de tráfico basado en CatBoost y el optimizador urbano basado en Programación Lineal Entera. Complementa los apartados anteriores con el razonamiento técnico detrás de cada decisión de diseño.
+This section covers the reasoning behind the two main models: the CatBoost traffic prediction system and the ILP urban optimizer.
 
----
+### Why two independent modules
 
-### Por qué dos módulos independientes
+UrbanFlow deliberately separates prediction and optimization because they answer different questions on different time horizons.
 
-UrbanFlow separa deliberadamente predicción y optimización porque responden a preguntas distintas con horizontes temporales distintos.
+The **prediction module** answers *"what will happen?"*: it estimates future traffic pressure for any zone and hour, providing context for operational decisions (security deployments, event management, incident anticipation).
 
-El **módulo de predicción** responde a "¿qué ocurrirá?": estima la presión de tráfico futura en cualquier zona y hora, y sirve de contexto para la toma de decisiones operativa (planificación de dispositivos de seguridad, gestión de eventos, anticipación de incidencias).
+The **optimization module** answers *"where should we act?"*: given a budget and a set of real candidate sites, it determines which locations maximize urban impact. It runs independently of the prediction module, and can optionally consume predicted traffic as a scoring variable.
 
-El **módulo de optimización** responde a "¿dónde conviene actuar?": dado un presupuesto y un conjunto de candidatos reales, determina qué ubicaciones maximizan el impacto urbano. Opera de forma independiente al módulo de predicción y puede incorporar tráfico predicho como variable de puntuación.
-
-Esta separación es una decisión de arquitectura consciente: ambos módulos pueden ejecutarse de forma autónoma, actualizarse por separado y evaluarse con métricas propias.
+This separation is a deliberate architectural decision: both modules can run autonomously, be updated separately, and be evaluated with their own metrics.
 
 ---
 
-### Módulo A — Predicción de tráfico con CatBoost: diseño detallado
+### Module A — CatBoost traffic prediction: detailed design
 
-#### El problema que resuelve
+#### The problem
 
-Valencia registra la intensidad de tráfico en más de 1.000 zonas de medición distribuidas por toda la ciudad. El comportamiento del tráfico no es uniforme: las dinámicas de las 8 de la mañana de un lunes no tienen nada que ver con las 14:00 del sábado o con la madrugada de un festivo.
+Valencia records traffic intensity across more than 1,000 measurement zones. Traffic behaviour is not uniform: the dynamics of 8am on a Monday have nothing to do with 2pm on a Saturday or the small hours of a public holiday.
 
-El objetivo del módulo es predecir, para cualquier combinación de zona + hora + día + condiciones meteorológicas, cuántos vehículos por hora se esperan.
+The module's goal is to predict, for any combination of zone + hour + day + weather conditions, how many vehicles per hour to expect.
 
-#### Arquitectura de 24 modelos independientes
+#### A 24-model architecture
 
-En lugar de entrenar un único modelo que gestione todas las horas del día, UrbanFlow entrena **24 modelos CatBoost independientes**, uno por cada hora del día (modelo hora 0, modelo hora 1, ..., modelo hora 23).
+Instead of training a single model to handle every hour, UrbanFlow trains **24 independent CatBoost models** — one per hour of the day.
 
-Esta decisión tiene tres ventajas concretas:
+This buys three concrete advantages:
 
-1. **Captura de patrones horarios distintos.** El modelo de las 8h aprende las relaciones entre variables que determinan el tráfico matutino (tipo de día, temperatura, presión atmosférica). El modelo de las 23h aprende relaciones completamente diferentes. Un único modelo tendría que aproximar todos estos patrones a la vez, con mayor pérdida de precisión en todas las franjas.
+1. **Distinct hourly patterns are captured.** The 8am model learns the relationships that drive morning traffic (day type, temperature, atmospheric pressure). The 11pm model learns entirely different ones. A single model would have to approximate all of them at once, losing accuracy across every time slot.
 
-2. **Independencia de fallos.** Si un modelo de una hora concreta falla o se degrada, los demás no se ven afectados. La monitorización puede detectar degradación franja a franja.
+2. **Failure independence.** If one hour's model fails or degrades, the others are unaffected. Monitoring can detect degradation slot by slot.
 
-3. **Reentrenamiento selectivo.** Si cambian las condiciones de tráfico en una franja horaria (por ejemplo, nuevas políticas de movilidad nocturna), solo es necesario reentrenar el modelo de esa hora, no los 24.
+3. **Selective retraining.** If traffic conditions change in one time slot (say, new night-mobility policies), only that hour's model needs retraining — not all 24.
 
-Los modelos se almacenan como artefactos `.cbm` (formato nativo de CatBoost) bajo `backend/models/`, versionados con **Git LFS** por ser archivos binarios pesados no aptos para el control de versiones estándar.
+Models are stored as `.cbm` artifacts (CatBoost's native format) under `backend/models/`, versioned with **Git LFS** since they're heavy binaries unsuited to standard version control.
 
-#### Datos de entrenamiento y validación temporal
+#### Training data and temporal validation
 
-El conjunto de datos principal proviene del **Ayuntamiento de Valencia**: más de 850.000 registros horarios de intensidad de tráfico de **octubre de 2023**, cubriendo las 1.158 zonas de medición de la ciudad.
+The primary dataset comes from **Valencia City Council**: over 850,000 hourly traffic intensity records from **October 2023**, covering the city's 1,158 measurement zones.
 
-La validación sigue un esquema **temporal estricto**:
+Validation follows a **strict temporal** scheme:
 
-- **Entrenamiento:** días 1 a 24 de octubre de 2023
-- **Validación:** días 25 a 31 de octubre de 2023 (nunca vistos durante el ajuste)
+- **Training:** 1–24 October 2023
+- **Validation:** 25–31 October 2023 (never seen during fitting)
 
-Esta separación es crítica en series temporales. Una partición aleatoria provocaría fuga de información: el modelo aprendería patrones del futuro durante el entrenamiento y sus métricas de evaluación serían artificialmente optimistas. La partición temporal garantiza que las métricas reflejan la capacidad real de generalización a días futuros.
+This split is critical for time series. A random partition would leak information: the model would learn patterns from the future during training and its evaluation metrics would be artificially optimistic. The temporal partition ensures the metrics reflect real generalization to future days.
 
-#### Enfoque residual con baseline histórico
+#### Residual approach with a historical baseline
 
-El modelo no predice la intensidad de tráfico directamente desde cero. Utiliza un **enfoque residual en dos capas**:
+The model doesn't predict traffic intensity directly from scratch. It uses a **two-layer residual approach**:
 
-**Capa 1 — Baseline histórico:**
-Para cada combinación `(zona, día_semana, hora)`, se calcula la intensidad media histórica a partir del conjunto de entrenamiento. Este baseline captura el comportamiento "esperado" de cada zona en condiciones normales.
+**Layer 1 — Historical baseline.**
+For each `(zone, weekday, hour)` combination, the mean historical intensity is computed from the training set. This baseline captures each zone's "expected" behaviour under normal conditions.
 
-**Capa 2 — Corrección CatBoost:**
-CatBoost no predice la intensidad absoluta, sino el **residuo** respecto al baseline: cuánto se desvía la situación actual de lo históricamente habitual, dado el contexto meteorológico, el tipo de día y otros factores.
+**Layer 2 — CatBoost correction.**
+CatBoost doesn't predict absolute intensity but the **residual** against the baseline: how far the current situation deviates from what's historically typical, given weather context, day type and other factors.
 
-La predicción final combina ambas capas mediante una **función de ponderación sigmoide** (shrink weight):
+The final prediction combines both layers through a **sigmoid weighting function** (shrink weight):
 
 ```
-intensidad_final = baseline × exp(shrink_weight × residual_CatBoost)
+final_intensity = baseline × exp(shrink_weight × CatBoost_residual)
 
 shrink_weight = sigmoid((baseline − τ) / s)
 ```
 
-Donde `τ` es un umbral de tráfico y `s` es un parámetro de escala.
+Where `τ` is a traffic threshold and `s` a scale parameter.
 
-El efecto de esta función es clave para la robustez del sistema:
+The effect of this function is central to the system's robustness:
 
-- Cuando el baseline es **alto** (zona concurrida, hora punta): el peso sigmoid es cercano a 1 y el modelo CatBoost tiene mucha influencia. Hay suficiente evidencia histórica para confiar en la corrección del modelo.
-- Cuando el baseline es **bajo** (zona poco transitada, madrugada, festivo): el peso sigmoid cae y la predicción se acerca progresivamente al baseline. En zonas o franjas con poca representación en los datos, el modelo podría generar correcciones erráticas; el shrink weight las amortigua.
+- When the baseline is **high** (busy zone, rush hour): the sigmoid weight approaches 1 and CatBoost has strong influence. There's enough historical evidence to trust the correction.
+- When the baseline is **low** (quiet zone, small hours, holiday): the weight drops and the prediction moves progressively toward the baseline. In zones or slots thinly represented in the data, the model could produce erratic corrections; the shrink weight damps them.
 
-Este mecanismo evita sobreajuste en condiciones infrecuentes sin necesidad de construir reglas explícitas de fallback.
+This mechanism prevents overfitting in infrequent conditions without hand-written fallback rules.
 
-#### Features del modelo
+#### Model features
 
-| Categoría | Variables | Descripción |
+| Category | Variables | Description |
 |---|---|---|
-| **Temporales cíclicas** | `hora_sin`, `hora_cos` | Codificación circular de la hora (evita discontinuidad entre 23h y 0h) |
-| **Temporales** | `dia_mes_norm`, `wind_sin`, `wind_cos` | Día del mes normalizado y dirección del viento codificada |
-| **Tipo de día** | `Dia_Semana`, `tipo_dia` | Laboral / fin de semana / festivo |
-| **Zona** | `z_emb1` ... `z_emb5` | Embeddings de 5 dimensiones aprendidos por zona (1.158 zonas → representación densa) |
-| **Meteorología actual** | `temp_c`, `hum_rel`, `pres_mb`, `vel_viento_ms`, `precip_lm2` | Variables AEMET de la hora objetivo |
-| **Retardos meteorológicos** | `temp_c_lag1`, `temp_c_lag3`, `pres_mb_lag1`, `pres_mb_lag3` | Temperatura y presión con 1h y 3h de retardo |
+| **Cyclical temporal** | `hora_sin`, `hora_cos` | Circular hour encoding (avoids the 23h→0h discontinuity) |
+| **Temporal** | `dia_mes_norm`, `wind_sin`, `wind_cos` | Normalized day of month and encoded wind direction |
+| **Day type** | `Dia_Semana`, `tipo_dia` | Weekday / weekend / holiday |
+| **Zone** | `z_emb1` … `z_emb5` | 5-dimensional learned per-zone embeddings (1,158 zones → dense representation) |
+| **Current weather** | `temp_c`, `hum_rel`, `pres_mb`, `vel_viento_ms`, `precip_lm2` | AEMET variables for the target hour |
+| **Weather lags** | `temp_c_lag1`, `temp_c_lag3`, `pres_mb_lag1`, `pres_mb_lag3` | Temperature and pressure at 1h and 3h lag |
 
-Los **embeddings de zona** merecen mención especial. En lugar de tratar la zona como una variable categórica con 1.158 categorías independientes (lo que generaría sparsidad y dificultaría la generalización), se aprende una representación densa de 5 dimensiones por zona. Zonas con comportamientos de tráfico similares terminan con embeddings próximos en el espacio vectorial, lo que permite al modelo generalizar entre zonas con patrones parecidos incluso si tienen poco historial individual.
+The **zone embeddings** deserve a special mention. Rather than treating the zone as a categorical variable with 1,158 independent levels (which would create sparsity and hinder generalization), a dense 5-dimensional representation is learned per zone. Zones with similar traffic behaviour end up with nearby embeddings in vector space, letting the model generalize across zones with similar patterns even when individual history is thin.
 
-#### Métricas de evaluación (días 25-31, no vistos en entrenamiento)
+#### Evaluation metrics (days 25–31, unseen in training)
 
-| Métrica | Valor | Interpretación |
+| Metric | Value | Interpretation |
 |---|---|---|
-| **MAE** | 44,4 veh/h | Error absoluto medio. El modelo se equivoca en promedio en 44 vehículos/hora |
-| **RMSE** | 87,8 veh/h | Penaliza errores grandes. Errores puntuales grandes son moderados |
-| **R²** | 0,92 | El modelo explica el 92 % de la varianza observada en los datos de prueba |
-| **sMAPE** | 16,8 % | Error porcentual simétrico. Útil para comparar entre zonas con distinto volumen base |
+| **MAE** | 44.4 veh/h | Mean absolute error. The model is off by ~44 vehicles/hour on average |
+| **RMSE** | 87.8 veh/h | Penalizes large errors. Large one-off errors are moderate |
+| **R²** | 0.92 | The model explains 92 % of the variance observed in the test data |
+| **sMAPE** | 16.8 % | Symmetric percentage error. Useful for comparing zones with different base volumes |
 
-Además de las métricas globales, la app muestra el **error por franja horaria**, ya que un modelo puede tener buen MAE promedio y fallar sistemáticamente en horas concretas (p. ej., hora punta de salida). Esta granularidad es lo que permite a la monitorización detectar degradación real antes de que afecte a la toma de decisiones.
+Beyond global metrics, the app shows **error per time slot** — a model can have a good average MAE and still fail systematically at specific hours (e.g. the evening rush). That granularity is what lets monitoring detect real degradation before it affects decisions.
 
-#### Salida: heatmap de presión urbana
+#### Output: urban pressure heatmap
 
-La predicción de cada hora se transforma en un **heatmap de presión urbana** con tres niveles:
+Each hour's prediction is turned into an **urban pressure heatmap** with three levels:
 
-- **Baja:** intensidad predicha en el rango inferior histórico de la zona
-- **Media:** intensidad normal o ligeramente elevada
-- **Alta:** intensidad por encima del percentil de referencia de la zona
+- **Low:** predicted intensity in the zone's lower historical range
+- **Medium:** normal or slightly elevated intensity
+- **High:** intensity above the zone's reference percentile
 
-La clasificación es relativa a la propia zona: una zona con tráfico estructuralmente alto puede mostrar "presión baja" un domingo, mientras que una zona tranquila puede mostrar "presión alta" durante un evento. Esto hace el heatmap operativamente más útil que una escala absoluta de vehículos/hora.
+Classification is relative to the zone itself: a structurally busy zone may show "low pressure" on a Sunday, while a quiet zone may show "high pressure" during an event. This makes the heatmap more operationally useful than an absolute vehicles/hour scale.
 
-El usuario puede cambiar la fecha, la hora y el escenario de eventos para ver la presión prevista en cualquier combinación de condiciones.
-
----
-
-### Módulo B — Optimización urbana con ILP: diseño detallado
-
-#### El problema que resuelve
-
-Dado un conjunto de **ubicaciones candidatas reales** (polideportivos, centros de salud, puntos potenciales para nuevas estaciones Valenbisi) y un **presupuesto máximo**, ¿qué combinación de actuaciones maximiza el beneficio para la ciudad?
-
-La respuesta no es trivial. Elegir los candidatos con mayor demanda individual puede ser subóptimo si cubren la misma zona de población. Un solver de optimización matemática evalúa las combinaciones de forma sistemática y encuentra la asignación globalmente óptima, no solo localmente buena.
-
-#### Formulación matemática general
-
-El problema se formula como **Programación Lineal Entera (ILP)** e implementa con **PuLP** y el solver de código abierto **CBC (COIN-OR Branch-and-Cut)**.
-
-Las variables de decisión son binarias:
-
-```
-Xᵢ ∈ {0, 1}   →  1 si se selecciona el candidato i, 0 si no
-Yⱼ ∈ {0, 1}   →  1 si la zona de población j queda cubierta, 0 si no
-```
-
-El problema general de cobertura de población:
-
-```
-Maximizar:   Σⱼ población_j × Yⱼ
-
-Sujeto a:
-  Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ           ∀ j   (cobertura: zona j cubierta solo si algún candidato que la alcanza es seleccionado)
-  Σᵢ coste_i × Xᵢ ≤ presupuesto       (restricción presupuestaria)
-  Xᵢ, Yⱼ ∈ {0, 1}                    (variables binarias)
-```
-
-Donde `αᵢⱼ = 1` si el candidato `i` cubre la zona de población `j` según su radio de influencia, y `αᵢⱼ = 0` en caso contrario. Esta matriz de cobertura se precalcula una vez a partir de la geometría H3.
-
-#### Representación espacial con hexágonos H3
-
-La ciudad de Valencia se divide en **hexágonos H3** (sistema de indexación geoespacial de Uber) a una resolución que equilibra granularidad y coste computacional.
-
-Cada hexágono tiene asociado:
-- **Población** estimada a partir de datos censales
-- **Demanda** de servicio (diferente según el modo: deportiva, sanitaria, movilidad)
-- **Cobertura existente** (si ya hay instalaciones en su área de influencia)
-
-Para cada candidato, se precalcula el conjunto de hexágonos que quedarían dentro de su radio de influencia si fuera seleccionado. Esta relación candidato → hexágonos cubiertos forma la **matriz de cobertura `αᵢⱼ`**.
-
-Separar la representación espacial (hexágonos H3) de la lógica de optimización (ILP) permite actualizar los datos de población o de candidatos sin modificar el solver, y permite ajustar el radio de influencia sin reformular el problema.
-
-#### Modos de optimización
-
-La app implementa cinco modos con formulaciones adaptadas a cada objetivo:
-
-**Modo polideportivo (`/optimize/sports`)**
-Maximiza la población que tendría cobertura deportiva a partir de las nuevas instalaciones, evitando redundancia con los polideportivos ya existentes. La cobertura existente se modela excluyendo los hexágonos ya cubiertos del conjunto objetivo `Yⱼ`.
-
-**Modo sanitario (`/optimize/health`)**
-Idéntico en estructura al modo deportivo pero sobre la red de centros de salud. Prioriza zonas con mayor densidad de población sin cobertura sanitaria cercana.
-
-**Modo multiobjetivo (`/optimize/multi`)**
-Combina cobertura deportiva y sanitaria en un único problema con un **parámetro lambda** configurable:
-
-```
-Maximizar: λ × cobertura_deportiva + (1 − λ) × cobertura_sanitaria
-
-Restricción adicional:
-  Xᵢ_deporte + Xᵢ_salud ≤ 1   ∀ i   (no instalar dos servicios en el mismo candidato)
-```
-
-Con `λ = 1` la solución es puramente deportiva; con `λ = 0` puramente sanitaria; con `λ = 0.5` equilibra ambos objetivos. Esta formulación permite que el decisor ajuste las prioridades sin cambiar el modelo.
-
-**Modo Valenbisi (`/optimize/valenbisi`)**
-Cambia la función objetivo de cobertura poblacional a una **puntuación de movilidad** ponderada:
-
-```
-puntuación_i = wₜ × tráfico_i + wₚ × población_i + w_d × déficit_i
-
-Maximizar: Σᵢ puntuación_i × Xᵢ
-
-Restricción alternativa (modo count): Σᵢ Xᵢ = N   (exactamente N estaciones nuevas)
-Restricción alternativa (modo budget): Σᵢ coste_i × Xᵢ ≤ presupuesto
-```
-
-Los tres pesos (`wₜ`, `wₚ`, `w_d`) son configurables por el usuario en la interfaz, lo que permite priorizar zonas con más tráfico, más población o mayor déficit de estaciones según el criterio de planificación de cada momento.
-
-El componente de **tráfico** puede incorporar la predicción del módulo A: zonas con alta presión de tráfico predicho reciben mayor puntuación, lo que conecta ambos módulos.
-
-**Modo cobertura general (`/optimize/coverage`)**
-Maximiza la cobertura poblacional general sin restringirse a un tipo de instalación concreto.
-
-#### Por qué ILP y no heurísticas
-
-El problema de selección de ubicaciones bajo restricción de presupuesto es un caso del **problema de cobertura de conjuntos** (Set Cover), que es NP-hard en general. Sin embargo, en la escala de Valencia (cientos de candidatos, miles de hexágonos) el solver CBC resuelve el problema a optimalidad en **5 a 30 segundos**.
-
-Las alternativas heurísticas (greedy, algoritmos genéticos, simulated annealing) son más rápidas pero no garantizan la solución óptima. Para un sistema de apoyo a la decisión que va a usarse en reuniones de planificación real, la garantía de optimalidad matemática es una ventaja operativa: el decisor puede confiar en que el sistema ha explorado el espacio de soluciones de forma exhaustiva, no solo una aproximación local.
-
-#### Salida del optimizador
-
-El solver devuelve:
-- Lista ordenada de candidatos seleccionados con coordenadas, tipo, zona y coste individual
-- Presupuesto total utilizado y porcentaje respecto al máximo
-- Población adicional cubierta (modos con cobertura) o puntuación total (modo Valenbisi)
-- Indicación del modo y la restricción activa
-
-La interfaz visualiza los candidatos seleccionados sobre el mapa junto con las capas de cobertura existente, tráfico y estaciones actuales, permitiendo contrastar visualmente la recomendación antes de tomar una decisión.
+Users can change the date, hour and event scenario to see predicted pressure under any combination of conditions.
 
 ---
 
-### Módulo C — Integración de movilidad en tiempo real: lógica de datos
+### Module B — ILP urban optimization: detailed design
 
-La capa de movilidad no es solo visualización: incorpora lógica de cruce entre fuentes para generar **alertas inteligentes** que el módulo de predicción no puede generar por sí solo.
+#### The problem
 
-#### Integración Valenbisi
+Given a set of **real candidate locations** (sports centres, health centres, potential new Valenbisi stations) and a **maximum budget**, which combination of actions maximizes benefit to the city?
 
-El sistema consulta el estado de todas las estaciones Valenbisi de Valencia en tiempo real (vía ArcGIS del Ayuntamiento) y clasifica cada estación en cuatro estados: disponible, vacía, llena o cerrada.
+The answer isn't trivial. Picking the candidates with the highest individual demand can be suboptimal if they cover the same population area. A mathematical optimization solver evaluates combinations systematically and finds the globally optimal assignment, not just a locally good one.
 
-Adicionalmente, el sistema cruza la posición de cada estación con los **eventos urbanos activos**. Si una estación problemática (vacía, llena o cerrada) se encuentra a menos de 1 km de un evento activo, se genera una alerta de tipo `VALENBISI_NEAR_EVENT`. Esta alerta no puede generarse a partir de los datos de tráfico predicho: requiere el cruce espacial en tiempo real entre la red de Valenbisi y el calendario de eventos.
+#### General mathematical formulation
 
-#### Integración EMT
+The problem is formulated as **Integer Linear Programming (ILP)** and implemented with **PuLP** and the open-source **CBC (COIN-OR Branch-and-Cut)** solver.
 
-La integración con la EMT cubre tres capas:
+Decision variables are binary:
 
-1. **Paradas:** posición geográfica y líneas que sirven cada parada
-2. **Llegadas en tiempo real:** minutos estimados hasta la próxima llegada de cada línea (SAE EMT)
-3. **Rutas:** trazado geográfico de las líneas a partir de datos GTFS, con proyección de paradas sobre el shape real
+```
+Xᵢ ∈ {0, 1}   →  1 if candidate i is selected, 0 otherwise
+Yⱼ ∈ {0, 1}   →  1 if population zone j is covered, 0 otherwise
+```
 
-Cuando el SAE no devuelve información de una línea, el sistema calcula una **posición estimada del autobús** a partir del tiempo de llegada declarado y el trazado GTFS, marcándola como "posición aproximada" en el mapa para no confundirla con datos GPS reales.
+The general population coverage problem:
 
-Si una llegada supera en más de 3 minutos su tiempo previsto, el sistema genera una alerta `EMT_DELAY`.
+```
+Maximize:    Σⱼ population_j × Yⱼ
 
-#### Cadena de fallback meteorológico
+Subject to:
+  Yⱼ ≤ Σᵢ αᵢⱼ × Xᵢ           ∀ j   (zone j is covered only if some candidate reaching it is selected)
+  Σᵢ cost_i × Xᵢ ≤ budget            (budget constraint)
+  Xᵢ, Yⱼ ∈ {0, 1}                    (binary variables)
+```
 
-La meteorología es una feature clave del módulo de predicción. Para garantizar que siempre haya datos disponibles:
+Where `αᵢⱼ = 1` if candidate `i` covers population zone `j` within its influence radius, and `0` otherwise. This coverage matrix is precomputed once from the H3 geometry.
 
-1. **Fuente primaria:** AEMET (`opendata.aemet.es`) con API key configurada
-2. **Fallback 1:** Open-Meteo (API gratuita, no requiere autenticación)
-3. **Fallback 2:** Valores sinusoidales estimados por hora del día (temperatura y humedad típicas para Valencia según la época del año)
+#### Spatial representation with H3 hexagons
 
-El fallback garantiza que el módulo de predicción siempre recibe features meteorológicas coherentes, incluso si ambas APIs externas fallan simultáneamente.
+Valencia is divided into **H3 hexagons** (Uber's geospatial indexing system) at a resolution balancing granularity against computational cost.
 
-#### Cache TTL por fuente
+Each hexagon carries:
+- **Population** estimated from census data
+- **Service demand** (varying by mode: sports, health, mobility)
+- **Existing coverage** (whether facilities already sit in its catchment)
 
-Cada fuente externa tiene un TTL de caché independiente calibrado según la frecuencia real de actualización de los datos:
+For each candidate, the set of hexagons that would fall within its influence radius is precomputed. This candidate → covered-hexagons relation forms the **coverage matrix `αᵢⱼ`**.
 
-| Fuente | TTL | Justificación |
+Separating spatial representation (H3 hexagons) from optimization logic (ILP) makes it possible to update population or candidate data without touching the solver, and to tune the influence radius without reformulating the problem.
+
+#### Optimization modes
+
+Five modes, with formulations adapted to each objective:
+
+**Sports mode (`/optimize/sports`)**
+Maximizes the population that would gain sports coverage from new facilities, avoiding redundancy with existing centres. Existing coverage is modelled by excluding already-covered hexagons from the target set `Yⱼ`.
+
+**Health mode (`/optimize/health`)**
+Structurally identical to sports mode but over the health-centre network. Prioritizes densely populated zones without nearby health coverage.
+
+**Multi-objective mode (`/optimize/multi`)**
+Combines sports and health coverage in a single problem with a configurable **lambda parameter**:
+
+```
+Maximize: λ × sports_coverage + (1 − λ) × health_coverage
+
+Additional constraint:
+  Xᵢ_sports + Xᵢ_health ≤ 1   ∀ i   (don't install two services on the same candidate site)
+```
+
+With `λ = 1` the solution is purely sports-oriented; with `λ = 0`, purely health-oriented; with `λ = 0.5` it balances both. This lets the decision-maker tune priorities without changing the model.
+
+**Valenbisi mode (`/optimize/valenbisi`)**
+Swaps the objective function from population coverage to a weighted **mobility score**:
+
+```
+score_i = wₜ × traffic_i + wₚ × population_i + w_d × deficit_i
+
+Maximize: Σᵢ score_i × Xᵢ
+
+Alternative constraint (count mode):  Σᵢ Xᵢ = N   (exactly N new stations)
+Alternative constraint (budget mode): Σᵢ cost_i × Xᵢ ≤ budget
+```
+
+All three weights (`wₜ`, `wₚ`, `w_d`) are user-configurable in the UI, allowing prioritization of zones by traffic, population or station deficit depending on the planning criterion of the moment.
+
+The **traffic** component can consume Module A's prediction: zones with high predicted traffic pressure score higher, which is what connects the two modules.
+
+**General coverage mode (`/optimize/coverage`)**
+Maximizes general population coverage without restricting to a specific facility type.
+
+#### Why ILP and not heuristics
+
+Selecting locations under a budget constraint is an instance of the **Set Cover problem**, NP-hard in general. At Valencia's scale (hundreds of candidates, thousands of hexagons), though, CBC solves it to optimality in **5 to 30 seconds**.
+
+Heuristic alternatives (greedy, genetic algorithms, simulated annealing) are faster but don't guarantee the optimal solution. For a decision-support system intended for real planning meetings, the guarantee of mathematical optimality is an operational advantage: the decision-maker can trust that the system explored the solution space exhaustively rather than settling for a local approximation.
+
+#### Optimizer output
+
+The solver returns:
+- Ordered list of selected candidates with coordinates, type, zone and individual cost
+- Total budget used and percentage of the maximum
+- Additional population covered (coverage modes) or total score (Valenbisi mode)
+- The active mode and constraint
+
+The UI plots selected candidates on the map alongside existing-coverage, traffic and current-station layers, so the recommendation can be checked visually before a decision is made.
+
+---
+
+### Module C — Real-time mobility integration: data logic
+
+The mobility layer isn't just visualization: it cross-references sources to generate **smart alerts** the prediction module couldn't produce on its own.
+
+#### Valenbisi integration
+
+The system queries the live status of every Valenbisi station in Valencia (via the City Council's ArcGIS) and classifies each into four states: available, empty, full or closed.
+
+It also cross-references each station's position against **active urban events**. If a problematic station (empty, full or closed) sits within 1 km of an active event, a `VALENBISI_NEAR_EVENT` alert fires. This alert cannot be derived from predicted traffic data alone: it requires the real-time spatial join between the Valenbisi network and the events calendar.
+
+#### EMT integration
+
+The EMT integration covers three layers:
+
+1. **Stops:** geographic position and lines serving each stop
+2. **Real-time arrivals:** estimated minutes to the next arrival per line (EMT SAE)
+3. **Routes:** geographic line traces from GTFS data, with stops projected onto the real shape
+
+When SAE returns no information for a line, the system computes an **estimated bus position** from the declared arrival time and the GTFS trace, marking it as "approximate position" on the map so it isn't mistaken for real GPS data.
+
+If an arrival runs more than 3 minutes past its predicted time, an `EMT_DELAY` alert fires.
+
+#### Weather fallback chain
+
+Weather is a key feature of the prediction module. To guarantee data is always available:
+
+1. **Primary source:** AEMET (`opendata.aemet.es`) with a configured API key
+2. **Fallback 1:** Open-Meteo (free API, no authentication required)
+3. **Fallback 2:** Sinusoidal values estimated by hour of day (typical temperature and humidity for Valencia given the time of year)
+
+The fallback guarantees the prediction module always receives coherent weather features, even if both external APIs fail simultaneously.
+
+#### Per-source TTL cache
+
+Each external source has an independent cache TTL calibrated to how often the data actually changes:
+
+| Source | TTL | Rationale |
 |---|---|---|
-| Valenbisi (ArcGIS) | 180 s | Los anclajes cambian cada pocos minutos |
-| Llegadas SAE EMT | 45 s | Alta frecuencia de cambio; más de 45 s hace el dato inútil operativamente |
-| Rutas EMT (GTFS) | 6 horas | Las rutas no cambian en el corto plazo |
-| Tráfico ArcGIS | 60 s | El estado del tráfico puede cambiar en minutos |
-| Meteorología (AEMET/Open-Meteo) | 600 s | La meteorología cambia más lentamente |
+| Valenbisi (ArcGIS) | 180 s | Docks change every few minutes |
+| EMT SAE arrivals | 45 s | High rate of change; beyond 45 s the data is operationally useless |
+| EMT routes (GTFS) | 6 hours | Routes don't change in the short term |
+| ArcGIS traffic | 60 s | Traffic status can change within minutes |
+| Weather (AEMET/Open-Meteo) | 600 s | Weather changes more slowly |
 
 ---
 
-### Monitorización: cerrar el ciclo del modelo
+### Monitoring: closing the model loop
 
-El módulo de monitorización implementa la fase final del ciclo CRISP-DM: observar el comportamiento del modelo en producción y detectar degradación antes de que afecte a las decisiones operativas.
+The monitoring module implements the final CRISP-DM phase: observing model behaviour in production and detecting degradation before it affects operational decisions.
 
-#### Qué se monitoriza
+#### What is monitored
 
-- **MAE por franja horaria:** comparación entre el MAE de cada modelo (hora 0 a hora 23) y un umbral configurable (por defecto 80 veh/h). Si una hora supera el umbral, se genera una alerta de baja fiabilidad para esa franja.
-- **Zonas con error sistemático:** identificación de las zonas de medición con mayor MAE persistente en validación. Estas zonas deben tratarse con cautela en la toma de decisiones.
-- **Estado del sistema:** CPU, memoria RAM y uptime del contenedor Docker, expuesto en tiempo real.
+- **MAE per time slot:** each model's MAE (hour 0 to 23) against a configurable threshold (default 80 veh/h). If an hour exceeds it, a low-reliability alert fires for that slot.
+- **Zones with systematic error:** identification of measurement zones with the highest persistent validation MAE. These zones should be treated with caution in decision-making.
+- **System status:** CPU, RAM and Docker container uptime, exposed live.
 
-#### Por qué monitorizar el MAE por hora y no solo el MAE global
+#### Why monitor MAE per hour and not just globally
 
-Un modelo puede tener un MAE global aceptable (p. ej., 44 veh/h promedio) y al mismo tiempo fallar de forma sistemática en una franja concreta (p. ej., el modelo de las 8h tiene un MAE de 120 veh/h). Si esa franja es la más relevante operativamente (hora punta matutina), el MAE global es engañoso.
+A model can have an acceptable global MAE (say, 44 veh/h on average) while failing systematically in one slot (say, the 8am model at 120 veh/h). If that slot is the operationally critical one (morning rush), the global MAE is misleading.
 
-La monitorización a nivel de hora permite detectar este tipo de degradación localizada y reaccionar de forma selectiva: reentrenar solo el modelo problemático sin tocar los 23 restantes.
+Hour-level monitoring catches this kind of localized degradation and enables a selective response: retrain only the problematic model, leaving the other 23 untouched.
 
 ---
 
-## Frontend — Páginas de la aplicación
+## Frontend — Application pages
 
-| Ruta | Descripción |
+| Route | Description |
 |---|---|
-| `/` | Presentación del proyecto y acceso a módulos |
-| `/datos` | Dataset, variables y proceso de preparación de datos |
-| `/prediccion` | Heatmap de tráfico por hora + movilidad en tiempo real |
-| `/evaluacion` | MAE, RMSE, R², sMAPE; errores por hora y zona; gráfico real vs predicho |
-| `/optimizacion` | Escenarios de instalación con mapa de resultados y cobertura poblacional |
-| `/monitorizacion` | Alertas de fiabilidad, zonas de riesgo y estado del sistema |
-| `/metodologia` | Metodología, CRISP-DM, fuentes de datos y documentación técnica |
+| `/` | Project overview and module access |
+| `/datos` | Dataset, variables and data preparation process |
+| `/prediccion` | Hourly traffic heatmap + real-time mobility |
+| `/evaluacion` | MAE, RMSE, R², sMAPE; error by hour and zone; actual vs predicted chart |
+| `/optimizacion` | Facility scenarios with results map and population coverage |
+| `/monitorizacion` | Reliability alerts, risk zones and system status |
+| `/metodologia` | Methodology, CRISP-DM, data sources and technical documentation |
+
+> The web UI is in Spanish — it was built for Valencia City Council staff as the end user.
 
 ---
 
-## CI/CD — Integración y despliegue continuos
+## CI/CD — Continuous integration and deployment
 
 ```mermaid
 flowchart TD
-    DEV["Developer local"] -->|git push| GH["GitHub\ncofrian/edm_project"]
+    DEV["Local developer"] -->|git push| GH["GitHub\ncofrian/urbanflow-valencia-mlops"]
 
     subgraph GITFLOW["GitFlow"]
-        d[develop] -->|PR aprobado| m[main]
-        m -->|PR aprobado| p[production]
+        d[develop] -->|PR approved| m[main]
+        m -->|PR approved| p[production]
     end
 
-    GH -.->|rama activa| GITFLOW
+    GH -.->|active branch| GITFLOW
 
-    GH -->|"Push o PR backend/"| CI_BE["backend-ci.yml
+    GH -->|"Push or PR backend/"| CI_BE["backend-ci.yml
     Ruff lint + pytest + FastAPI import"]
-    GH -->|"Push o PR frontend/"| CI_FE["frontend-ci.yml
+    GH -->|"Push or PR frontend/"| CI_FE["frontend-ci.yml
     ESLint + TypeScript + next build"]
-    GH -->|"Push a main backend/"| CI_DK["docker-build.yml
-    docker build solo valida"]
+    GH -->|"Push to main backend/"| CI_DK["docker-build.yml
+    docker build validates only"]
 
-    GH -->|"Push a production backend/"| DH1
+    GH -->|"Push to production backend/"| DH1
 
     subgraph DHF["deploy-hf.yml"]
-        DH1["1 Validate Ruff + pytest"] --> DH2["2 Clone HF Space con HF_TOKEN"]
-        DH2 --> DH3["3 rsync backend a hf-space"]
+        DH1["1 Validate Ruff + pytest"] --> DH2["2 Clone HF Space with HF_TOKEN"]
+        DH2 --> DH3["3 rsync backend to hf-space"]
         DH3 --> DH4["4 git commit + git push HF"]
-        DH4 --> DH5["5 curl /health hasta 6 min"]
+        DH4 --> DH5["5 curl /health for up to 6 min"]
     end
 
-    DH4 -->|"HF detecta push y reconstruye Docker"| HF1
+    DH4 -->|"HF detects push and rebuilds Docker"| HF1
 
     subgraph HFSPACE["Hugging Face Space — cofrian/edm_proyect"]
-        HF1["Dockerfile python:3.11-slim + CBC"] --> HF2["FastAPI + uvicorn puerto 7860"]
-        HF2 --> HF_URL["API en vivo
+        HF1["Dockerfile python:3.11-slim + CBC"] --> HF2["FastAPI + uvicorn port 7860"]
+        HF2 --> HF_URL["Live API
         cofrian-edm-proyect.hf.space"]
     end
 
-    GH -->|"Push a production frontend/"| V1
+    GH -->|"Push to production frontend/"| V1
 
     subgraph VERCEL["Vercel"]
-        V1["Detecta cambios en frontend/"] --> V2["npm run build Next.js 14"]
-        V2 --> V_URL["Frontend en vivo
+        V1["Detects changes in frontend/"] --> V2["npm run build Next.js 14"]
+        V2 --> V_URL["Live frontend
         edm-project.vercel.app"]
     end
 
     V_URL -->|"NEXT_PUBLIC_API_URL"| HF_URL
-    DH5 -.->|"Deploy OK"| DONE(["Completado"])
+    DH5 -.->|"Deploy OK"| DONE(["Done"])
 ```
 
-### Workflows de GitHub Actions
+### GitHub Actions workflows
 
-| Workflow | Cuándo se ejecuta | Qué hace |
+| Workflow | Trigger | What it does |
 |---|---|---|
-| `backend-ci.yml` | Push o PR con cambios en `backend/` | Ruff lint · pytest 13 tests · FastAPI import check |
-| `frontend-ci.yml` | Push o PR con cambios en `frontend/` | ESLint · TypeScript · next build |
-| `docker-build.yml` | Push a `main` con cambios en `backend/` | Docker build (solo valida el empaquetado, no despliega) |
-| `deploy-hf.yml` | Push a `production` con cambios en `backend/` | Validate → rsync → push HF → health check |
-| `deploy-check.yml` | Push a `production` | `curl /health` para confirmar que la API responde |
+| `backend-ci.yml` | Push or PR touching `backend/` | Ruff lint · 13 pytest tests · FastAPI import check |
+| `frontend-ci.yml` | Push or PR touching `frontend/` | ESLint · TypeScript · next build |
+| `docker-build.yml` | Push to `main` touching `backend/` | Docker build (validates packaging only, doesn't deploy) |
+| `deploy-hf.yml` | Push to `production` touching `backend/` | Validate → rsync → push HF → health check |
+| `deploy-check.yml` | Push to `production` | `curl /health` to confirm the API responds |
 
-### Flujo de despliegue del backend (deploy-hf.yml)
+### Backend deployment flow (deploy-hf.yml)
 
-1. Push a `production` con cambios en `backend/`
-2. **Validación:** Ruff + pytest. Si falla, el despliegue se detiene aquí.
-3. **Sincronización:** clona el Space `cofrian/edm_proyect` con `HF_TOKEN`, copia `backend/` con `rsync` (excluyendo `.git`, `.env`, `__pycache__`) y hace `git push` al repositorio de HF.
-4. **Reconstrucción:** Hugging Face detecta el push y reconstruye el Docker automáticamente (~2-5 min).
-5. **Verificación:** `curl /health` con reintentos hasta 6 minutos para confirmar que la API responde.
+1. Push to `production` with changes in `backend/`
+2. **Validation:** Ruff + pytest. On failure, the deploy stops here.
+3. **Sync:** clone the `cofrian/edm_proyect` Space with `HF_TOKEN`, copy `backend/` with `rsync` (excluding `.git`, `.env`, `__pycache__`) and `git push` to the HF repository.
+4. **Rebuild:** Hugging Face detects the push and rebuilds the Docker image automatically (~2–5 min).
+5. **Verification:** `curl /health` with retries for up to 6 minutes to confirm the API responds.
 
-### Secretos necesarios en GitHub (Settings → Secrets → Actions)
+### Required GitHub secrets (Settings → Secrets → Actions)
 
-| Secret | Uso |
+| Secret | Purpose |
 |---|---|
-| `HF_TOKEN` | Token Write de Hugging Face para hacer push al Space |
-| `API_URL` | (opcional) URL del backend para el health check post-deploy |
+| `HF_TOKEN` | Hugging Face write token to push to the Space |
+| `API_URL` | (optional) Backend URL for the post-deploy health check |
 
 ---
 
-## Estructura del repositorio
+## Repository structure
 
 ```
-EDM-Proyecto/
-├── backend/                        # API FastAPI
+urbanflow-valencia-mlops/
+├── backend/                        # FastAPI API
 │   ├── main.py                     # 50+ endpoints
 │   ├── src/
-│   │   ├── pipeline.py             # Inferencia CatBoost (24 modelos)
-│   │   ├── predict.py              # Predicción por zona
-│   │   ├── predict_batch.py        # Heatmap de todas las zonas
-│   │   ├── optimize_facility.py    # ILP deportes / salud
+│   │   ├── pipeline.py             # CatBoost inference (24 models)
+│   │   ├── predict.py              # Per-zone prediction
+│   │   ├── predict_batch.py        # All-zones heatmap
+│   │   ├── optimize_facility.py    # ILP sports / health
 │   │   ├── optimize_valenbisi.py   # ILP Valenbisi
-│   │   ├── optimize_coverage.py    # ILP cobertura general
-│   │   ├── monitoring.py           # Alertas y métricas
+│   │   ├── optimize_coverage.py    # ILP general coverage
+│   │   ├── monitoring.py           # Alerts and metrics
 │   │   ├── metrics.py              # MAE, RMSE, R², sMAPE
-│   │   ├── ttl_cache.py            # Cache en memoria por TTL
+│   │   ├── ttl_cache.py            # In-memory TTL cache
 │   │   └── integrations/
-│   │       ├── aemet.py            # Meteorología (AEMET + Open-Meteo)
-│   │       ├── mobility.py         # Valenbisi, EMT, ArcGIS tráfico
-│   │       └── valencia_traffic.py # Tráfico live ArcGIS
+│   │       ├── aemet.py            # Weather (AEMET + Open-Meteo)
+│   │       ├── mobility.py         # Valenbisi, EMT, ArcGIS traffic
+│   │       └── valencia_traffic.py # Live ArcGIS traffic
 │   ├── models/                     # 24 × .cbm + baseline + embeddings (Git LFS)
 │   ├── data/processed/             # CSV, GeoJSON, JSON
-│   ├── tests/                      # 13 tests pytest
+│   ├── tests/                      # 13 pytest tests
 │   └── Dockerfile                  # python:3.11-slim + CBC
 │
 ├── frontend/                       # Next.js 14
-│   ├── app/                        # 7 páginas (App Router)
-│   ├── components/                 # Mapas Leaflet, gráficos Recharts
+│   ├── app/                        # 7 pages (App Router)
+│   ├── components/                 # Leaflet maps, Recharts charts
 │   └── lib/                        # api.ts · constants · types
 │
-├── docs/                           # Documentación técnica EDM
-│   ├── arquitectura.md
-│   ├── despliegue.md
-│   ├── modelo_predictivo.md
-│   ├── metodologia_edm.md
-│   ├── metodologia-equipo.md
-│   └── demo_profesores.md
-│
-├── .github/workflows/              # 5 workflows CI/CD
-├── docker-compose.yml              # Backend local con Docker
+├── docs/                           # Technical documentation (Spanish)
+├── .github/workflows/              # 5 CI/CD workflows
+├── docker-compose.yml              # Backend locally with Docker
 └── .gitattributes                  # Git LFS (*.cbm, *.parquet)
 ```
 
 ---
 
-## Ejecución local
+## Running locally
 
-### Requisitos
+### Requirements
 
 - Python 3.11+
 - Node.js 20+
-- Git LFS instalado (`git lfs install`) para clonar los modelos `.cbm`
+- Git LFS installed (`git lfs install`) to clone the `.cbm` models
 - CBC solver: `sudo apt install coinor-cbc` (Linux) / `brew install cbc` (macOS)
 
 ### Backend
@@ -676,14 +671,14 @@ npm run dev
 
 - App: http://localhost:3000
 
-### Docker (solo backend)
+### Docker (backend only)
 
 ```bash
 docker compose up --build
-# API en http://localhost:8000/health
+# API at http://localhost:8000/health
 ```
 
-### Tests y validación
+### Tests and validation
 
 ```bash
 # Backend
@@ -692,128 +687,106 @@ cd backend && pytest -q && ruff check .
 # Frontend
 cd frontend && npm run lint && npm run typecheck && npm run build
 
-# Artefactos
+# Artifacts
 python scripts/validate_artifacts.py
 ```
 
 ---
 
-## Variables de entorno
+## Environment variables
 
-### Backend (`backend/.env` o Hugging Face Settings → Variables)
+### Backend (`backend/.env` or Hugging Face Settings → Variables)
 
-| Variable | Obligatoria | Descripción | Ejemplo |
+| Variable | Required | Description | Example |
 |---|---|---|---|
-| `ENV` | Sí | Entorno de ejecución | `production` |
-| `ALLOW_ORIGINS` | Sí | Orígenes CORS permitidos (una sola línea, separados por coma) | `http://localhost:3000,https://edm-project.vercel.app` |
-| `DATA_DIR` | No | Ruta a datos procesados | `/app/data/processed` |
-| `MODEL_DIR` | No | Ruta a modelos CatBoost | `/app/models` |
-| `AEMET_API_KEY` | No | API key de opendata.aemet.es. Sin ella usa Open-Meteo como fuente | — |
-| `MAE_ALERT_THRESHOLD` | No | Umbral de alerta MAE en veh/h | `80` |
-| `VALENCIA_VALENBISI_TTL_SECONDS` | No | Cache Valenbisi en tiempo real | `180` |
-| `VALENCIA_EMT_ARRIVALS_TTL_SECONDS` | No | Cache llegadas SAE EMT | `45` |
-| `VALENCIA_EMT_ROUTES_TTL_SECONDS` | No | Cache rutas EMT | `21600` |
-| `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES` | No | Umbral de retraso para alerta EMT | `3` |
-| `VALENCIA_EVENT_VALENBISI_RADIUS_METERS` | No | Radio para alertas Valenbisi cerca de eventos | `1000` |
+| `ENV` | Yes | Execution environment | `production` |
+| `ALLOW_ORIGINS` | Yes | Allowed CORS origins (single line, comma-separated) | `http://localhost:3000,https://edm-project.vercel.app` |
+| `DATA_DIR` | No | Path to processed data | `/app/data/processed` |
+| `MODEL_DIR` | No | Path to CatBoost models | `/app/models` |
+| `AEMET_API_KEY` | No | opendata.aemet.es API key. Without it, Open-Meteo is used | — |
+| `MAE_ALERT_THRESHOLD` | No | MAE alert threshold in veh/h | `80` |
+| `VALENCIA_VALENBISI_TTL_SECONDS` | No | Real-time Valenbisi cache | `180` |
+| `VALENCIA_EMT_ARRIVALS_TTL_SECONDS` | No | EMT SAE arrivals cache | `45` |
+| `VALENCIA_EMT_ROUTES_TTL_SECONDS` | No | EMT routes cache | `21600` |
+| `VALENCIA_EMT_DELAY_THRESHOLD_MINUTES` | No | Delay threshold for EMT alerts | `3` |
+| `VALENCIA_EVENT_VALENBISI_RADIUS_METERS` | No | Radius for Valenbisi-near-event alerts | `1000` |
 
-> Tras cambiar variables o secretos en Hugging Face, haz **Factory rebuild** en el Space para que se apliquen.
+> After changing variables or secrets on Hugging Face, run a **Factory rebuild** on the Space so they take effect.
 
-### Frontend (`frontend/.env.local` o Vercel → Environment Variables)
+### Frontend (`frontend/.env.local` or Vercel → Environment Variables)
 
-| Variable | Descripción | Ejemplo |
+| Variable | Description | Example |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | URL base del backend | `https://cofrian-edm-proyect.hf.space` |
+| `NEXT_PUBLIC_API_URL` | Backend base URL | `https://cofrian-edm-proyect.hf.space` |
 
 ---
 
-## Flujo de trabajo del equipo (GitFlow)
+## Team workflow (GitFlow)
 
 ```
 feature/*  ──PR──►  develop  ──merge──►  main  ──merge──►  production
- (trabajo)           (integrar)           (estable)          (demo pública)
+ (work)             (integrate)          (stable)          (public demo)
 ```
 
-| Rama | Propósito | Despliega en Vercel / HF |
+| Branch | Purpose | Deploys to Vercel / HF |
 |---|---|---|
-| `feature/nombre` | Desarrollo individual de cada miembro | No |
-| `develop` | Integración continua del equipo | No |
-| `main` | Versión estable y validada, lista para entregar | Solo CI |
-| `production` | Demo pública y entrega EDM | **Sí, ambos servicios** |
+| `feature/name` | Individual development | No |
+| `develop` | Team continuous integration | No |
+| `main` | Stable, validated version | CI only |
+| `production` | Public demo | **Yes, both services** |
 
-**`main` vs `production`:** en `main` el código está validado pero no llega a los usuarios. En `production` se publica la web y la API. Esto permite acumular cambios en `main` y desplegar únicamente cuando convenga (por ejemplo, antes de la demo con el profesor).
+**`main` vs `production`:** on `main` the code is validated but doesn't reach users. On `production` the web and API are published. This allows changes to accumulate on `main` and deploy only when convenient.
 
-### Publicar en producción
+### Which folder affects which service
 
-```bash
-# Subir a main desde develop
-git checkout main && git pull && git merge develop && git push
-
-# Desplegar a producción
-git checkout production && git pull && git merge main && git push
-# El push a production dispara GitHub Actions → Vercel + Hugging Face
-```
-
-### Qué carpeta afecta a cada servicio
-
-| Carpeta | Servicio que se actualiza |
+| Folder | Service updated |
 |---|---|
 | `frontend/` | **Vercel** → https://edm-project.vercel.app |
 | `backend/` | **Hugging Face** → https://cofrian-edm-proyect.hf.space |
-| `docs/`, `README.md` | Solo GitHub, no despliega ningún servicio |
-
-Los colaboradores no necesitan cuenta en Vercel ni en Hugging Face: con permiso de escritura en GitHub es suficiente.
+| `docs/`, `README.md` | GitHub only, deploys nothing |
 
 ---
 
-## Stack tecnológico
+## Tech stack
 
-| Capa | Tecnologías |
+| Layer | Technologies |
 |---|---|
 | **Frontend** | Next.js 14, React, TypeScript, TailwindCSS, Recharts, Leaflet |
 | **Backend** | FastAPI, Pydantic, Uvicorn |
 | **ML** | CatBoost 1.2.7, scikit-learn, Pandas, NumPy, PyArrow |
-| **Optimización** | PuLP 2.9, CBC (COIN-OR Branch-and-Cut) |
-| **Infraestructura** | Vercel (frontend), Hugging Face Spaces Docker (backend), GitHub Actions (CI/CD) |
-| **Datos** | Git LFS (`.cbm`, `.parquet`), CSV, GeoJSON, JSON |
-| **Calidad** | Ruff (linting Python), pytest (13 tests), ESLint, TypeScript strict |
+| **Optimization** | PuLP 2.9, CBC (COIN-OR Branch-and-Cut) |
+| **Infrastructure** | Vercel (frontend), Hugging Face Spaces Docker (backend), GitHub Actions (CI/CD) |
+| **Data** | Git LFS (`.cbm`, `.parquet`), CSV, GeoJSON, JSON |
+| **Quality** | Ruff (Python linting), pytest (13 tests), ESLint, TypeScript strict |
 
 ---
 
-## Demo para evaluación (5 minutos)
+## Additional documentation
 
-Guion completo paso a paso: [`docs/demo_profesores.md`](docs/demo_profesores.md)
+Technical documentation lives in [`docs/`](docs/) and is written in Spanish:
 
-1. **Arquitectura** — diagrama de servicios y flujo de datos
-2. **Datos** (`/datos`) — fuentes, variables y preparación
-3. **Predicción en vivo** (`/prediccion`) — heatmap + movilidad tiempo real
-4. **Evaluación** (`/evaluacion`) — métricas reales, errores por hora y zona
-5. **Optimización** (`/optimizacion`) — Valenbisi y cobertura de instalaciones
-6. **Monitorización** (`/monitorizacion`) — alertas de fiabilidad del modelo
-7. **CI/CD** — GitFlow, GitHub Actions, despliegue Vercel + Hugging Face
-
----
-
-## Documentación adicional
-
-| Documento | Contenido |
+| Document | Contents |
 |---|---|
-| [`docs/arquitectura.md`](docs/arquitectura.md) | Diagrama de servicios y decisiones de diseño |
-| [`docs/modelo_predictivo.md`](docs/modelo_predictivo.md) | CatBoost, features, validación y métricas detalladas |
-| [`docs/despliegue.md`](docs/despliegue.md) | Guía operativa de Vercel y Hugging Face |
-| [`docs/metodologia_edm.md`](docs/metodologia_edm.md) | Mapa completo CRISP-DM × temario EDM |
-| [`docs/metodologia-equipo.md`](docs/metodologia-equipo.md) | GitFlow, merges, resolución de conflictos |
-| [`docs/demo_profesores.md`](docs/demo_profesores.md) | Guion de demo para evaluación |
+| [`docs/arquitectura.md`](docs/arquitectura.md) | Service diagram and design decisions |
+| [`docs/modelo_predictivo.md`](docs/modelo_predictivo.md) | CatBoost, features, validation and detailed metrics |
+| [`docs/despliegue.md`](docs/despliegue.md) | Vercel and Hugging Face operations guide |
+| [`docs/metodologia_edm.md`](docs/metodologia_edm.md) | Full CRISP-DM × EDM syllabus map |
+| [`docs/metodologia-equipo.md`](docs/metodologia-equipo.md) | GitFlow, merges, conflict resolution |
 
 ---
 
-## Autores
+## Team
+
+Built as a three-person team project for the EDM course at UPV:
 
 - **Sergio Ortiz Montesinos** — [sortmon@etsinf.upv.es](mailto:sortmon@etsinf.upv.es)
 - **Luis Trigueros Espada** — [ltriesp@etsinf.upv.es](mailto:ltriesp@etsinf.upv.es)
 - **Fernando Martínez Gómez** — [fmargom1@etsinf.upv.es](mailto:fmargom1@etsinf.upv.es)
 
+**My role (Sergio Ortiz):** lead developer across the full stack — system architecture, the CatBoost prediction pipeline, the ILP optimizer, the FastAPI backend, the Next.js frontend, and the CI/CD and deployment setup on Hugging Face and Vercel. Authored 137 of the repository's ~149 commits.
+
 ---
 
-## Licencia
+## License
 
-MIT — ver [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).

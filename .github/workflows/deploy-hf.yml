@@ -87,7 +87,7 @@ jobs:
 
           git -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -m "deploy: sync backend from edm_project@${GITHUB_SHA::7}"
+              commit -m "deploy: sync backend from urbanflow-valencia-mlops@${GITHUB_SHA::7}"
 
           git push origin main
           git lfs push origin main --all
